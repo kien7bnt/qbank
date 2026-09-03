@@ -1,0 +1,148 @@
+from __future__ import annotations
+from datetime import datetime
+from typing import Any, List, Optional
+import uuid
+
+from pydantic import BaseModel
+
+
+class QuestionOptionIn(BaseModel):
+    label: str
+    text: str
+    is_correct: bool
+    distractor_reason: Optional[str] = None
+    order_index: int = 0
+
+
+class QuestionOptionOut(QuestionOptionIn):
+    id: uuid.UUID
+    question_id: uuid.UUID
+
+    model_config = {"from_attributes": True}
+
+
+class EssayDataIn(BaseModel):
+    sample_answer: Optional[str] = None
+    rubric: Optional[Any] = None
+    max_points: float = 10.0
+
+
+class EssayDataOut(EssayDataIn):
+    model_config = {"from_attributes": True}
+
+
+class CodingDataIn(BaseModel):
+    problem_statement: str
+    input_format: Optional[str] = None
+    output_format: Optional[str] = None
+    constraints: Optional[str] = None
+    sample_input: Optional[str] = None
+    sample_output: Optional[str] = None
+    time_limit_ms: int = 1000
+    memory_limit_mb: int = 256
+    allowed_languages: List[str] = []
+
+
+class CodingDataOut(CodingDataIn):
+    model_config = {"from_attributes": True}
+
+
+class QuestionCreate(BaseModel):
+    type: str  # mcq | essay | coding
+    stem: str
+    rationale: Optional[str] = None
+    subject_id: Optional[uuid.UUID] = None
+    chapter_id: Optional[uuid.UUID] = None
+    topic_id: Optional[uuid.UUID] = None
+    lesson_id: Optional[uuid.UUID] = None
+    learning_objective_id: Optional[uuid.UUID] = None
+    bloom_level: Optional[str] = None
+    expected_difficulty: Optional[str] = None
+    # MCQ
+    options: Optional[List[QuestionOptionIn]] = None
+    # Essay
+    essay_data: Optional[EssayDataIn] = None
+    # Coding
+    coding_data: Optional[CodingDataIn] = None
+
+
+class QuestionUpdate(BaseModel):
+    stem: Optional[str] = None
+    rationale: Optional[str] = None
+    status: Optional[str] = None
+    subject_id: Optional[uuid.UUID] = None
+    chapter_id: Optional[uuid.UUID] = None
+    topic_id: Optional[uuid.UUID] = None
+    lesson_id: Optional[uuid.UUID] = None
+    learning_objective_id: Optional[uuid.UUID] = None
+    bloom_level: Optional[str] = None
+    expected_difficulty: Optional[str] = None
+    options: Optional[List[QuestionOptionIn]] = None
+    essay_data: Optional[EssayDataIn] = None
+    coding_data: Optional[CodingDataIn] = None
+
+
+class QuestionOut(BaseModel):
+    id: uuid.UUID
+    item_id: str
+    type: str
+    status: str
+    stem: str
+    rationale: Optional[str] = None
+    subject_id: Optional[uuid.UUID] = None
+    subject_name: Optional[str] = None
+    chapter_id: Optional[uuid.UUID] = None
+    chapter_name: Optional[str] = None
+    topic_id: Optional[uuid.UUID] = None
+    topic_name: Optional[str] = None
+    bloom_level: Optional[str] = None
+    expected_difficulty: Optional[str] = None
+    options: List[QuestionOptionOut] = []
+    essay_data: Optional[EssayDataOut] = None
+    coding_data: Optional[CodingDataOut] = None
+    version: int
+    created_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class QuestionListItem(BaseModel):
+    id: uuid.UUID
+    item_id: str
+    type: str
+    status: str
+    stem_preview: str  # Truncated to 100 chars
+    bloom_level: Optional[str] = None
+    expected_difficulty: Optional[str] = None
+    subject_name: Optional[str] = None
+    chapter_name: Optional[str] = None
+    topic_name: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PaginatedQuestions(BaseModel):
+    items: List[QuestionListItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class BulkActionRequest(BaseModel):
+    question_ids: List[uuid.UUID]
+    action: str  # archive | change_bloom | change_difficulty | change_status
+    payload: dict = {}
+
+
+class QuestionVersionOut(BaseModel):
+    id: uuid.UUID
+    version_number: int
+    snapshot: Any
+    changed_by: uuid.UUID
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
