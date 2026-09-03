@@ -55,6 +55,18 @@ app.include_router(analytics.router, prefix=PREFIX)
 app.include_router(documents.router, prefix=PREFIX)
 
 
+@app.get("/")
+@app.head("/")
+async def root():
+    return {
+        "status": "online",
+        "app": "QBank API",
+        "docs_url": "/docs",
+        "api_v1": PREFIX,
+    }
+
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "1.0.0", "app": settings.APP_NAME}
