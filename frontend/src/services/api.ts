@@ -262,7 +262,7 @@ export const documentApi = {
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-      return 'Không thể kết nối đến máy chủ Backend (Port 8000). Hãy đảm bảo cửa sổ "QBank Backend" đang chạy.';
+      return 'Không thể kết nối đến máy chủ Backend. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại sau vài giây!';
     }
     return error.response?.data?.detail ?? error.message ?? 'Đã xảy ra lỗi';
   }
