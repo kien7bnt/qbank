@@ -57,6 +57,11 @@ export const router = createBrowserRouter([
       { path: 'student-history', element: <StudentHistoryPage /> },
       { path: 'analytics', element: <AnalyticsPage /> },
       { path: 'settings', element: <SettingsPage /> },
+      { path: 'setting', element: <Navigate to="/settings" replace /> },
     ],
+  },
+  {
+    path: '*',
+    element: <Navigate to="/dashboard" replace />,
   },
 ]);
