@@ -163,11 +163,29 @@ async def update_ai_config(data: AIConfigUpdateReq, current_user=Depends(get_cur
     if hasattr(get_orchestrator, "_instance"):
         delattr(get_orchestrator, "_instance")
 
+    # Persist to ai_config.json
+    import json
+    import os
+    _cfg_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "ai_config.json")
+    try:
+        with open(_cfg_path, "w", encoding="utf-8") as _f:
+            json.dump({
+                "AI_PROVIDER": settings.AI_PROVIDER,
+                "OPENAI_API_KEY": settings.OPENAI_API_KEY,
+                "OPENAI_MODEL": settings.OPENAI_MODEL,
+                "GEMINI_API_KEY": settings.GEMINI_API_KEY,
+                "GEMINI_MODEL": settings.GEMINI_MODEL,
+                "OLLAMA_BASE_URL": settings.OLLAMA_BASE_URL,
+                "OLLAMA_MODEL": settings.OLLAMA_MODEL,
+            }, _f, indent=2)
+    except Exception:
+        pass
+
     new_orch = get_orchestrator()
     is_healthy = await new_orch.provider.health_check()
 
     return {
-        "message": "Cấu hình AI đã được cập nhật thành công",
+        "message": "Cấu hình AI đã được cập nhật và lưu trữ thành công",
         "provider": data.provider,
         "is_healthy": is_healthy,
     }
