@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://qbank:qbank@localhost:5432/qbank"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./qbank.db"
 
     # JWT
     SECRET_KEY: str = "change-me-in-production-must-be-at-least-32-chars"
