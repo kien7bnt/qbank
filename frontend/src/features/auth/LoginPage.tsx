@@ -149,9 +149,12 @@ export function LoginPage() {
 
           {/* Demo credentials */}
           <div className="mt-4 rounded-lg bg-gray-50 p-3 text-xs text-gray-500">
-            <p className="font-medium text-gray-700 mb-1">Tài khoản demo:</p>
-            <p>Admin: admin@qbank.vn / Admin@123</p>
-            <p>Giáo viên: teacher@qbank.vn / Teacher@123</p>
+            <p className="font-medium text-gray-700 mb-1">Tài khoản mẫu:</p>
+            <p className="font-mono text-gray-600 mb-0.5">Admin: admin@qbank.vn / Admin@123</p>
+            <p className="font-mono text-gray-600 mb-0.5">Giáo viên: teacher@qbank.vn / Teacher@123</p>
+            <p className="font-mono text-blue-600 mb-0.5">Học viên 1: student1@edumate.vn / Student@123</p>
+            <p className="font-mono text-blue-600 mb-0.5">Học viên 2: student2@edumate.vn / Student@123</p>
+            <p className="font-mono text-blue-600">Học viên 3: student3@edumate.vn / Student@123</p>
           </div>
         </div>
       </div>

@@ -145,6 +145,9 @@ async def init_db() -> None:
                 ("admin@qbank.vn", "Admin@123", "Quản trị viên Hệ thống", "admin"),
                 ("teacher@qbank.vn", "Teacher@123", "Thầy Nguyễn Văn A", "teacher"),
                 ("student@qbank.vn", "Student@123", "Học sinh Trần Văn B", "student"),
+                ("student1@edumate.vn", "Student@123", "Học viên Nguyễn Văn An", "student"),
+                ("student2@edumate.vn", "Student@123", "Học viên Trần Thị Bình", "student"),
+                ("student3@edumate.vn", "Student@123", "Học viên Lê Hoàng Cường", "student"),
             ]
             for email, raw_pwd, full_name, role_name in demo_users:
                 stmt = select(User).where(User.email == email)
