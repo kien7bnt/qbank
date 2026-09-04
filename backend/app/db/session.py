@@ -40,39 +40,83 @@ class Base(DeclarativeBase):
 
 async def init_db() -> None:
     """Create all tables and seed initial roles & demo accounts if database is empty."""
+    # Ensure all models are loaded
+    import app.models  # noqa: F401
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         
-        # Safe column migrations for SQLite / Postgres
-        migration_statements = [
-            "ALTER TABLE questions ADD COLUMN actual_difficulty FLOAT",
-            "ALTER TABLE questions ADD COLUMN discrimination_index FLOAT",
-            "ALTER TABLE questions ADD COLUMN lesson_id CHAR(32) REFERENCES lessons(id) ON DELETE SET NULL",
-            "ALTER TABLE questions ADD COLUMN learning_objective_id CHAR(32) REFERENCES learning_objectives(id) ON DELETE SET NULL",
-            "ALTER TABLE question_essays ADD COLUMN rubric_id CHAR(32) REFERENCES rubrics(id) ON DELETE SET NULL",
-            "ALTER TABLE exams ADD COLUMN allow_review BOOLEAN DEFAULT 1",
-            "ALTER TABLE exams ADD COLUMN show_score BOOLEAN DEFAULT 1",
-            "ALTER TABLE exams ADD COLUMN show_responses BOOLEAN DEFAULT 1",
-            "ALTER TABLE exams ADD COLUMN show_correct_answers BOOLEAN DEFAULT 1",
-            "ALTER TABLE exams ADD COLUMN show_explanations BOOLEAN DEFAULT 1",
-            "ALTER TABLE exams ADD COLUMN show_feedback BOOLEAN DEFAULT 1",
-            "ALTER TABLE assignments ADD COLUMN allow_review BOOLEAN DEFAULT 1",
-            "ALTER TABLE assignments ADD COLUMN show_score BOOLEAN DEFAULT 1",
-            "ALTER TABLE assignments ADD COLUMN show_responses BOOLEAN DEFAULT 1",
-            "ALTER TABLE assignments ADD COLUMN show_correct_answers BOOLEAN DEFAULT 1",
-            "ALTER TABLE assignments ADD COLUMN show_explanations BOOLEAN DEFAULT 1",
-            "ALTER TABLE assignments ADD COLUMN show_feedback BOOLEAN DEFAULT 1",
-            "ALTER TABLE assignments ADD COLUMN session_id CHAR(32) REFERENCES class_sessions(id) ON DELETE SET NULL",
-            "ALTER TABLE assignments ADD COLUMN assignment_type VARCHAR(20) DEFAULT 'assignment'",
-            "ALTER TABLE assignments ADD COLUMN show_correct_answer BOOLEAN DEFAULT 1",
-            "ALTER TABLE assignments ADD COLUMN show_explanation BOOLEAN DEFAULT 1",
-        ]
-        from sqlalchemy import text
-        for stmt in migration_statements:
-            try:
-                await conn.execute(text(stmt))
-            except Exception:
-                pass  # Column already exists
+        # Dynamic, safe column migrations for both PostgreSQL & SQLite
+        def _run_migrations(sync_conn):
+            from sqlalchemy import inspect, text
+            inspector = inspect(sync_conn)
+            is_postgres = sync_conn.dialect.name == "postgresql"
+            existing_tables = set(inspector.get_table_names())
+
+            columns_to_ensure = [
+                # questions
+                ("questions", "actual_difficulty", "DOUBLE PRECISION", "FLOAT"),
+                ("questions", "discrimination_index", "DOUBLE PRECISION", "FLOAT"),
+                ("questions", "lesson_id", "UUID", "CHAR(32)"),
+                ("questions", "learning_objective_id", "UUID", "CHAR(32)"),
+                # question_essays
+                ("question_essays", "rubric_id", "UUID", "CHAR(32)"),
+                # exams
+                ("exams", "allow_review", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("exams", "show_score", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("exams", "show_responses", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("exams", "show_correct_answers", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("exams", "show_explanations", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("exams", "show_feedback", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                # assignments
+                ("assignments", "session_id", "UUID", "CHAR(32)"),
+                ("assignments", "assignment_type", "VARCHAR(20) DEFAULT 'assignment'", "VARCHAR(20) DEFAULT 'assignment'"),
+                ("assignments", "allow_review", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("assignments", "show_score", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("assignments", "show_responses", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("assignments", "show_correct_answers", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("assignments", "show_explanations", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("assignments", "show_feedback", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("assignments", "show_correct_answer", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("assignments", "show_explanation", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                # classes
+                ("classes", "expected_start_date", "DATE", "DATE"),
+                ("classes", "expected_end_date", "DATE", "DATE"),
+                ("classes", "max_students", "INTEGER", "INTEGER"),
+                ("classes", "description", "TEXT", "TEXT"),
+                # exam_attempts
+                ("exam_attempts", "question_snapshot", "JSON", "JSON"),
+                ("exam_attempts", "is_passed", "BOOLEAN", "BOOLEAN"),
+                ("exam_attempts", "attempt_number", "INTEGER DEFAULT 1", "INTEGER DEFAULT 1"),
+                # student_responses
+                ("student_responses", "code_response", "TEXT", "TEXT"),
+                ("student_responses", "feedback", "TEXT", "TEXT"),
+            ]
+
+            table_columns = {}
+            for table_name in existing_tables:
+                table_columns[table_name] = {c["name"] for c in inspector.get_columns(table_name)}
+
+            for table_name, col_name, pg_def, sqlite_def in columns_to_ensure:
+                if table_name not in existing_tables:
+                    continue
+                if col_name in table_columns.get(table_name, set()):
+                    continue
+
+                col_def = pg_def if is_postgres else sqlite_def
+                if is_postgres:
+                    stmt = f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {col_name} {col_def}"
+                else:
+                    stmt = f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_def}"
+
+                try:
+                    with sync_conn.begin_nested():
+                        sync_conn.execute(text(stmt))
+                        table_columns[table_name].add(col_name)
+                except Exception:
+                    pass
+
+        await conn.run_sync(_run_migrations)
 
     # Seed default roles and admin/teacher/student users
 
