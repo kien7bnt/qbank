@@ -111,8 +111,8 @@ async def create_class(
     db.add(member)
 
     await db.commit()
-    await db.refresh(class_)
-    return class_
+    loaded_class = await get_class(db, class_.id)
+    return loaded_class or class_
 
 
 async def get_class(db: AsyncSession, class_id: uuid.UUID) -> Optional[Class]:
@@ -128,20 +128,46 @@ async def update_class(
     db: AsyncSession,
     class_id: uuid.UUID,
     data: ClassUpdate,
-    teacher_id: uuid.UUID,
+    user_id: uuid.UUID,
+    is_admin: bool = False,
 ) -> Class:
     class_ = await get_class(db, class_id)
     if not class_:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy lớp học")
-    if class_.teacher_id != teacher_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền")
+    if not is_admin and class_.teacher_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền chỉnh sửa lớp này")
 
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(class_, field, value)
 
     await db.commit()
-    await db.refresh(class_)
-    return class_
+    loaded_class = await get_class(db, class_id)
+    return loaded_class or class_
+
+
+async def delete_class(
+    db: AsyncSession,
+    class_id: uuid.UUID,
+    user_id: uuid.UUID,
+    is_admin: bool = False,
+) -> bool:
+    class_ = await get_class(db, class_id)
+    if not class_:
+        return False
+    if not is_admin and class_.teacher_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền xóa lớp học này")
+
+    from app.models.exam import Exam, ExamMatrix
+    from sqlalchemy import update as sql_update
+
+    # 1. Unlink any exams or exam matrices referencing this class
+    await db.execute(sql_update(Exam).where(Exam.class_id == class_id).values(class_id=None))
+    await db.execute(sql_update(ExamMatrix).where(ExamMatrix.class_id == class_id).values(class_id=None))
+
+    # 2. Delete class (cascades to class_members, class_sessions, session_materials, assignments)
+    await db.delete(class_)
+    await db.commit()
+    return True
 
 
 async def join_class(

@@ -139,13 +139,24 @@ export function ExamTakingPage() {
       <header className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary-50 rounded-lg text-primary-600 font-bold">
-            QBank
+            Edumate
           </div>
           <div>
-            <h1 className="font-bold text-gray-900 text-sm sm:text-base leading-tight">
-              {examState.assignment_name}
-            </h1>
-            <p className="text-xs text-gray-400">
+            <div className="flex items-center gap-2">
+              <h1 className="font-bold text-gray-900 text-sm sm:text-base leading-tight">
+                {examState.assignment_name}
+              </h1>
+              {examState.assignment_type === 'homework' ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  Bài tập (Lần {examState.attempt_number || 1})
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                  Kiểm tra (Chính thức)
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">
               Đã làm: <strong>{answeredCount}</strong> / {totalQuestions} câu
             </p>
           </div>
@@ -154,14 +165,24 @@ export function ExamTakingPage() {
         <div className="flex items-center gap-4">
           {/* Countdown timer badge */}
           <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full font-mono text-sm font-bold border transition-colors ${
+            title={
+              examState.assignment_type === 'homework'
+                ? 'Thời gian bài tập - Bạn có thể nộp và làm lại nhiều lần'
+                : 'Thời gian đếm lui chính thức - Tự động nộp bài khi hết giờ'
+            }
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full font-mono text-sm font-bold border transition-colors ${
               isTimerCritical
                 ? 'bg-red-50 text-red-600 border-red-200 animate-pulse'
-                : 'bg-primary-50 text-primary-700 border-primary-200'
+                : examState.assignment_type === 'homework'
+                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                : 'bg-rose-50 text-rose-700 border-rose-200'
             }`}
           >
             <Clock className="h-4 w-4" />
-            <span>{formatTimer(timeLeft || 0)}</span>
+            <span>
+              {examState.assignment_type === 'homework' ? 'Thời gian: ' : 'Đếm lui: '}
+              {formatTimer(timeLeft || 0)}
+            </span>
           </div>
 
           <Button
@@ -349,9 +370,15 @@ export function ExamTakingPage() {
               </span>
             </div>
           )}
-          <p className="text-xs text-gray-400">
-            Sau khi nộp bài, bạn sẽ không thể chỉnh sửa lại các câu trả lời.
-          </p>
+          {examState.assignment_type === 'homework' ? (
+            <p className="text-xs text-indigo-700 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
+              💡 <strong>Bài tập rèn luyện:</strong> Sau khi nộp bài và xem kết quả, bạn có thể làm lại bài bất cứ lúc nào để ôn tập và nâng cao điểm số.
+            </p>
+          ) : (
+            <p className="text-xs text-rose-700 bg-rose-50 p-2.5 rounded-lg border border-rose-100">
+              ⚠️ <strong>Bài kiểm tra chính thức:</strong> Bạn chỉ được nộp 1 lần duy nhất để chốt điểm và <strong>không thể làm lại</strong> sau khi nộp.
+            </p>
+          )}
         </div>
       </Modal>
     </div>

@@ -39,8 +39,11 @@ async def get_default_subject(db: AsyncSession) -> Subject:
 async def list_domains_with_topics(db: AsyncSession) -> List[Dict[str, Any]]:
     """Lấy danh sách tất cả các Lĩnh vực và Chủ đề kèm số lượng câu hỏi"""
     # Count questions per topic and chapter
-    q_topic_counts_stmt = select(Question.topic_id, func.count(Question.id)).where(Question.status != "archived").group_by(Question.topic_id)
+    q_topic_counts_stmt = select(Question.topic_id, func.count(Question.id)).where(Question.status != "archived", Question.topic_id != None).group_by(Question.topic_id)
     q_topic_counts = dict((await db.execute(q_topic_counts_stmt)).all())
+
+    q_chap_counts_stmt = select(Question.chapter_id, func.count(Question.id)).where(Question.status != "archived", Question.chapter_id != None).group_by(Question.chapter_id)
+    q_chap_counts = dict((await db.execute(q_chap_counts_stmt)).all())
 
     stmt = (
         select(Chapter)
@@ -53,16 +56,19 @@ async def list_domains_with_topics(db: AsyncSession) -> List[Dict[str, Any]]:
     domains = []
     for ch in chapters:
         topics_data = []
-        domain_total_q = 0
+        topics_sum = 0
         for tp in ch.topics:
             count = q_topic_counts.get(tp.id, 0)
-            domain_total_q += count
+            topics_sum += count
             topics_data.append({
                 "id": str(tp.id),
                 "name": tp.name,
                 "order_index": tp.order_index,
                 "question_count": count,
             })
+
+        chap_direct = q_chap_counts.get(ch.id, 0)
+        domain_total_q = max(chap_direct, topics_sum)
 
         domains.append({
             "id": str(ch.id),
@@ -229,3 +235,107 @@ async def create_learning_objective(db: AsyncSession, data: LearningObjectiveCre
     await db.commit()
     await db.refresh(lo)
     return lo
+
+
+async def get_full_curriculum_tree(db: AsyncSession) -> List[Dict[str, Any]]:
+    """
+    Lấy toàn bộ cây Ngân hàng Câu hỏi:
+    Môn học -> Chương -> Chủ đề -> Bài học
+    Kèm số lượng câu hỏi động tại từng cấp.
+    """
+    # 1. Count questions per lesson, topic, chapter, subject
+    q_topic_stmt = select(Question.topic_id, func.count(Question.id)).where(Question.status != "archived").group_by(Question.topic_id)
+    topic_counts = dict((await db.execute(q_topic_stmt)).all())
+
+    q_chapter_stmt = select(Question.chapter_id, func.count(Question.id)).where(Question.status != "archived").group_by(Question.chapter_id)
+    chapter_counts = dict((await db.execute(q_chapter_stmt)).all())
+
+    q_sub_stmt = select(Question.subject_id, func.count(Question.id)).where(Question.status != "archived").group_by(Question.subject_id)
+    subject_counts = dict((await db.execute(q_sub_stmt)).all())
+
+    stmt = (
+        select(Subject)
+        .where(Subject.is_active == True)
+        .options(
+            selectinload(Subject.chapters).selectinload(Chapter.topics).selectinload(Topic.lessons)
+        )
+        .order_by(Subject.name)
+    )
+    res = await db.execute(stmt)
+    subjects = res.scalars().all()
+
+    tree = []
+    for sub in subjects:
+        chapters_data = []
+        sub_total_q = subject_counts.get(sub.id, 0)
+
+        for ch in sub.chapters:
+            topics_data = []
+            ch_total_q = chapter_counts.get(ch.id, 0)
+
+            for tp in ch.topics:
+                lessons_data = []
+                tp_q = topic_counts.get(tp.id, 0)
+                ch_total_q += tp_q
+
+                for ls in tp.lessons:
+                    lessons_data.append({
+                        "id": str(ls.id),
+                        "name": ls.name,
+                        "type": "lesson",
+                        "topic_id": str(tp.id),
+                        "order_index": ls.order_index,
+                        "question_count": 0,
+                    })
+
+                topics_data.append({
+                    "id": str(tp.id),
+                    "name": tp.name,
+                    "type": "topic",
+                    "chapter_id": str(ch.id),
+                    "order_index": tp.order_index,
+                    "question_count": tp_q,
+                    "children": lessons_data,
+                })
+
+            sub_total_q += ch_total_q
+
+            chapters_data.append({
+                "id": str(ch.id),
+                "name": ch.name,
+                "type": "chapter",
+                "subject_id": str(sub.id),
+                "order_index": ch.order_index,
+                "question_count": ch_total_q,
+                "children": topics_data,
+            })
+
+        tree.append({
+            "id": str(sub.id),
+            "name": sub.name,
+            "code": sub.code,
+            "type": "subject",
+            "question_count": sub_total_q,
+            "children": chapters_data,
+        })
+
+    return tree
+
+
+async def delete_curriculum_node(db: AsyncSession, node_type: str, node_id: uuid.UUID) -> bool:
+    """Xóa an toàn node trong cây chương trình học"""
+    if node_type == "subject":
+        stmt = delete(Subject).where(Subject.id == node_id)
+    elif node_type == "chapter":
+        stmt = delete(Chapter).where(Chapter.id == node_id)
+    elif node_type == "topic":
+        stmt = delete(Topic).where(Topic.id == node_id)
+    elif node_type == "lesson":
+        stmt = delete(Lesson).where(Lesson.id == node_id)
+    else:
+        return False
+
+    res = await db.execute(stmt)
+    await db.commit()
+    return res.rowcount > 0
+

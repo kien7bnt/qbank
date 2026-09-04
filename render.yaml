@@ -13,7 +13,7 @@ services:
       - key: DEBUG
         value: "false"
       - key: APP_NAME
-        value: "QBank"
+        value: "Edumate"
       - key: SECRET_KEY
         generateValue: true
       - key: ALGORITHM

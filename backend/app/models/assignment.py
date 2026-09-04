@@ -15,6 +15,10 @@ class Assignment(Base):
     name: Mapped[str] = mapped_column(String(255))
     exam_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("exams.id", ondelete="CASCADE"))
     class_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("classes.id", ondelete="CASCADE"))
+    session_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("class_sessions.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    assignment_type: Mapped[str] = mapped_column(String(20), default="assignment")  # "assignment" (luyện tập) | "exam" (đánh giá)
     
     start_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     end_time: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -27,6 +31,11 @@ class Assignment(Base):
     shuffle_options: Mapped[bool] = mapped_column(Boolean, default=False)
     show_results: Mapped[str] = mapped_column(String(20), default="after_close")  # immediately, after_close, manual
     
+    # Review permission toggles (for Practice / Exam)
+    allow_review: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_correct_answer: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_explanation: Mapped[bool] = mapped_column(Boolean, default=True)
+    
     status: Mapped[str] = mapped_column(String(20), default="published")  # draft, published, closed
     
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
@@ -36,8 +45,13 @@ class Assignment(Base):
     # Relationships
     exam = relationship("Exam", lazy="selectin")
     class_ = relationship("Class", lazy="selectin")
+    session = relationship("ClassSession", back_populates="assignments", lazy="selectin")
     creator = relationship("User")
     attempts = relationship("ExamAttempt", back_populates="assignment", cascade="all, delete-orphan", lazy="selectin")
+
+    @property
+    def total_submissions(self) -> int:
+        return len(self.attempts) if self.attempts else 0
 
 
 class ExamAttempt(Base):

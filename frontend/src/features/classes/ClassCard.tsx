@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Users, BookOpen, MoreHorizontal } from 'lucide-react';
+import { Calendar, Users, BookOpen, Edit2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ClassStatusBadge } from '@/components/ui/Badge';
@@ -8,33 +8,67 @@ import type { Class } from '@/types';
 interface ClassCardProps {
   class_: Class;
   isTeacher: boolean;
+  onEdit?: (c: Class) => void;
+  onDelete?: (c: Class) => void;
 }
 
-export function ClassCard({ class_: c, isTeacher }: ClassCardProps) {
+export function ClassCard({ class_: c, isTeacher, onEdit, onDelete }: ClassCardProps) {
   const navigate = useNavigate();
 
   return (
     <div
-      className="group cursor-pointer rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-primary-300 hover:shadow-md transition-all"
+      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-primary-300 hover:shadow-md transition-all flex flex-col justify-between"
       onClick={() => navigate(`/classes/${c.id}`)}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && navigate(`/classes/${c.id}`)}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 truncate group-hover:text-primary-700 transition-colors">
-            {c.name}
-          </h3>
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
-              {c.code}
-            </span>
-            <ClassStatusBadge status={c.status} />
+      <div>
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-gray-900 truncate group-hover:text-primary-700 transition-colors">
+              {c.name}
+            </h3>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                {c.code}
+              </span>
+              <ClassStatusBadge status={c.status} />
+            </div>
           </div>
+
+          {isTeacher && (onEdit || onDelete) && (
+            <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+              {onEdit && (
+                <button
+                  type="button"
+                  title="Chỉnh sửa lớp"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(c);
+                  }}
+                  className="p-1 rounded-md text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  title="Xóa lớp học"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(c);
+                  }}
+                  className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
-      </div>
 
       {/* Subject */}
       {c.subject_name && (
@@ -50,6 +84,7 @@ export function ClassCard({ class_: c, isTeacher }: ClassCardProps) {
           GV: {c.teacher_name}
         </p>
       )}
+      </div>
 
       {/* Footer */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">

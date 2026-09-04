@@ -66,6 +66,19 @@ class QuestionCreate(BaseModel):
     coding_data: Optional[CodingDataIn] = None
 
 
+class QuestionBatchCreateRequest(BaseModel):
+    subject_id: Optional[uuid.UUID] = None
+    chapter_id: Optional[uuid.UUID] = None
+    topic_id: Optional[uuid.UUID] = None
+    questions: List[QuestionCreate]
+
+
+class QuestionBatchCreateResponse(BaseModel):
+    total_created: int
+    created_ids: List[uuid.UUID] = []
+    message: str
+
+
 class QuestionUpdate(BaseModel):
     stem: Optional[str] = None
     rationale: Optional[str] = None
@@ -112,6 +125,7 @@ class QuestionListItem(BaseModel):
     id: uuid.UUID
     item_id: str
     type: str
+    sub_type: Optional[str] = None  # single_choice | multiple_choice | true_false | essay | coding
     status: str
     stem_preview: str  # Truncated to 100 chars
     bloom_level: Optional[str] = None

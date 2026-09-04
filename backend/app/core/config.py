@@ -10,7 +10,7 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    APP_NAME: str = "QBank"
+    APP_NAME: str = "Edumate"
     DEBUG: bool = False
 
     # Database

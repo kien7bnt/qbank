@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db, get_current_user
 from app.schemas.assignment import (
-    AssignmentCreate, AssignmentOut, SaveResponseRequest,
+    AssignmentCreate, AssignmentUpdate, AssignmentOut, SaveResponseRequest,
     ExamTakingStateOut, AttemptResultOut
 )
 from app.services import assignment_service
@@ -30,11 +30,14 @@ async def create_assignment(
 @router.get("/assignments")
 async def list_assignments(
     class_id: Optional[uuid.UUID] = None,
+    session_id: Optional[uuid.UUID] = None,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
     if current_user.has_role("teacher", "admin"):
         assignments = await assignment_service.list_assignments(db, class_id)
+        if session_id:
+            assignments = [a for a in assignments if a.session_id == session_id]
         return [
             {
                 "id": a.id,
@@ -43,6 +46,8 @@ async def list_assignments(
                 "exam_name": a.exam.name if a.exam else "Đề thi",
                 "class_id": a.class_id,
                 "class_name": a.class_.name if a.class_ else "Lớp học",
+                "session_id": a.session_id,
+                "session_name": a.session.name if a.session else None,
                 "duration_minutes": a.duration_minutes,
                 "start_time": a.start_time,
                 "end_time": a.end_time,
@@ -74,6 +79,8 @@ async def get_assignment(
         "exam_name": a.exam.name if a.exam else "Đề thi",
         "class_id": a.class_id,
         "class_name": a.class_.name if a.class_ else "Lớp học",
+        "session_id": a.session_id,
+        "session_name": a.session.name if a.session else None,
         "duration_minutes": a.duration_minutes,
         "start_time": a.start_time,
         "end_time": a.end_time,
@@ -82,6 +89,34 @@ async def get_assignment(
         "total_submissions": len(a.attempts or []),
         "created_at": a.created_at,
     }
+
+
+@router.patch("/assignments/{assignment_id}", response_model=AssignmentOut)
+async def update_assignment(
+    assignment_id: uuid.UUID,
+    data: AssignmentUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    if not current_user.has_role("teacher", "admin"):
+        raise HTTPException(status_code=403, detail="Chỉ giáo viên mới được chỉnh sửa bài kiểm tra")
+    updated = await assignment_service.update_assignment(db, assignment_id, data)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bài kiểm tra")
+    return updated
+
+
+@router.delete("/assignments/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_assignment(
+    assignment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    if not current_user.has_role("teacher", "admin"):
+        raise HTTPException(status_code=403, detail="Chỉ giáo viên hoặc admin mới được xóa bài kiểm tra")
+    success = await assignment_service.delete_assignment(db, assignment_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bài kiểm tra")
 
 
 @router.get("/assignments/{assignment_id}/submissions")
@@ -103,9 +138,22 @@ async def start_exam_taking(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    """Học sinh bắt đầu hoặc tiếp tục làm bài thi"""
+    """Học sinh bắt đầu hoặc tiếp tục làm bài thi / bài tập"""
     try:
         return await assignment_service.start_or_resume_attempt(db, assignment_id, current_user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/assignments/{assignment_id}/retry", response_model=ExamTakingStateOut)
+async def retry_assignment_taking(
+    assignment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Học sinh làm lại bài tập (khởi tạo lượt làm bài mới)"""
+    try:
+        return await assignment_service.start_or_resume_attempt(db, assignment_id, current_user.id, force_new=True)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

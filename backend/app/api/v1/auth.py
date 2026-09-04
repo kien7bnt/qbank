@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db, get_current_user
 from app.core.security import create_access_token, create_refresh_token, decode_token
-from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, UserOut
+from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, UserOut, GoogleLoginRequest
 from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -42,6 +42,18 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tài khoản đã bị khóa",
         )
+    return _build_token_response(user)
+
+
+@router.post("/google", response_model=TokenResponse)
+async def google_login(
+    data: GoogleLoginRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Đăng nhập / Đăng ký bằng Google OAuth 2.0 (OpenID Connect ID Token)
+    """
+    user = await auth_service.authenticate_google_user(db, data.id_token, role_name=data.role)
     return _build_token_response(user)
 
 

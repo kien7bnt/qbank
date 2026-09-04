@@ -25,6 +25,7 @@ dist/
 .env.local
 .env.production
 .env.development
+*ai_config.json
 
 # IDE
 .vscode/

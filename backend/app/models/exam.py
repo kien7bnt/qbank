@@ -69,6 +69,14 @@ class Exam(Base):
     shuffle_options: Mapped[bool] = mapped_column(Boolean, default=False)
     show_results: Mapped[str] = mapped_column(String(20), default="after_close") # immediately, after_close, manual
     
+    # Review and Results permission settings
+    allow_review: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_score: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_responses: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_correct_answers: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_explanations: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_feedback: Mapped[bool] = mapped_column(Boolean, default=True)
+    
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -77,6 +85,49 @@ class Exam(Base):
     matrix = relationship("ExamMatrix", back_populates="exams")
     creator = relationship("User")
     sections = relationship("ExamSection", back_populates="exam", cascade="all, delete-orphan", lazy="selectin")
+    variants = relationship("ExamVariant", back_populates="exam", cascade="all, delete-orphan", lazy="selectin")
+
+
+class ExamMatrixRule(Base):
+    """Quy tắc ô ma trận 2D (Chương/Chủ đề x Bloom x Độ khó)"""
+    __tablename__ = "exam_matrix_rules"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    matrix_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("exam_matrices.id", ondelete="CASCADE"), index=True)
+    
+    chapter_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("chapters.id", ondelete="SET NULL"), nullable=True)
+    topic_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("topics.id", ondelete="SET NULL"), nullable=True)
+    
+    bloom_level: Mapped[str] = mapped_column(String(30))  # remember, understand, apply, analyze
+    difficulty: Mapped[str] = mapped_column(String(20))    # easy, medium, hard
+    question_type: Mapped[str] = mapped_column(String(20), default="mcq")  # mcq, essay, coding
+    
+    question_count: Mapped[int] = mapped_column(Integer, default=1)
+    points_per_question: Mapped[float] = mapped_column(Float, default=1.0)
+
+    # Relationships
+    matrix = relationship("ExamMatrix", backref="grid_rules")
+    chapter = relationship("Chapter", lazy="selectin")  # type: ignore[name-defined]
+    topic = relationship("Topic", lazy="selectin")  # type: ignore[name-defined]
+
+
+class ExamVariant(Base):
+    """Mã đề thi cụ thể (Mã đề 001, 002, 003...) sinh từ ma trận hoặc đề gốc"""
+    __tablename__ = "exam_variants"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    exam_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("exams.id", ondelete="CASCADE"), index=True)
+    variant_code: Mapped[str] = mapped_column(String(20))  # "001", "002", "101"...
+    
+    # JSON mappings:
+    # question_order: [question_id_1, question_id_2...]
+    # option_shuffles: { "question_id": [option_id_3, option_id_1, option_id_2, option_id_4] }
+    question_order: Mapped[list] = mapped_column(JSON, default=list)
+    option_shuffles: Mapped[dict] = mapped_column(JSON, default=dict)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    exam = relationship("Exam", back_populates="variants")
 
 
 class ExamSection(Base):

@@ -11,6 +11,8 @@ import type { QuestionType } from '@/types';
 interface CreateQuestionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  defaultChapterId?: string;
+  defaultTopicId?: string;
 }
 
 interface OptionForm {
@@ -42,7 +44,12 @@ const DIFFICULTY_OPTIONS = [
   { value: 'hard', label: 'Khó' },
 ];
 
-export function CreateQuestionModal({ open, onOpenChange }: CreateQuestionModalProps) {
+export function CreateQuestionModal({
+  open,
+  onOpenChange,
+  defaultChapterId,
+  defaultTopicId,
+}: CreateQuestionModalProps) {
   const qc = useQueryClient();
   const [step, setStep] = useState<'type' | 'form'>('type');
   const [type, setType] = useState<QuestionType>('mcq');
@@ -66,6 +73,8 @@ export function CreateQuestionModal({ open, onOpenChange }: CreateQuestionModalP
         rationale: rationale || undefined,
         bloom_level: bloom || undefined,
         expected_difficulty: difficulty || undefined,
+        chapter_id: defaultChapterId || undefined,
+        topic_id: defaultTopicId || undefined,
       };
 
       if (type === 'mcq') {

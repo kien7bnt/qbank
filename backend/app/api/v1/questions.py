@@ -1,8 +1,11 @@
 from __future__ import annotations
 import uuid
+import io
+import re
+import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db, get_current_user
@@ -14,6 +17,8 @@ from app.schemas.question import (
     QuestionOut,
     QuestionUpdate,
     QuestionVersionOut,
+    QuestionBatchCreateRequest,
+    QuestionBatchCreateResponse,
 )
 from app.services import question_service
 
@@ -21,10 +26,22 @@ router = APIRouter(prefix="/questions", tags=["questions"])
 
 
 def _question_to_list_item(q) -> QuestionListItem:
+    sub_type = q.type
+    if q.type == "mcq":
+        opts = q.options or []
+        correct_count = sum(1 for o in opts if o.is_correct)
+        if len(opts) == 2 and any(o.text.strip().lower() in ["đúng", "sai", "dung", "true", "false"] for o in opts):
+            sub_type = "true_false"
+        elif correct_count > 1:
+            sub_type = "multiple_choice"
+        else:
+            sub_type = "single_choice"
+
     return QuestionListItem(
         id=q.id,
         item_id=q.item_id,
         type=q.type,
+        sub_type=sub_type,
         status=q.status,
         stem_preview=q.stem[:100] + ("..." if len(q.stem) > 100 else ""),
         bloom_level=q.bloom_level,
@@ -113,6 +130,95 @@ async def list_questions(
     )
 
 
+def parse_questions_from_text(text: str) -> list[dict]:
+    # Split text into question chunks by Câu 1 / Question 1 / 1.
+    pattern = r"(?=(?:^|\n)\s*(?:Câu\s*\d+|Question\s*\d+|\d+\.)[:\.\s])"
+    raw_chunks = re.split(pattern, text, flags=re.IGNORECASE)
+    chunks = [c.strip() for c in raw_chunks if c.strip()]
+    
+    parsed = []
+    for chunk in chunks:
+        lines = [l.strip() for l in chunk.split("\n") if l.strip()]
+        if not lines:
+            continue
+        
+        first_line = lines[0]
+        stem_match = re.sub(r"^(?:Câu\s*\d+|Question\s*\d+|\d+\.)[:\.\s]*", "", first_line, flags=re.IGNORECASE)
+        stem_lines = [stem_match]
+        options = []
+        correct_labels = []
+        rationale = ""
+        in_options = False
+        
+        for line in lines[1:]:
+            ans_match = re.search(r"(?:Đáp\s*án|Answer|Đ/A)[:\s]*([A-D,\s]+)", line, re.IGNORECASE)
+            if ans_match:
+                raw_ans = ans_match.group(1).upper()
+                for char in ["A", "B", "C", "D"]:
+                    if char in raw_ans:
+                        correct_labels.append(char)
+                continue
+                
+            exp_match = re.search(r"(?:Giải\s*thích|Lời\s*giải|Explanation)[:\s]*(.*)", line, re.IGNORECASE)
+            if exp_match:
+                rationale = exp_match.group(1).strip()
+                continue
+                
+            opt_match = re.match(r"^([A-D])[\.\)\:\-]\s*(.*)", line, re.IGNORECASE)
+            if opt_match:
+                in_options = True
+                label = opt_match.group(1).upper()
+                opt_text = opt_match.group(2).strip()
+                options.append({
+                    "label": label,
+                    "text": opt_text,
+                    "is_correct": False
+                })
+            else:
+                if in_options:
+                    if rationale:
+                        rationale += " " + line
+                    elif options:
+                        options[-1]["text"] += " " + line
+                else:
+                    stem_lines.append(line)
+        
+        stem = " ".join(stem_lines).strip()
+        if not stem:
+            stem = chunk[:100]
+            
+        if not correct_labels:
+            correct_labels = ["A"]
+            
+        for opt in options:
+            if opt["label"] in correct_labels:
+                opt["is_correct"] = True
+                
+        if not options:
+            parsed.append({
+                "type": "essay",
+                "stem": stem,
+                "rationale": rationale or None,
+                "bloom_level": "understand",
+                "expected_difficulty": "medium",
+                "options": [],
+                "essay_data": {"sample_answer": rationale or "", "max_points": 10.0}
+            })
+        else:
+            if not any(o["is_correct"] for o in options) and options:
+                options[0]["is_correct"] = True
+                
+            parsed.append({
+                "type": "mcq",
+                "stem": stem,
+                "rationale": rationale or None,
+                "bloom_level": "understand",
+                "expected_difficulty": "medium",
+                "options": options
+            })
+    return parsed
+
+
 @router.post("", response_model=QuestionOut, status_code=status.HTTP_201_CREATED)
 async def create_question(
     data: QuestionCreate,
@@ -123,6 +229,68 @@ async def create_question(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền tạo câu hỏi")
     q = await question_service.create_question(db, data, current_user.id)
     return _question_to_out(q)
+
+
+@router.post("/batch", response_model=QuestionBatchCreateResponse, status_code=status.HTTP_201_CREATED)
+async def create_questions_batch(
+    data: QuestionBatchCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Tạo nhiều câu hỏi cùng lúc vào ngân hàng trong 1 transaction duy nhất"""
+    if not current_user.has_role("teacher", "admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền tạo câu hỏi")
+    return await question_service.create_questions_batch(db, data, current_user.id)
+
+
+@router.post("/parse-file")
+async def parse_questions_file(
+    file: UploadFile = File(...),
+    current_user=Depends(get_current_user),
+):
+    """Upload và trích xuất danh sách câu hỏi tự động từ file Word, Text, PDF, JSON"""
+    if not current_user.has_role("teacher", "admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền thực hiện")
+    
+    filename = file.filename.lower() if file.filename else ""
+    content = await file.read()
+    text = ""
+    
+    if filename.endswith(".docx"):
+        try:
+            import docx
+            doc = docx.Document(io.BytesIO(content))
+            text = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Lỗi khi đọc file DOCX: {e}")
+    elif filename.endswith(".pdf"):
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(io.BytesIO(content))
+            text = "\n".join(p.extract_text() or "" for p in reader.pages)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Lỗi khi đọc file PDF: {e}")
+    elif filename.endswith(".json"):
+        try:
+            data = json.loads(content.decode("utf-8"))
+            if isinstance(data, list):
+                return {"questions": data, "total": len(data), "raw_text": ""}
+            elif isinstance(data, dict) and "questions" in data:
+                return {"questions": data["questions"], "total": len(data["questions"]), "raw_text": ""}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Lỗi khi đọc file JSON: {e}")
+    else:
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError:
+            text = content.decode("latin-1", errors="ignore")
+            
+    questions = parse_questions_from_text(text)
+    return {
+        "raw_text": text[:5000],
+        "questions": questions,
+        "total": len(questions),
+    }
 
 
 @router.get("/{question_id}", response_model=QuestionOut)

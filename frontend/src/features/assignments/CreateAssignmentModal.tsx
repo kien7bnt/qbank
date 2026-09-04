@@ -1,26 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ClipboardList, GraduationCap, FileText, CheckCircle2 } from 'lucide-react';
+import { ClipboardList, GraduationCap, FileText, CheckCircle2, Clock, BookOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { assignmentApi, examApi, classApi, getErrorMessage } from '@/services/api';
+import { assignmentApi, examApi, classApi, sessionApi, getErrorMessage } from '@/services/api';
 
 interface CreateAssignmentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialClassId?: string;
+  initialSessionId?: string;
 }
 
-export function CreateAssignmentModal({ open, onOpenChange }: CreateAssignmentModalProps) {
+export function CreateAssignmentModal({
+  open,
+  onOpenChange,
+  initialClassId,
+  initialSessionId,
+}: CreateAssignmentModalProps) {
   const qc = useQueryClient();
+  const [assignmentType, setAssignmentType] = useState<'exam' | 'homework'>('exam');
   const [name, setName] = useState('');
   const [examId, setExamId] = useState('');
-  const [classId, setClassId] = useState('');
+  const [classId, setClassId] = useState(initialClassId || '');
+  const [sessionId, setSessionId] = useState(initialSessionId || '');
   const [durationMinutes, setDurationMinutes] = useState(45);
   const [passScore, setPassScore] = useState(5.0);
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [shuffleOptions, setShuffleOptions] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      if (initialClassId) setClassId(initialClassId);
+      if (initialSessionId) setSessionId(initialSessionId);
+    }
+  }, [open, initialClassId, initialSessionId]);
 
   const { data: exams } = useQuery({
     queryKey: ['exams'],
@@ -34,12 +50,22 @@ export function CreateAssignmentModal({ open, onOpenChange }: CreateAssignmentMo
     enabled: open,
   });
 
+  const { data: sessionsData } = useQuery({
+    queryKey: ['class-sessions', classId],
+    queryFn: () => sessionApi.list(classId),
+    enabled: !!classId && open,
+  });
+  const sessions = sessionsData?.data ?? [];
+
   const createMutation = useMutation({
     mutationFn: () =>
       assignmentApi.create({
         name,
+        assignment_type: assignmentType,
+        max_attempts: assignmentType === 'homework' ? 999 : 1,
         exam_id: examId,
         class_id: classId,
+        session_id: sessionId || undefined,
         duration_minutes: Number(durationMinutes),
         pass_score: Number(passScore),
         shuffle_questions: shuffleQuestions,
@@ -48,7 +74,12 @@ export function CreateAssignmentModal({ open, onOpenChange }: CreateAssignmentMo
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['assignments'] });
-      toast.success('Đã giao bài kiểm tra cho lớp thành công!');
+      qc.invalidateQueries({ queryKey: ['class-sessions'] });
+      toast.success(
+        assignmentType === 'homework'
+          ? '✨ Đã giao bài tập rèn luyện cho lớp thành công!'
+          : '✨ Đã giao bài kiểm tra cho lớp thành công!'
+      );
       handleReset();
       onOpenChange(false);
     },
@@ -56,9 +87,11 @@ export function CreateAssignmentModal({ open, onOpenChange }: CreateAssignmentMo
   });
 
   const handleReset = () => {
+    setAssignmentType('exam');
     setName('');
     setExamId('');
-    setClassId('');
+    setClassId(initialClassId || '');
+    setSessionId(initialSessionId || '');
     setDurationMinutes(45);
     setPassScore(5.0);
   };
@@ -95,22 +128,98 @@ export function CreateAssignmentModal({ open, onOpenChange }: CreateAssignmentMo
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Hình thức khảo thí */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Hình thức giao bài *
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setAssignmentType('exam');
+                if (name.startsWith('Bài tập:')) {
+                  setName(name.replace(/^Bài tập:\s*/, 'Kiểm tra: '));
+                }
+              }}
+              className={`p-3 rounded-xl border-2 text-left transition-all flex flex-col gap-1 cursor-pointer ${
+                assignmentType === 'exam'
+                  ? 'border-primary-600 bg-primary-50/50 shadow-xs'
+                  : 'border-gray-200 hover:border-gray-300 bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-sm text-gray-900 flex items-center gap-1.5">
+                  <Clock className="h-4 w-4 text-primary-600" />
+                  Bài kiểm tra
+                </span>
+                {assignmentType === 'exam' && (
+                  <span className="h-2 w-2 rounded-full bg-primary-600" />
+                )}
+              </div>
+              <p className="text-xs text-gray-500 leading-snug">
+                Thời gian đếm lui. Chỉ làm <strong>1 lần duy nhất</strong>, chốt điểm là xong.
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setAssignmentType('homework');
+                if (name.startsWith('Kiểm tra:')) {
+                  setName(name.replace(/^Kiểm tra:\s*/, 'Bài tập: '));
+                }
+              }}
+              className={`p-3 rounded-xl border-2 text-left transition-all flex flex-col gap-1 cursor-pointer ${
+                assignmentType === 'homework'
+                  ? 'border-indigo-600 bg-indigo-50/50 shadow-xs'
+                  : 'border-gray-200 hover:border-gray-300 bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-sm text-gray-900 flex items-center gap-1.5">
+                  <BookOpen className="h-4 w-4 text-indigo-600" />
+                  Bài tập rèn luyện
+                </span>
+                {assignmentType === 'homework' && (
+                  <span className="h-2 w-2 rounded-full bg-indigo-600" />
+                )}
+              </div>
+              <p className="text-xs text-gray-500 leading-snug">
+                Có thời gian làm bài. Được <strong>làm đi làm lại</strong> và nộp nhiều lần để cải thiện điểm.
+              </p>
+            </button>
+          </div>
+        </div>
+
         <Input
-          label="Tên bài kiểm tra *"
-          placeholder="Ví dụ: Kiểm tra 45 phút - Đại số 12"
+          label={assignmentType === 'homework' ? 'Tên bài tập *' : 'Tên bài kiểm tra *'}
+          placeholder={assignmentType === 'homework' ? 'Ví dụ: Bài tập ôn luyện tuần 3 - Hàm số' : 'Ví dụ: Kiểm tra 45 phút - Đại số 12'}
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Chọn đề thi *
             </label>
             <select
               value={examId}
-              onChange={(e) => setExamId(e.target.value)}
+              onChange={(e) => {
+                const selectedId = e.target.value;
+                setExamId(selectedId);
+                const selectedExam = exams?.data?.find((x: any) => x.id === selectedId);
+                if (selectedExam) {
+                  if (selectedExam.duration_minutes) {
+                    setDurationMinutes(selectedExam.duration_minutes);
+                  }
+                  if (!name) {
+                    setName(`Kiểm tra: ${selectedExam.name}`);
+                  }
+                }
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
               required
             >
@@ -129,7 +238,10 @@ export function CreateAssignmentModal({ open, onOpenChange }: CreateAssignmentMo
             </label>
             <select
               value={classId}
-              onChange={(e) => setClassId(e.target.value)}
+              onChange={(e) => {
+                setClassId(e.target.value);
+                setSessionId('');
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
               required
             >
@@ -141,6 +253,30 @@ export function CreateAssignmentModal({ open, onOpenChange }: CreateAssignmentMo
               ))}
             </select>
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Gán vào buổi học cụ thể trong lớp (Tùy chọn)
+          </label>
+          <select
+            value={sessionId}
+            onChange={(e) => setSessionId(e.target.value)}
+            disabled={!classId}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-400"
+          >
+            <option value="">— Không gán vào buổi cụ thể (Giao cho toàn lớp) —</option>
+            {sessions.map((s: any) => (
+              <option key={s.id} value={s.id}>
+                {s.title || s.name} {s.session_date ? `(${s.session_date})` : ''}
+              </option>
+            ))}
+          </select>
+          {sessionId && (
+            <p className="text-xs text-primary-600 mt-1">
+              ✓ Bài kiểm tra này sẽ hiển thị trực tiếp trong danh mục Buổi học đã chọn.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">

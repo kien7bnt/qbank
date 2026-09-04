@@ -97,8 +97,8 @@ export function DashboardPage() {
             {isTeacher ? (
               <>
                 <Button
+                  variant="white"
                   onClick={() => navigate('/question-bank')}
-                  className="bg-white text-primary-700 hover:bg-gray-100 font-semibold shadow-sm"
                 >
                   <Database className="h-4 w-4 mr-1.5" />
                   Ngân hàng câu hỏi
@@ -114,8 +114,8 @@ export function DashboardPage() {
               </>
             ) : (
               <Button
+                variant="white"
                 onClick={() => navigate('/assignments')}
-                className="bg-white text-primary-700 hover:bg-gray-100 font-semibold shadow-sm"
               >
                 <ClipboardList className="h-4 w-4 mr-1.5" />
                 Làm bài kiểm tra ({pendingAssignments})

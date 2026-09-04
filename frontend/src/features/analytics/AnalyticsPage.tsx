@@ -15,12 +15,14 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  FileSpreadsheet,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { analyticsApi, getErrorMessage } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { BloomBadge, DifficultyBadge } from '@/components/ui/Badge';
+import { ExamAnalyticsReportTab } from './ExamAnalyticsReportTab';
 
 const BLOOM_LABELS: Record<string, { label: string; color: string }> = {
   remember: { label: 'Nhớ (Remember)', color: 'bg-blue-500' },
@@ -39,10 +41,11 @@ const DIFFICULTY_LABELS: Record<string, { label: string; color: string }> = {
 
 export function AnalyticsPage() {
   const qc = useQueryClient();
+  const [activeTab, setActiveTab] = useState<'bank' | 'exam'>('bank');
   const [calibrationResult, setCalibrationResult] = useState<any>(null);
   const [showResultList, setShowResultList] = useState(true);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['analytics-overview'],
     queryFn: () => analyticsApi.overview(),
   });
@@ -62,8 +65,25 @@ export function AnalyticsPage() {
 
   const stats = data?.data;
 
-  if (isLoading || !stats) {
+  if (isLoading) {
     return <PageSpinner />;
+  }
+
+  if (isError || !stats) {
+    return (
+      <div className="p-6 max-w-xl mx-auto my-12 text-center bg-white rounded-xl border border-gray-200 shadow-sm p-8">
+        <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 mx-auto flex items-center justify-center mb-4">
+          <HelpCircle className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">Không thể tải dữ liệu thống kê</h2>
+        <p className="text-sm text-gray-500 mb-6">
+          {error ? getErrorMessage(error) : 'Không có dữ liệu phản hồi từ máy chủ.'}
+        </p>
+        <Button onClick={() => refetch()} variant="primary">
+          Thử lại
+        </Button>
+      </div>
+    );
   }
 
   const calibratedPct = stats.total_questions > 0
@@ -80,18 +100,54 @@ export function AnalyticsPage() {
             Báo Cáo Thống Kê & Phân Tích Khảo Thí
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Chỉ số chất lượng ngân hàng câu hỏi, mức độ định cỡ theo lý thuyết khảo thí cổ điển (CTT) và hiệu quả làm bài.
+            Chỉ số chất lượng ngân hàng câu hỏi, mức độ định cỡ theo lý thuyết khảo thí cổ điển (CTT) và phân tích đề thi.
           </p>
         </div>
         
-        <Button
-          loading={calibrateMutation.isPending}
-          onClick={() => calibrateMutation.mutate()}
-          leftIcon={<Sparkles className="h-4 w-4" />}
-        >
-          Kích hoạt định cỡ câu hỏi
-        </Button>
+        {activeTab === 'bank' && (
+          <Button
+            loading={calibrateMutation.isPending}
+            onClick={() => calibrateMutation.mutate()}
+            leftIcon={<Sparkles className="h-4 w-4" />}
+          >
+            Kích hoạt định cỡ câu hỏi
+          </Button>
+        )}
       </div>
+
+      {/* Tabs Selector */}
+      <div className="flex border-b border-gray-200 gap-6">
+        <button
+          onClick={() => setActiveTab('bank')}
+          className={`flex items-center gap-2 pb-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'bank'
+              ? 'border-primary-600 text-primary-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          <Database className="h-4 w-4" />
+          <span>Thống kê Ngân hàng Câu hỏi</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('exam')}
+          className={`flex items-center gap-2 pb-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'exam'
+              ? 'border-primary-600 text-primary-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          <FileSpreadsheet className="h-4 w-4" />
+          <span>Báo cáo & Phân tích Đề thi</span>
+        </button>
+      </div>
+
+      {/* Tab Contents */}
+      {activeTab === 'exam' ? (
+        <ExamAnalyticsReportTab />
+      ) : (
+        <div className="space-y-6">
+
 
       {/* Top Summary Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -301,5 +357,9 @@ export function AnalyticsPage() {
         </div>
       </div>
     </div>
+    )}
+  </div>
   );
 }
+
+

@@ -91,7 +91,7 @@ export function ExamPreviewModal({ examId, open, onOpenChange }: ExamPreviewModa
           {/* Official Exam Header */}
           <div className="border-b-2 border-gray-900 pb-4 text-center space-y-1">
             <div className="flex justify-between text-xs text-gray-700 uppercase font-semibold">
-              <span>HỆ THỐNG ĐÀO TẠO & KHẢO THÍ QBANK</span>
+              <span>HỆ THỐNG ĐÀO TẠO & KHẢO THÍ EDUMATE</span>
               <span>MÃ ĐỀ THI: {exam.id.slice(0, 4).toUpperCase()}</span>
             </div>
             <h2 className="text-xl font-bold text-gray-900 pt-2 uppercase tracking-wide">

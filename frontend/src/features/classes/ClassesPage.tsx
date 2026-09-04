@@ -5,16 +5,19 @@ import { Plus, Search, Users, LogIn } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { classApi, getErrorMessage } from '@/services/api';
 import { useAuthStore } from '@/stores/auth.store';
 import { ClassCard } from './ClassCard';
 import { CreateClassModal } from './CreateClassModal';
+import { EditClassModal } from './EditClassModal';
 import { JoinClassModal } from './JoinClassModal';
-import type { ClassFilter } from '@/types';
+import type { Class, ClassFilter } from '@/types';
 
 export function ClassesPage() {
+  const qc = useQueryClient();
   const [searchParams] = useSearchParams();
   const view = (searchParams.get('view') as 'mine' | 'joined') ?? 'mine';
   const { hasRole } = useAuthStore();
@@ -23,11 +26,23 @@ export function ClassesPage() {
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
+  const [editingClass, setEditingClass] = useState<Class | null>(null);
+  const [deletingClass, setDeletingClass] = useState<Class | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['classes', view, search],
     queryFn: () =>
       classApi.list({ view: isTeacher ? 'mine' : 'joined', search: search || undefined }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => classApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['classes'] });
+      toast.success('Đã xóa lớp học thành công!');
+      setDeletingClass(null);
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const classes = data?.data?.items ?? [];
@@ -102,13 +117,58 @@ export function ClassesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {classes.map((c) => (
-            <ClassCard key={c.id} class_={c} isTeacher={isTeacher} />
+            <ClassCard
+              key={c.id}
+              class_={c}
+              isTeacher={isTeacher}
+              onEdit={(classToEdit) => setEditingClass(classToEdit)}
+              onDelete={(classToDelete) => setDeletingClass(classToDelete)}
+            />
           ))}
         </div>
       )}
 
       <CreateClassModal open={showCreate} onOpenChange={setShowCreate} />
       <JoinClassModal open={showJoin} onOpenChange={setShowJoin} />
+
+      {/* Edit Class Modal */}
+      {editingClass && (
+        <EditClassModal
+          class_={editingClass}
+          open={!!editingClass}
+          onOpenChange={(isOpen) => !isOpen && setEditingClass(null)}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        open={!!deletingClass}
+        onOpenChange={(isOpen) => !isOpen && setDeletingClass(null)}
+        title="Xác nhận xóa lớp học"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeletingClass(null)}>
+              Hủy
+            </Button>
+            <Button
+              variant="danger"
+              loading={deleteMutation.isPending}
+              onClick={() => {
+                if (deletingClass) {
+                  deleteMutation.mutate(deletingClass.id);
+                }
+              }}
+            >
+              Xác nhận xóa
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-600">
+          Bạn có chắc chắn muốn xóa lớp học <strong>{deletingClass?.name}</strong> ({deletingClass?.code}) không? Tất cả buổi học, tài liệu và phân công của lớp này sẽ bị xóa. Hành động này không thể hoàn tác!
+        </p>
+      </Modal>
     </div>
   );
 }

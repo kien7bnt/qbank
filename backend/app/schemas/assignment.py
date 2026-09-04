@@ -9,6 +9,8 @@ class AssignmentBase(BaseModel):
     name: str = Field(..., max_length=255)
     exam_id: uuid.UUID
     class_id: uuid.UUID
+    session_id: Optional[uuid.UUID] = None
+    assignment_type: str = Field(default="exam", max_length=20)  # "exam" (Bài kiểm tra) | "homework" (Bài tập)
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     duration_minutes: int = Field(default=45, ge=1)
@@ -16,7 +18,7 @@ class AssignmentBase(BaseModel):
     pass_score: float = Field(default=5.0, ge=0.0)
     shuffle_questions: bool = False
     shuffle_options: bool = False
-    show_results: str = Field("after_close", max_length=20)
+    show_results: str = Field("immediately", max_length=20)
 
 
 class AssignmentCreate(AssignmentBase):
@@ -25,6 +27,8 @@ class AssignmentCreate(AssignmentBase):
 
 class AssignmentUpdate(BaseModel):
     name: Optional[str] = None
+    session_id: Optional[uuid.UUID] = None
+    assignment_type: Optional[str] = None
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     duration_minutes: Optional[int] = None
@@ -38,6 +42,7 @@ class AssignmentOut(AssignmentBase):
     created_at: datetime
     exam_name: Optional[str] = None
     class_name: Optional[str] = None
+    session_name: Optional[str] = None
     total_submissions: int = 0
     my_attempt: Optional[Any] = None
 
@@ -69,6 +74,8 @@ class ExamTakingStateOut(BaseModel):
     attempt_id: uuid.UUID
     assignment_id: uuid.UUID
     assignment_name: str
+    assignment_type: str = "exam"  # "exam" | "homework"
+    attempt_number: int = 1
     duration_minutes: int
     start_time: datetime
     remaining_seconds: int
@@ -92,7 +99,11 @@ class ResponseDetailOut(BaseModel):
 
 class AttemptResultOut(BaseModel):
     attempt_id: uuid.UUID
+    assignment_id: Optional[uuid.UUID] = None
     assignment_name: str
+    assignment_type: str = "exam"  # "exam" | "homework"
+    attempt_number: int = 1
+    can_retry: bool = False
     user_name: str
     start_time: datetime
     submitted_at: Optional[datetime] = None

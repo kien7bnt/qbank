@@ -95,8 +95,25 @@ async def update_class(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    c = await class_service.update_class(db, class_id, data, current_user.id)
+    if not current_user.has_role("teacher", "admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền chỉnh sửa lớp")
+    is_admin = current_user.has_role("admin")
+    c = await class_service.update_class(db, class_id, data, current_user.id, is_admin)
     return _class_to_out(c)
+
+
+@router.delete("/{class_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_class(
+    class_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    if not current_user.has_role("teacher", "admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền xóa lớp học")
+    is_admin = current_user.has_role("admin")
+    deleted = await class_service.delete_class(db, class_id, current_user.id, is_admin)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy lớp học")
 
 
 @router.post("/join", response_model=dict, status_code=status.HTTP_201_CREATED)

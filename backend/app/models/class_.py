@@ -43,7 +43,10 @@ class Class(Base):
     )
 
     members: Mapped[List["ClassMember"]] = relationship(
-        back_populates="class_", cascade="all, delete-orphan"
+        back_populates="class_", cascade="all, delete-orphan", lazy="selectin"
+    )
+    sessions: Mapped[List["ClassSession"]] = relationship(  # type: ignore[name-defined]
+        "ClassSession", back_populates="class_", cascade="all, delete-orphan", order_by="ClassSession.order_index"
     )
     teacher: Mapped["User"] = relationship(  # type: ignore[name-defined]
         "User", foreign_keys=[teacher_id], lazy="selectin"
@@ -54,7 +57,10 @@ class Class(Base):
 
     @property
     def member_count(self) -> int:
-        return len([m for m in self.members if m.status == "active"])
+        try:
+            return len([m for m in self.members if m.status == "active"])
+        except Exception:
+            return 0
 
 
 class ClassMember(Base):

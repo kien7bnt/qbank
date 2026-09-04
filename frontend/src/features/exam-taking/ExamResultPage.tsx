@@ -1,6 +1,6 @@
 import React from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Award,
   CheckCircle2,
@@ -9,19 +9,30 @@ import {
   ArrowLeft,
   BookOpen,
   HelpCircle,
+  RotateCcw,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { PageSpinner } from '@/components/ui/Spinner';
-import { assignmentApi } from '@/services/api';
+import { assignmentApi, getErrorMessage } from '@/services/api';
 import type { AttemptResult, ResponseDetail } from '@/types';
 
 export function ExamResultPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
+  const navigate = useNavigate();
 
   const { data, isLoading } = useQuery({
     queryKey: ['attempt-result', attemptId],
     queryFn: () => assignmentApi.result(attemptId!),
     enabled: !!attemptId,
+  });
+
+  const retryMutation = useMutation({
+    mutationFn: (assignmentId: string) => assignmentApi.retry(assignmentId),
+    onSuccess: (res) => {
+      navigate(`/exam-taking/${res.data.attempt_id}`);
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
   });
 
   const result: AttemptResult | undefined = data?.data;
@@ -44,6 +55,18 @@ export function ExamResultPage() {
               Quay lại danh sách bài tập
             </Button>
           </Link>
+
+          {result.can_retry && result.assignment_id && (
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-sm"
+              size="sm"
+              loading={retryMutation.isPending}
+              onClick={() => retryMutation.mutate(result.assignment_id!)}
+            >
+              <RotateCcw className="h-4 w-4 mr-1.5" />
+              Làm lại bài tập này
+            </Button>
+          )}
         </div>
 
         {/* Score Summary Card */}
@@ -55,15 +78,26 @@ export function ExamResultPage() {
           }`}
         >
           <div className="max-w-md mx-auto space-y-3">
-            <span
-              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                isPassed
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-amber-100 text-amber-800'
-              }`}
-            >
-              {isPassed ? '🎉 Kết Quả: ĐẠT' : '⚠️ Kết Quả: CHƯA ĐẠT'}
-            </span>
+            <div className="flex items-center justify-center gap-2">
+              <span
+                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                  isPassed
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-amber-100 text-amber-800'
+                }`}
+              >
+                {isPassed ? '🎉 Kết Quả: ĐẠT' : '⚠️ Kết Quả: CHƯA ĐẠT'}
+              </span>
+              {result.assignment_type === 'homework' ? (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
+                  📝 Bài tập (Lần {result.attempt_number || 1})
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800">
+                  ⏱️ Bài kiểm tra chính thức
+                </span>
+              )}
+            </div>
 
             <h1 className="text-2xl font-bold text-gray-900">
               {result.assignment_name}

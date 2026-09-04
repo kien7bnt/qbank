@@ -1,7 +1,7 @@
 from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 from sqlalchemy import (
     Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text
@@ -42,9 +42,11 @@ class Question(Base):
         ForeignKey("learning_objectives.id", ondelete="SET NULL"), nullable=True
     )
 
-    # Test properties
+    # Test properties & Psychometrics
     bloom_level: Mapped[str | None] = mapped_column(String(30), nullable=True)
     expected_difficulty: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    actual_difficulty: Mapped[float | None] = mapped_column(Float, nullable=True)  # Item Facility (IF 0.0 - 1.0)
+    discrimination_index: Mapped[float | None] = mapped_column(Float, nullable=True)  # Item Discrimination (ID -1.0 to 1.0)
 
     # Versioning
     version: Mapped[int] = mapped_column(Integer, default=1)
@@ -113,11 +115,15 @@ class QuestionEssay(Base):
     question_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("questions.id", ondelete="CASCADE"), primary_key=True
     )
+    rubric_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("rubrics.id", ondelete="SET NULL"), nullable=True
+    )
     sample_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
-    rubric: Mapped[Any] = mapped_column(JSON, nullable=True)  # {criteria: [{name, points}]}
+    rubric: Mapped[Any] = mapped_column(JSON, nullable=True)  # Legacy or quick rubric json
     max_points: Mapped[float] = mapped_column(Float, default=10.0)
 
     question: Mapped["Question"] = relationship(back_populates="essay_data")
+    rubric_entity: Mapped[Optional["Rubric"]] = relationship("Rubric", lazy="selectin")  # type: ignore[name-defined]
 
 
 class QuestionCoding(Base):

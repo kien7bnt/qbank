@@ -5,12 +5,26 @@ import type {
   Class,
   ClassCreate,
   ClassMember,
+  ClassSession,
+  ClassSessionCreate,
+  SessionMaterial,
   Question,
   QuestionListItem,
   QuestionFilter,
   PaginatedResponse,
   Subject,
   CurriculumTree,
+  Rubric,
+  RubricCreate,
+  EssayGrading,
+  EssayGradingReview,
+  MatrixGridValidateRequest,
+  MatrixGridValidateResult,
+  ExamVariant,
+  GenerateVariantsRequest,
+  ExamAnalyticsOverview,
+  ExamStudentResult,
+  ExamQuestionPsychometrics,
 } from '@/types';
 
 const API_HOST = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
@@ -50,6 +64,9 @@ export const authApi = {
   login: (email: string, password: string) =>
     apiClient.post<TokenResponse>('/auth/login', { email, password }),
 
+  loginGoogle: (credential: string) =>
+    apiClient.post<TokenResponse>('/auth/google', { credential }),
+
   register: (data: { email: string; full_name: string; password: string; role?: string }) =>
     apiClient.post<User>('/auth/register', data),
 
@@ -58,6 +75,7 @@ export const authApi = {
   refresh: (refresh_token: string) =>
     apiClient.post<TokenResponse>('/auth/refresh', { refresh_token }),
 };
+
 
 // ─── Classes API ──────────────────────────────────────────────────────────────
 export const classApi = {
@@ -89,6 +107,36 @@ export const classApi = {
 
   removeMember: (classId: string, userId: string) =>
     apiClient.delete(`/classes/${classId}/members/${userId}`),
+
+  delete: (id: string) => apiClient.delete(`/classes/${id}`),
+};
+
+// ─── Class Sessions & Materials API ───────────────────────────────────────────
+export const sessionApi = {
+  list: (classId: string) => apiClient.get<ClassSession[]>(`/classes/${classId}/sessions`),
+
+  create: (classId: string, data: ClassSessionCreate) =>
+    apiClient.post<ClassSession>(`/classes/${classId}/sessions`, data),
+
+  get: (sessionId: string) => apiClient.get<ClassSession>(`/sessions/${sessionId}`),
+
+  update: (sessionId: string, data: Partial<ClassSessionCreate>) =>
+    apiClient.patch<ClassSession>(`/sessions/${sessionId}`, data),
+
+  delete: (sessionId: string) => apiClient.delete(`/sessions/${sessionId}`),
+
+  reorder: (classId: string, sessionIds: string[]) =>
+    apiClient.post<{ message: string }>(`/classes/${classId}/sessions/reorder`, { session_ids: sessionIds }),
+
+  uploadMaterial: (sessionId: string, formData: FormData) =>
+    apiClient.post<SessionMaterial>(`/sessions/${sessionId}/materials`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+
+  deleteMaterial: (materialId: string) => apiClient.delete(`/materials/${materialId}`),
+
+  toggleMaterialVisibility: (materialId: string, isPublic: boolean) =>
+    apiClient.patch<SessionMaterial>(`/materials/${materialId}/visibility?is_public=${isPublic}`),
 };
 
 // ─── Questions API ────────────────────────────────────────────────────────────
@@ -100,6 +148,17 @@ export const questionApi = {
 
   create: (data: object) => apiClient.post<Question>('/questions', data),
 
+  createBatch: (data: { chapter_id?: string; topic_id?: string; questions: any[] }) =>
+    apiClient.post<{ total_created: number; created_ids: string[]; message: string }>('/questions/batch', data),
+
+  parseFile: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post<{ raw_text: string; questions: any[]; total: number }>('/questions/parse-file', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
   update: (id: string, data: object) => apiClient.patch<Question>(`/questions/${id}`, data),
 
   delete: (id: string) => apiClient.delete(`/questions/${id}`),
@@ -110,7 +169,7 @@ export const questionApi = {
   versions: (id: string) => apiClient.get(`/questions/${id}/versions`),
 };
 
-// ─── Curriculum / Domains API ───────────────────────────────────────────────
+// ─── Curriculum / Domains & Interactive Tree API ──────────────────────────────
 export const domainApi = {
   list: () => apiClient.get('/curriculum/domains'),
 
@@ -136,6 +195,42 @@ export const curriculumApi = {
 
   tree: (subjectId: string) =>
     apiClient.get<CurriculumTree>(`/curriculum/subjects/${subjectId}/tree`),
+
+  getTreeWithCounts: (subjectId: string) =>
+    apiClient.get<any>(`/curriculum/tree?subject_id=${subjectId}`),
+
+  createNode: (data: { type: 'subject' | 'chapter' | 'topic' | 'lesson'; name: string; parent_id?: string; subject_id?: string; order_index?: number }) =>
+    apiClient.post<any>('/curriculum/nodes', data),
+
+  updateNode: (nodeId: string, data: { type: 'subject' | 'chapter' | 'topic' | 'lesson'; name: string; order_index?: number }) =>
+    apiClient.patch<any>(`/curriculum/nodes/${nodeId}`, data),
+
+  deleteNode: (type: 'subject' | 'chapter' | 'topic' | 'lesson', nodeId: string) =>
+    apiClient.delete<any>(`/curriculum/nodes/${type}/${nodeId}`),
+
+};
+
+// ─── Rubrics & AI Essay Grading API ───────────────────────────────────────────
+export const rubricApi = {
+  list: (params?: { subject_id?: string }) =>
+    apiClient.get<Rubric[]>('/rubrics', { params }),
+
+  get: (id: string) => apiClient.get<Rubric>(`/rubrics/${id}`),
+
+  create: (data: RubricCreate) => apiClient.post<Rubric>('/rubrics', data),
+
+  update: (id: string, data: Partial<RubricCreate>) => apiClient.patch<Rubric>(`/rubrics/${id}`, data),
+
+  delete: (id: string) => apiClient.delete(`/rubrics/${id}`),
+
+  gradeEssay: (responseId: string, rubricId?: string) =>
+    apiClient.post<EssayGrading>(`/essay-grading/${responseId}/grade`, { rubric_id: rubricId }),
+
+  getEssayGrading: (responseId: string) =>
+    apiClient.get<EssayGrading>(`/essay-grading/${responseId}`),
+
+  reviewEssay: (gradingId: string, data: { new_score: number; comment?: string; action?: 'override' | 'confirm' }) =>
+    apiClient.post<EssayGradingReview>(`/essay-grading/${gradingId}/review`, data),
 };
 
 // ─── Exam Matrix API ─────────────────────────────────────────────────────────
@@ -153,6 +248,9 @@ export const examMatrixApi = {
 
   generateExam: (id: string, data: { name: string; class_id?: string }) =>
     apiClient.post(`/exam-matrices/${id}/generate-exam`, data),
+
+  validateGrid: (data: MatrixGridValidateRequest) =>
+    apiClient.post<MatrixGridValidateResult>('/exam-matrices/validate', data),
 };
 
 // ─── Exam API ────────────────────────────────────────────────────────────────
@@ -174,19 +272,44 @@ export const examApi = {
   }) => apiClient.post('/exams/from-questions', data),
 
   delete: (id: string) => apiClient.delete(`/exams/${id}`),
+
+  generateVariants: (examId: string, data: GenerateVariantsRequest) =>
+    apiClient.post<ExamVariant[]>(`/exams/${examId}/variants`, data),
+
+  getVariants: (examId: string) =>
+    apiClient.get<ExamVariant[]>(`/exams/${examId}/variants`),
 };
+
+// ─── Exam Analytics API ───────────────────────────────────────────────────────
+export const examAnalyticsApi = {
+  getOverview: (examId: string) =>
+    apiClient.get<ExamAnalyticsOverview>(`/analytics/exams/${examId}/overview`),
+
+  getStudents: (examId: string) =>
+    apiClient.get<ExamStudentResult[]>(`/analytics/exams/${examId}/students`),
+
+  getQuestions: (examId: string) =>
+    apiClient.get<ExamQuestionPsychometrics[]>(`/analytics/exams/${examId}/questions`),
+};
+
 
 // ─── Assignment API ──────────────────────────────────────────────────────────
 export const assignmentApi = {
-  list: (params?: { class_id?: string }) => apiClient.get('/assignments', { params }),
+  list: (params?: { class_id?: string; session_id?: string }) => apiClient.get('/assignments', { params }),
 
   get: (id: string) => apiClient.get(`/assignments/${id}`),
 
   create: (data: any) => apiClient.post('/assignments', data),
 
+  update: (id: string, data: any) => apiClient.patch(`/assignments/${id}`, data),
+
+  delete: (id: string) => apiClient.delete(`/assignments/${id}`),
+
   submissions: (id: string) => apiClient.get(`/assignments/${id}/submissions`),
 
   start: (assignmentId: string) => apiClient.post(`/assignments/${assignmentId}/start`),
+
+  retry: (assignmentId: string) => apiClient.post(`/assignments/${assignmentId}/retry`),
 
   saveResponse: (attemptId: string, data: { question_id: string; selected_option_id?: string; text_response?: string }) =>
     apiClient.post(`/attempts/${attemptId}/responses`, data),

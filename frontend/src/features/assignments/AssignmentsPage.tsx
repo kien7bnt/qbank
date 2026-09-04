@@ -10,6 +10,10 @@ import {
   Users,
   Award,
   ArrowRight,
+  Trash2,
+  Calendar,
+  RotateCcw,
+  BookOpen,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -26,6 +30,7 @@ import type { Assignment } from '@/types';
 
 export function AssignmentsPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { user } = useAuthStore();
   const isTeacher = user?.roles.includes('teacher') || user?.roles.includes('admin');
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -40,6 +45,23 @@ export function AssignmentsPage() {
     mutationFn: (assignmentId: string) => assignmentApi.start(assignmentId),
     onSuccess: (res) => {
       navigate(`/exam-taking/${res.data.attempt_id}`);
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  const retryExamMutation = useMutation({
+    mutationFn: (assignmentId: string) => assignmentApi.retry(assignmentId),
+    onSuccess: (res) => {
+      navigate(`/exam-taking/${res.data.attempt_id}`);
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  const deleteAssignmentMutation = useMutation({
+    mutationFn: (assignmentId: string) => assignmentApi.delete(assignmentId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['assignments'] });
+      toast.success('Đã xóa bài kiểm tra thành công!');
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
@@ -104,19 +126,50 @@ export function AssignmentsPage() {
                 className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
               >
                 <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    {assignment.assignment_type === 'homework' ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 inline-flex items-center gap-1">
+                        <BookOpen className="h-3 w-3" /> Bài tập (Rèn luyện)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> Bài kiểm tra (Chính thức)
+                      </span>
+                    )}
+                  </div>
+
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="font-bold text-gray-900 text-base leading-snug">
                       {assignment.name}
                     </h3>
-                    <span
-                      className={`text-xs font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${
-                        assignment.status === 'published'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {assignment.status === 'published' ? 'Đang mở' : 'Đã đóng'}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className={`text-xs font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                          assignment.status === 'published'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {assignment.status === 'published' ? 'Đang mở' : 'Đã đóng'}
+                      </span>
+                      {isTeacher && (
+                        <button
+                          title="Xóa bài kiểm tra này"
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `Bạn có chắc muốn xóa bài kiểm tra "${assignment.name}"? Toàn bộ kết quả bài nộp của học sinh cũng sẽ bị xóa.`
+                              )
+                            ) {
+                              deleteAssignmentMutation.mutate(assignment.id);
+                            }
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-3 space-y-1.5 text-xs text-gray-500">
@@ -124,6 +177,12 @@ export function AssignmentsPage() {
                       <GraduationCap className="h-3.5 w-3.5 text-gray-400" />
                       <span>Lớp: <strong className="text-gray-700">{assignment.class_name || 'Toàn trường'}</strong></span>
                     </div>
+                    {assignment.session_name && (
+                      <div className="flex items-center gap-1.5 text-primary-700 font-medium">
+                        <Calendar className="h-3.5 w-3.5 text-primary-500" />
+                        <span>Buổi học: <strong className="text-primary-700">{assignment.session_name}</strong></span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-1.5">
                       <Clock className="h-3.5 w-3.5 text-gray-400" />
                       <span>{assignment.duration_minutes} phút</span>
@@ -148,15 +207,41 @@ export function AssignmentsPage() {
                       Xem bài nộp học sinh ({assignment.total_submissions ?? 0})
                     </Button>
                   ) : isCompleted ? (
-                    <Button
-                      variant="secondary"
-                      className="w-full"
-                      size="sm"
-                      onClick={() => navigate(`/exam-result/${attempt?.id}`)}
-                    >
-                      <CheckCircle2 className="h-4 w-4 mr-1.5 text-green-600" />
-                      Xem lời giải & kết quả
-                    </Button>
+                    assignment.assignment_type === 'homework' ? (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="secondary"
+                          className="flex-1 text-xs"
+                          size="sm"
+                          onClick={() => navigate(`/exam-result/${attempt?.id}`)}
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-green-600" />
+                          Xem kết quả
+                        </Button>
+                        <Button
+                          className="flex-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                          size="sm"
+                          loading={
+                            retryExamMutation.isPending &&
+                            retryExamMutation.variables === assignment.id
+                          }
+                          onClick={() => retryExamMutation.mutate(assignment.id)}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                          Làm lại bài tập
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        className="w-full text-xs font-semibold"
+                        size="sm"
+                        onClick={() => navigate(`/exam-result/${attempt?.id}`)}
+                      >
+                        <CheckCircle2 className="h-4 w-4 mr-1.5 text-green-600" />
+                        Xem kết quả (Đã hoàn tất)
+                      </Button>
+                    )
                   ) : (
                     <Button
                       className="w-full"

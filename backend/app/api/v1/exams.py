@@ -8,11 +8,22 @@ from app.core.dependencies import get_db, get_current_user
 from app.schemas.exam import (
     ExamMatrixCreate, ExamMatrixOut, ExamMatrixUpdate,
     ExamCreate, ExamOut, ExamUpdate, GenerateExamRequest, AutoSelectRequest,
-    CreateExamFromQuestionsRequest
+    CreateExamFromQuestionsRequest, MatrixGridValidateRequest, MatrixGridValidateResult,
+    GenerateVariantsRequest, ExamVariantOut
 )
-from app.services import exam_service
+from app.services import exam_service, matrix_service
 
 router = APIRouter(tags=["exams"])
+
+
+@router.post("/exam-matrices/validate", response_model=MatrixGridValidateResult)
+async def validate_matrix_grid(
+    data: MatrixGridValidateRequest,
+    current_user = Depends(get_current_user),
+):
+    """Kiểm tra tính hợp lệ của Ma trận 2D (Tổng số câu, Tổng điểm, Tỷ lệ Bloom, Độ khó)"""
+    return matrix_service.validate_matrix_grid(data)
+
 
 
 @router.post("/exam-matrices", response_model=ExamMatrixOut, status_code=status.HTTP_201_CREATED)
@@ -209,3 +220,32 @@ async def delete_exam(
     success = await exam_service.delete_exam(db, exam_id)
     if not success:
         raise HTTPException(status_code=404, detail="Không tìm thấy đề thi")
+
+
+@router.post("/exams/{exam_id}/variants", response_model=List[ExamVariantOut])
+@router.post("/exams/{exam_id}/generate-variants", response_model=List[ExamVariantOut])
+async def generate_variants(
+    exam_id: uuid.UUID,
+    data: GenerateVariantsRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Sinh nhiều mã đề thi (001, 002, 003, ...) với xáo trộn câu hỏi và đáp án"""
+    if not current_user.has_role("teacher", "admin"):
+        raise HTTPException(status_code=403, detail="Chỉ giáo viên được tạo mã đề")
+    return await matrix_service.generate_exam_variants(db, exam_id, data, current_user)
+
+
+@router.get("/exams/{exam_id}/variants", response_model=List[ExamVariantOut])
+async def get_exam_variants(
+    exam_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Lấy danh sách các mã đề thi đã được sinh của đề thi"""
+    from sqlalchemy import select
+    from app.models.exam import ExamVariant
+    stmt = select(ExamVariant).where(ExamVariant.exam_id == exam_id).order_by(ExamVariant.variant_code)
+    res = await db.execute(stmt)
+    return res.scalars().all()
+

@@ -116,7 +116,7 @@ export function Sidebar() {
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="text-base font-bold text-gray-900 leading-none">QBank</span>
+              <span className="text-base font-bold text-gray-900 leading-none">Edumate</span>
               <span className="text-[10px] text-gray-400 font-medium mt-0.5">
                 {isStudent ? 'Cổng Học Sinh' : 'Cổng Khảo Thí'}
               </span>

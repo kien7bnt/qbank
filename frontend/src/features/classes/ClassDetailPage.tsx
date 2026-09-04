@@ -12,6 +12,9 @@ import {
   CheckCircle2,
   Mail,
   UserCheck,
+  FolderKanban,
+  FileCheck2,
+  Edit,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -23,6 +26,8 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { ClassStatusBadge } from '@/components/ui/Badge';
 import { PageSpinner } from '@/components/ui/Spinner';
+import { ClassSessionsTab } from './ClassSessionsTab';
+import { EditClassModal } from './EditClassModal';
 
 export function ClassDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -31,7 +36,10 @@ export function ClassDetailPage() {
   const { user } = useAuthStore();
   const isTeacher = user?.roles.includes('teacher') || user?.roles.includes('admin');
 
+  const [activeTab, setActiveTab] = useState<'sessions' | 'members'>('sessions');
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [studentEmail, setStudentEmail] = useState('');
 
   const { data: classData, isLoading: isLoadingClass } = useQuery({
@@ -70,6 +78,17 @@ export function ClassDetailPage() {
     onError: (err) => toast.error(getErrorMessage(err)),
   });
 
+  // Delete Class Mutation
+  const deleteClassMutation = useMutation({
+    mutationFn: () => classApi.delete(id!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['classes'] });
+      toast.success('Đã xóa lớp học thành công!');
+      navigate('/classes');
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     toast.success(`Đã sao chép mã lớp: ${code}`);
@@ -92,7 +111,7 @@ export function ClassDetailPage() {
         Quay lại danh sách lớp
       </Button>
 
-      {/* Class info */}
+      {/* Class info banner */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
@@ -112,10 +131,31 @@ export function ClassDetailPage() {
           </div>
 
           {isTeacher && (
-            <Button onClick={() => setAddModalOpen(true)}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              Thêm học sinh
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setEditModalOpen(true)}
+              >
+                <Edit className="h-4 w-4 mr-1.5 text-gray-600" />
+                Chỉnh sửa
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setAddModalOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Thêm học sinh
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setDeleteConfirmOpen(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                Xóa lớp
+              </Button>
+            </div>
           )}
         </div>
 
@@ -143,19 +183,52 @@ export function ClassDetailPage() {
         </div>
       </div>
 
-      {/* Members table */}
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-          <h2 className="font-bold text-gray-900 text-base">
-            Danh sách học viên ({members.filter((m: any) => m.role === 'student').length})
-          </h2>
-          {isTeacher && (
-            <Button size="sm" variant="outline" onClick={() => setAddModalOpen(true)}>
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              Thêm học viên
-            </Button>
-          )}
-        </div>
+      {/* Tabs Navigation */}
+      <div className="flex border-b border-gray-200 gap-6">
+        <button
+          onClick={() => setActiveTab('sessions')}
+          className={`flex items-center gap-2 pb-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'sessions'
+              ? 'border-primary-600 text-primary-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          <FolderKanban className="h-4 w-4" />
+          <span>Buổi học & Tài liệu</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('members')}
+          className={`flex items-center gap-2 pb-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'members'
+              ? 'border-primary-600 text-primary-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          <Users className="h-4 w-4" />
+          <span>Danh sách học viên ({members.filter((m: any) => m.role === 'student').length})</span>
+        </button>
+      </div>
+
+      {/* Tab Contents */}
+      {activeTab === 'sessions' && (
+        <ClassSessionsTab classId={id!} isTeacher={Boolean(isTeacher)} />
+      )}
+
+      {activeTab === 'members' && (
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+            <h2 className="font-bold text-gray-900 text-base">
+              Danh sách học viên ({members.filter((m: any) => m.role === 'student').length})
+            </h2>
+            {isTeacher && (
+              <Button size="sm" variant="outline" onClick={() => setAddModalOpen(true)}>
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Thêm học viên
+              </Button>
+            )}
+          </div>
+
 
         {isLoadingMembers ? (
           <PageSpinner />
@@ -226,8 +299,10 @@ export function ClassDetailPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Add Student Modal */}
+
       <Modal
         open={addModalOpen}
         onOpenChange={setAddModalOpen}
@@ -271,6 +346,41 @@ export function ClassDetailPage() {
             Học sinh cần có tài khoản trên hệ thống. Hoặc bạn có thể gửi <strong>Mã lớp: {c.code}</strong> để học sinh tự nhập mã tham gia.
           </p>
         </div>
+      </Modal>
+
+      {/* Edit Class Modal */}
+      {c && (
+        <EditClassModal
+          class_={c}
+          open={editModalOpen}
+          onOpenChange={setEditModalOpen}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Xác nhận xóa lớp học"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeleteConfirmOpen(false)}>
+              Hủy
+            </Button>
+            <Button
+              variant="danger"
+              loading={deleteClassMutation.isPending}
+              onClick={() => deleteClassMutation.mutate()}
+            >
+              Xác nhận xóa
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-gray-600">
+          Bạn có chắc chắn muốn xóa lớp học <strong>{c.name}</strong> ({c.code}) không? Tất cả các buổi học, bài tập và thành viên của lớp này sẽ bị xóa. Hành động này không thể hoàn tác!
+        </p>
       </Modal>
     </div>
   );

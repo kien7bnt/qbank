@@ -140,3 +140,86 @@ async def get_subject_tree(
     if not tree:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy môn học")
     return tree
+
+
+# ─── Full Tree & Node Management Endpoints ────────────────────────────────────
+
+@router.get("/tree")
+async def get_full_tree(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Lấy toàn bộ cây Ngân hàng Câu hỏi kèm số lượng câu hỏi động tại từng cấp"""
+    return await curriculum_service.get_full_curriculum_tree(db)
+
+
+class NodeCreateReq(BaseModel):
+    node_type: str = Field(..., description="subject | chapter | topic | lesson")
+    name: str = Field(..., max_length=255)
+    code: Optional[str] = None
+    description: Optional[str] = None
+    parent_id: Optional[uuid.UUID] = None
+    order_index: int = 1
+
+
+@router.post("/nodes", status_code=status.HTTP_201_CREATED)
+async def create_node(
+    data: NodeCreateReq,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Tạo mới một node trong cây ngân hàng câu hỏi"""
+    if not current_user.has_role("admin", "teacher"):
+        raise HTTPException(status_code=403, detail="Chỉ giáo viên/admin mới có quyền tạo node")
+
+    nt = data.node_type.lower()
+    if nt == "subject":
+        from app.models.curriculum import Subject
+        sub = Subject(name=data.name.strip(), code=data.code or data.name[:4].upper(), description=data.description)
+        db.add(sub)
+        await db.commit()
+        return {"id": str(sub.id), "name": sub.name, "type": "subject"}
+    elif nt == "chapter":
+        if not data.parent_id:
+            # Assign to first subject or create default
+            sub = await curriculum_service.get_default_subject(db)
+            data.parent_id = sub.id
+        from app.models.curriculum import Chapter
+        ch = Chapter(name=data.name.strip(), subject_id=data.parent_id, description=data.description, order_index=data.order_index)
+        db.add(ch)
+        await db.commit()
+        return {"id": str(ch.id), "name": ch.name, "type": "chapter"}
+    elif nt == "topic":
+        if not data.parent_id:
+            raise HTTPException(status_code=400, detail="Chủ đề cần thuộc về một Chương (parent_id)")
+        from app.models.curriculum import Topic
+        tp = Topic(name=data.name.strip(), chapter_id=data.parent_id, order_index=data.order_index)
+        db.add(tp)
+        await db.commit()
+        return {"id": str(tp.id), "name": tp.name, "type": "topic"}
+    elif nt == "lesson":
+        if not data.parent_id:
+            raise HTTPException(status_code=400, detail="Bài học cần thuộc về một Chủ đề (parent_id)")
+        from app.models.curriculum import Lesson
+        ls = Lesson(name=data.name.strip(), topic_id=data.parent_id, order_index=data.order_index)
+        db.add(ls)
+        await db.commit()
+        return {"id": str(ls.id), "name": ls.name, "type": "lesson"}
+    else:
+        raise HTTPException(status_code=400, detail=f"Loại node không hợp lệ: {data.node_type}")
+
+
+@router.delete("/nodes/{node_type}/{node_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_node(
+    node_type: str,
+    node_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Xóa node trong cây ngân hàng câu hỏi"""
+    if not current_user.has_role("admin", "teacher"):
+        raise HTTPException(status_code=403, detail="Chỉ giáo viên/admin mới có quyền xóa node")
+    success = await curriculum_service.delete_curriculum_node(db, node_type.lower(), node_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Không tìm thấy node để xóa")
+

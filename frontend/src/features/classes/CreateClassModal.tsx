@@ -76,6 +76,22 @@ export function CreateClassModal({ open, onOpenChange }: CreateClassModalProps) 
           required
         />
 
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Môn học / Lĩnh vực</label>
+          <select
+            value={form.subject_id}
+            onChange={(e) => update('subject_id', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="">— Chưa gắn môn học —</option>
+            {subjects?.data?.map((s: any) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <Input
             label="Ngày bắt đầu"

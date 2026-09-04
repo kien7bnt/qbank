@@ -10,8 +10,10 @@ from sqlalchemy.orm import selectinload
 from app.models.question import (
     Question, QuestionCoding, QuestionEssay, QuestionOption, QuestionVersion
 )
+from app.models.curriculum import Chapter
 from app.schemas.question import (
-    BulkActionRequest, QuestionCreate, QuestionListItem, QuestionUpdate, QuestionVersionOut
+    BulkActionRequest, QuestionCreate, QuestionListItem, QuestionUpdate, QuestionVersionOut,
+    QuestionBatchCreateRequest, QuestionBatchCreateResponse,
 )
 
 
@@ -92,6 +94,92 @@ async def create_question(
     return q or question
 
 
+async def create_questions_batch(
+    db: AsyncSession, data: QuestionBatchCreateRequest, user_id: uuid.UUID
+) -> QuestionBatchCreateResponse:
+    created_ids: list[uuid.UUID] = []
+    
+    result = await db.execute(select(func.count()).select_from(Question))
+    count = result.scalar_one()
+
+    for q_data in data.questions:
+        count += 1
+        item_id = f"Q{count:04d}"
+
+        chapter_id = q_data.chapter_id or data.chapter_id
+        topic_id = q_data.topic_id or data.topic_id
+        subject_id = q_data.subject_id or data.subject_id
+
+        question = Question(
+            item_id=item_id,
+            type=q_data.type or "mcq",
+            status="draft",
+            stem=q_data.stem,
+            rationale=q_data.rationale,
+            subject_id=subject_id,
+            chapter_id=chapter_id,
+            topic_id=topic_id,
+            lesson_id=q_data.lesson_id,
+            learning_objective_id=q_data.learning_objective_id,
+            bloom_level=q_data.bloom_level or "understand",
+            expected_difficulty=q_data.expected_difficulty or "medium",
+            created_by=user_id,
+            version=1,
+        )
+        db.add(question)
+        await db.flush()
+        created_ids.append(question.id)
+
+        # MCQ options
+        if (q_data.type or "mcq") == "mcq" and q_data.options:
+            for idx, opt_data in enumerate(q_data.options):
+                option = QuestionOption(
+                    question_id=question.id,
+                    label=opt_data.label,
+                    text=opt_data.text,
+                    is_correct=opt_data.is_correct,
+                    distractor_reason=opt_data.distractor_reason,
+                    order_index=idx,
+                )
+                db.add(option)
+
+        # Essay
+        if q_data.type == "essay" and q_data.essay_data:
+            essay = QuestionEssay(
+                question_id=question.id,
+                sample_answer=q_data.essay_data.sample_answer,
+                rubric=q_data.essay_data.rubric,
+                max_points=q_data.essay_data.max_points,
+            )
+            db.add(essay)
+
+        # Coding
+        if q_data.type == "coding" and q_data.coding_data:
+            coding = QuestionCoding(
+                question_id=question.id,
+                **q_data.coding_data.model_dump(),
+            )
+            db.add(coding)
+
+        # Snapshot
+        snapshot = q_data.model_dump()
+        snapshot["item_id"] = item_id
+        version = QuestionVersion(
+            question_id=question.id,
+            version_number=1,
+            snapshot=snapshot,
+            changed_by=user_id,
+        )
+        db.add(version)
+
+    await db.commit()
+    return QuestionBatchCreateResponse(
+        total_created=len(created_ids),
+        created_ids=created_ids,
+        message=f"Đã tạo thành công {len(created_ids)} câu hỏi vào ngân hàng"
+    )
+
+
 async def get_question(db: AsyncSession, question_id: uuid.UUID) -> Optional[Question]:
     result = await db.execute(
         select(Question)
@@ -125,6 +213,7 @@ async def list_questions(
     query = (
         select(Question)
         .options(
+            selectinload(Question.options),
             selectinload(Question.subject),
             selectinload(Question.chapter),
             selectinload(Question.topic),
@@ -238,10 +327,16 @@ async def bulk_action(
     data: BulkActionRequest,
     user_id: uuid.UUID,
 ) -> dict:
-    question_ids = data.question_ids
+    question_ids = [
+        uuid.UUID(str(qid)) if not isinstance(qid, uuid.UUID) else qid
+        for qid in data.question_ids
+    ]
     action = data.action
-    payload = data.payload
+    payload = data.payload or {}
     updated = 0
+
+    if not question_ids:
+        return {"updated": 0, "action": action}
 
     if action in ("archive", "delete"):
         stmt = (
@@ -262,13 +357,35 @@ async def bulk_action(
         updated = result.rowcount
 
     elif action == "assign_topic":
-        topic_id = payload.get("topic_id")
-        chapter_id = payload.get("chapter_id")
+        raw_topic_id = payload.get("topic_id")
+        raw_chapter_id = payload.get("chapter_id")
+        raw_subject_id = payload.get("subject_id")
         vals = {}
-        if topic_id:
-            vals["topic_id"] = topic_id
-        if chapter_id:
-            vals["chapter_id"] = chapter_id
+
+        if raw_topic_id:
+            try:
+                vals["topic_id"] = uuid.UUID(str(raw_topic_id))
+            except Exception:
+                vals["topic_id"] = raw_topic_id
+
+        if raw_chapter_id:
+            try:
+                ch_uuid = uuid.UUID(str(raw_chapter_id))
+                vals["chapter_id"] = ch_uuid
+                # Automatically link subject_id if chapter belongs to a subject
+                ch_stmt = select(Chapter.subject_id).where(Chapter.id == ch_uuid)
+                ch_subj = (await db.execute(ch_stmt)).scalar_one_or_none()
+                if ch_subj:
+                    vals["subject_id"] = ch_subj
+            except Exception:
+                vals["chapter_id"] = raw_chapter_id
+
+        if raw_subject_id:
+            try:
+                vals["subject_id"] = uuid.UUID(str(raw_subject_id))
+            except Exception:
+                vals["subject_id"] = raw_subject_id
+
         if vals:
             stmt = update(Question).where(Question.id.in_(question_ids)).values(**vals)
             result = await db.execute(stmt)
