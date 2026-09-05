@@ -2,6 +2,7 @@ from __future__ import annotations
 import uuid
 from typing import Optional
 
+from sqlalchemy.orm import selectinload
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,12 +12,20 @@ from app.schemas.auth import RegisterRequest
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.user_roles).selectinload(UserRole.role))
+        .where(User.email == email)
+    )
     return result.scalar_one_or_none()
 
 
 async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID) -> Optional[User]:
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.user_roles).selectinload(UserRole.role))
+        .where(User.id == user_id)
+    )
     return result.scalar_one_or_none()
 
 
@@ -57,8 +66,7 @@ async def create_user(db: AsyncSession, data: RegisterRequest) -> User:
             db.add(UserRole(user_id=user.id, role_id=role.id))
 
     await db.commit()
-    await db.refresh(user)
-    return user
+    return await get_user_by_id(db, user.id)
 
 
 async def authenticate_google_user(db: AsyncSession, id_token_str: str, role_name: str = "student") -> User:
@@ -157,7 +165,9 @@ async def authenticate_google_user(db: AsyncSession, id_token_str: str, role_nam
             raise HTTPException(status_code=403, detail="Tài khoản này đã bị khóa")
 
         # Ensure user has both teacher and student roles
-        existing_roles = {ur.role.name for ur in (user.user_roles or [])}
+        roles_stmt = select(UserRole).options(selectinload(UserRole.role)).where(UserRole.user_id == user.id)
+        roles_res = await db.execute(roles_stmt)
+        existing_roles = {ur.role.name for ur in roles_res.scalars().all() if ur.role}
         for r_name in ["teacher", "student"]:
             if r_name not in existing_roles:
                 r_res = await db.execute(select(Role).where(Role.name == r_name))
@@ -165,8 +175,7 @@ async def authenticate_google_user(db: AsyncSession, id_token_str: str, role_nam
                 if role_obj:
                     db.add(UserRole(user_id=user.id, role_id=role_obj.id))
         await db.commit()
-        await db.refresh(user)
-        return user
+        return await get_user_by_id(db, user.id)
 
     # 3. Check if user with this email already exists
     user = await get_user_by_email(db, google_email)
@@ -184,7 +193,9 @@ async def authenticate_google_user(db: AsyncSession, id_token_str: str, role_nam
         await db.flush()
 
     # Ensure user has both teacher and student roles
-    existing_roles = {ur.role.name for ur in (user.user_roles or [])}
+    roles_stmt = select(UserRole).options(selectinload(UserRole.role)).where(UserRole.user_id == user.id)
+    roles_res = await db.execute(roles_stmt)
+    existing_roles = {ur.role.name for ur in roles_res.scalars().all() if ur.role}
     for r_name in ["teacher", "student"]:
         if r_name not in existing_roles:
             r_res = await db.execute(select(Role).where(Role.name == r_name))
@@ -202,6 +213,5 @@ async def authenticate_google_user(db: AsyncSession, id_token_str: str, role_nam
     )
     db.add(new_oauth)
     await db.commit()
-    await db.refresh(user)
-    return user
+    return await get_user_by_id(db, user.id)
 

@@ -31,10 +31,12 @@ export const useAuthStore = create<AuthState>()(
         
         // Determine default role: if user is student only -> 'student', else 'teacher'
         const currentActive = get().activeRole;
-        const isOnlyStudent = user.roles.includes('student') && !user.roles.includes('teacher') && !user.roles.includes('admin');
+        const roles = Array.isArray(user?.roles) ? user.roles : [];
+        const userWithRoles = { ...user, roles };
+        const isOnlyStudent = roles.includes('student') && !roles.includes('teacher') && !roles.includes('admin');
         const nextActive = isOnlyStudent ? 'student' : (currentActive || 'teacher');
 
-        set({ user, activeRole: nextActive, accessToken, refreshToken });
+        set({ user: userWithRoles, activeRole: nextActive, accessToken, refreshToken });
       },
 
       setActiveRole: (role) => {
@@ -57,7 +59,7 @@ export const useAuthStore = create<AuthState>()(
 
       hasRole: (...roles) => {
         const user = get().user;
-        if (!user) return false;
+        if (!user || !Array.isArray(user.roles)) return false;
         return roles.some((r) => user.roles.includes(r));
       },
     }),
