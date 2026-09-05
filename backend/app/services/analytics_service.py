@@ -40,7 +40,7 @@ async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = No
     assign_stmt = select(Assignment)
     if user_id:
         ex_stmt = ex_stmt.where(Exam.created_by == user_id)
-        assign_stmt = assign_stmt.where(Assignment.teacher_id == user_id)
+        assign_stmt = assign_stmt.where(Assignment.created_by == user_id)
     ex_count = len((await db.execute(ex_stmt)).scalars().all())
     assign_count = len((await db.execute(assign_stmt)).scalars().all())
 
@@ -48,7 +48,7 @@ async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = No
     att_stmt = select(ExamAttempt).where(ExamAttempt.status.in_(["graded", "submitted"]))
     if user_id:
         # Only attempts on assignments created by this teacher
-        att_stmt = att_stmt.join(Assignment, ExamAttempt.assignment_id == Assignment.id).where(Assignment.teacher_id == user_id)
+        att_stmt = att_stmt.join(Assignment, ExamAttempt.assignment_id == Assignment.id).where(Assignment.created_by == user_id)
     attempts = (await db.execute(att_stmt)).scalars().all()
     total_attempts = len(attempts)
 

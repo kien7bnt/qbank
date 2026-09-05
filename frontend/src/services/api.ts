@@ -195,6 +195,8 @@ export const domainApi = {
     apiClient.put(`/curriculum/topics/${id}`, data),
 
   deleteTopic: (id: string) => apiClient.delete(`/curriculum/topics/${id}`),
+
+  seedDefault: () => apiClient.post('/curriculum/seed-default'),
 };
 
 export const curriculumApi = {

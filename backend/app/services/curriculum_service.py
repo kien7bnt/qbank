@@ -345,3 +345,127 @@ async def delete_curriculum_node(db: AsyncSession, node_type: str, node_id: uuid
     await db.commit()
     return res.rowcount > 0
 
+
+DEFAULT_SUBJECTS = [
+    {"name": "Toán học", "code": "MATH", "description": "Môn Toán học phổ thông & nâng cao"},
+    {"name": "Vật lý", "code": "PHYS", "description": "Môn Vật lý"},
+    {"name": "Hóa học", "code": "CHEM", "description": "Môn Hóa học"},
+    {"name": "Ngữ văn", "code": "LIT", "description": "Môn Ngữ văn"},
+    {"name": "Tiếng Anh", "code": "ENG", "description": "Môn Tiếng Anh"},
+]
+
+DEFAULT_MATH_CURRICULUM = [
+    {
+        "name": "Chương 1: Hàm số và Đồ thị",
+        "order": 1,
+        "topics": [
+            "Tính đơn điệu của hàm số",
+            "Cực trị của hàm số",
+            "Giá trị lớn nhất và nhỏ nhất của hàm số",
+            "Đường tiệm cận của đồ thị hàm số",
+            "Khảo sát sự biến thiên và vẽ đồ thị hàm số",
+        ],
+    },
+    {
+        "name": "Chương 2: Mũ và Logarit",
+        "order": 2,
+        "topics": [
+            "Lũy thừa và hàm số lũy thừa",
+            "Logarit và hàm số logarit",
+            "Phương trình và bất phương trình mũ",
+            "Phương trình và bất phương trình logarit",
+        ],
+    },
+    {
+        "name": "Chương 3: Nguyên hàm và Tích phân",
+        "order": 3,
+        "topics": [
+            "Nguyên hàm và các phương pháp tìm nguyên hàm",
+            "Định nghĩa và tính chất của tích phân",
+            "Ứng dụng hình học của tích phân (Diện tích, Thể tích)",
+        ],
+    },
+    {
+        "name": "Chương 4: Số phức",
+        "order": 4,
+        "topics": [
+            "Số phức và các phép toán cơ bản",
+            "Tập hợp điểm biểu diễn số phức",
+            "Phương trình bậc hai với hệ số thực",
+        ],
+    },
+    {
+        "name": "Chương 5: Hình học không gian & Oxyz",
+        "order": 5,
+        "topics": [
+            "Khối đa diện và thể tích khối đa diện",
+            "Mặt nón, mặt trụ, mặt cầu",
+            "Hệ tọa độ trong không gian Oxyz",
+            "Phương trình mặt phẳng và đường thẳng",
+        ],
+    },
+]
+
+
+async def seed_default_curriculum(db: AsyncSession) -> Dict[str, Any]:
+    """Khởi tạo cây môn học, chương và chủ đề chuẩn cho lần đầu (không đè dữ liệu đã có)"""
+    subjects_created = 0
+    chapters_created = 0
+    topics_created = 0
+
+    # 1. Subjects
+    for s_data in DEFAULT_SUBJECTS:
+        stmt = select(Subject).where(Subject.code == s_data["code"])
+        res = await db.execute(stmt)
+        sub = res.scalar_one_or_none()
+        if not sub:
+            sub = Subject(name=s_data["name"], code=s_data["code"], description=s_data["description"])
+            db.add(sub)
+            await db.flush()
+            subjects_created += 1
+
+    # Find or use MATH subject
+    math_res = await db.execute(select(Subject).where(Subject.code == "MATH"))
+    math_subject = math_res.scalar_one_or_none()
+    if not math_subject:
+        math_subject = Subject(name="Toán học", code="MATH", description="Môn Toán học phổ thông")
+        db.add(math_subject)
+        await db.flush()
+
+    # 2. Chapters & Topics for MATH
+    for ch_idx, ch_info in enumerate(DEFAULT_MATH_CURRICULUM, start=1):
+        ch_stmt = select(Chapter).where(Chapter.subject_id == math_subject.id, Chapter.name == ch_info["name"])
+        ch_res = await db.execute(ch_stmt)
+        chapter = ch_res.scalar_one_or_none()
+        if not chapter:
+            chapter = Chapter(
+                subject_id=math_subject.id,
+                name=ch_info["name"],
+                order_index=ch_info.get("order", ch_idx),
+            )
+            db.add(chapter)
+            await db.flush()
+            chapters_created += 1
+
+        for tp_idx, tp_name in enumerate(ch_info["topics"], start=1):
+            tp_stmt = select(Topic).where(Topic.chapter_id == chapter.id, Topic.name == tp_name)
+            tp_res = await db.execute(tp_stmt)
+            topic = tp_res.scalar_one_or_none()
+            if not topic:
+                topic = Topic(
+                    chapter_id=chapter.id,
+                    name=tp_name,
+                    order_index=tp_idx,
+                )
+                db.add(topic)
+                await db.flush()
+                topics_created += 1
+
+    await db.commit()
+    return {
+        "message": "Đã khởi tạo cây môn học và chủ đề thành công",
+        "subjects_created": subjects_created,
+        "chapters_created": chapters_created,
+        "topics_created": topics_created,
+    }
+

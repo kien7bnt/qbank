@@ -224,3 +224,14 @@ async def delete_node(
     if not success:
         raise HTTPException(status_code=404, detail="Không tìm thấy node để xóa")
 
+
+@router.post("/seed-default")
+async def seed_default_curriculum(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Khởi tạo cây môn học và chủ đề chuẩn cho lần đầu (không đè dữ liệu cũ)"""
+    if not current_user.has_role("admin", "teacher"):
+        raise HTTPException(status_code=403, detail="Chỉ admin/giáo viên mới có quyền khởi tạo")
+    return await curriculum_service.seed_default_curriculum(db)
+

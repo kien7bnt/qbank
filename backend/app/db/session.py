@@ -145,60 +145,28 @@ async def init_db() -> None:
                     await session.flush()
                 roles_map[r_name] = role
 
-            # 2. Seed Demo Users
-            demo_users = [
-                ("admin@qbank.vn", "Admin@123", "Quản trị viên Hệ thống", ["admin", "teacher", "student"]),
-                ("teacher@qbank.vn", "Teacher@123", "Thầy Nguyễn Văn A", ["teacher", "student"]),
-                ("student@qbank.vn", "Student@123", "Học sinh Trần Văn B", ["student", "teacher"]),
-                ("student1@edumate.vn", "Student@123", "Học viên Nguyễn Văn An", ["student", "teacher"]),
-                ("student2@edumate.vn", "Student@123", "Học viên Trần Thị Bình", ["student", "teacher"]),
-                ("student3@edumate.vn", "Student@123", "Học viên Lê Hoàng Cường", ["student", "teacher"]),
-            ]
-            for email, raw_pwd, full_name, user_role_names in demo_users:
-                stmt = select(User).where(User.email == email)
-                res = await session.execute(stmt)
-                user = res.scalar_one_or_none()
-                if not user:
-                    user = User(
-                        email=email,
-                        full_name=full_name,
-                        password_hash=hash_password(raw_pwd),
-                        status="active",
-                    )
-                    session.add(user)
-                    await session.flush()
-                else:
-                    # Update password and status to guarantee active login
-                    user.password_hash = hash_password(raw_pwd)
-                    user.status = "active"
+            # 2. Only seed default admin if the database has NO users at all
+            from sqlalchemy import func
+            user_count_stmt = select(func.count()).select_from(User)
+            user_count_res = await session.execute(user_count_stmt)
+            total_users = user_count_res.scalar_one()
 
-                # Check existing roles directly from user_roles
-                ur_stmt = select(UserRole.role_id).where(UserRole.user_id == user.id)
-                ur_res = await session.execute(ur_stmt)
-                existing_role_ids = set(ur_res.scalars().all())
-
-                for r_name in user_role_names:
-                    if r_name in roles_map and roles_map[r_name].id not in existing_role_ids:
-                        session.add(UserRole(user_id=user.id, role_id=roles_map[r_name].id))
-                        existing_role_ids.add(roles_map[r_name].id)
-
-            await session.commit()
-
-            # 3. Ensure ALL existing users have both teacher and student roles for seamless role switching
-            users_stmt = select(User.id)
-            users_res = await session.execute(users_stmt)
-            for uid in users_res.scalars().all():
-                ur_stmt = select(UserRole.role_id).where(UserRole.user_id == uid)
-                ur_res = await session.execute(ur_stmt)
-                current_rids = set(ur_res.scalars().all())
-                for r_key in ["teacher", "student"]:
-                    if r_key in roles_map and roles_map[r_key].id not in current_rids:
-                        session.add(UserRole(user_id=uid, role_id=roles_map[r_key].id))
-                        current_rids.add(roles_map[r_key].id)
+            if total_users == 0:
+                admin_user = User(
+                    email="admin@qbank.vn",
+                    full_name="Quản trị viên Hệ thống",
+                    password_hash=hash_password("Admin@123"),
+                    status="active",
+                )
+                session.add(admin_user)
+                await session.flush()
+                for r_name in ["admin", "teacher", "student"]:
+                    if r_name in roles_map:
+                        session.add(UserRole(user_id=admin_user.id, role_id=roles_map[r_name].id))
 
             await session.commit()
         except Exception as e:
             import logging
-            logging.getLogger(__name__).error(f"Error seeding demo users/roles: {e}", exc_info=True)
+            logging.getLogger(__name__).error(f"Error checking initial roles/admin: {e}", exc_info=True)
             await session.rollback()
 

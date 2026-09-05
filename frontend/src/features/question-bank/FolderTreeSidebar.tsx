@@ -14,6 +14,7 @@ import {
   Plus,
   X,
   CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
@@ -146,6 +147,15 @@ export function FolderTreeSidebar({
       if (selectedFolder?.id === targetItem?.id) {
         onSelectFolder(null);
       }
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  const seedDefaultMutation = useMutation({
+    mutationFn: () => domainApi.seedDefault(),
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ['domains'] });
+      toast.success(res?.data?.message || 'Đã khởi tạo cây môn học & chủ đề chuẩn');
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
@@ -299,10 +309,22 @@ export function FolderTreeSidebar({
             <PageSpinner />
           </div>
         ) : filteredDomains.length === 0 ? (
-          <div className="py-8 text-center px-4">
+          <div className="py-8 text-center px-4 space-y-3">
             <p className="text-xs text-gray-400">
               {search ? 'Không có thư mục phù hợp' : 'Chưa có thư mục nào'}
             </p>
+            {!search && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50 w-full justify-center"
+                onClick={() => seedDefaultMutation.mutate()}
+                loading={seedDefaultMutation.isPending}
+              >
+                <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+                Khởi tạo cây chủ đề mẫu
+              </Button>
+            )}
           </div>
         ) : (
           filteredDomains.map((domain: any) => {
