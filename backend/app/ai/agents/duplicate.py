@@ -15,6 +15,10 @@ class DuplicateMatch(BaseModel):
     verdict: str = Field(..., description="exact_duplicate | near_duplicate | variation | unique")
     explanation: str
 
+    @property
+    def similarity_score(self) -> float:
+        return self.similarity_percentage / 100.0
+
 
 class DuplicateScanResult(StructuredOutput):
     target_question_id: Optional[str] = None

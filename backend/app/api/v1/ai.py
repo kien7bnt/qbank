@@ -670,7 +670,13 @@ async def run_multi_agent_pipeline(
     )
     dup_score = 0.05
     if dup_out.status == AgentStatus.SUCCESS and dup_out.data:
-        dup_score = max([m.similarity_score for m in dup_out.data.matches] or [0.05])
+        match_scores = []
+        for m in dup_out.data.matches:
+            if hasattr(m, 'similarity_percentage'):
+                match_scores.append(m.similarity_percentage / 100.0)
+            elif hasattr(m, 'similarity_score'):
+                match_scores.append(m.similarity_score)
+        dup_score = max(match_scores or [0.05])
         traces.append({
             "agent": "DuplicateDetectionAgent",
             "role": "Quét đối chiếu trùng lặp với kho dữ liệu",
