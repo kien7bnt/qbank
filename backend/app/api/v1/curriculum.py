@@ -37,7 +37,8 @@ async def list_domains_with_topics(
     current_user=Depends(get_current_user),
 ):
     """Lấy danh sách tất cả các Lĩnh vực và Chủ đề kèm số lượng câu hỏi"""
-    return await curriculum_service.list_domains_with_topics(db)
+    user_id = None if current_user.has_role("admin") else current_user.id
+    return await curriculum_service.list_domains_with_topics(db, user_id=user_id)
 
 
 @router.post("/domains", status_code=status.HTTP_201_CREATED)

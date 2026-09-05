@@ -36,13 +36,19 @@ async def get_default_subject(db: AsyncSession) -> Subject:
     return sub
 
 
-async def list_domains_with_topics(db: AsyncSession) -> List[Dict[str, Any]]:
+async def list_domains_with_topics(db: AsyncSession, user_id: Optional[uuid.UUID] = None) -> List[Dict[str, Any]]:
     """Lấy danh sách tất cả các Lĩnh vực và Chủ đề kèm số lượng câu hỏi"""
     # Count questions per topic and chapter
-    q_topic_counts_stmt = select(Question.topic_id, func.count(Question.id)).where(Question.status != "archived", Question.topic_id != None).group_by(Question.topic_id)
+    topic_conds = [Question.status != "archived", Question.topic_id != None]
+    chap_conds = [Question.status != "archived", Question.chapter_id != None]
+    if user_id:
+        topic_conds.append(Question.created_by == user_id)
+        chap_conds.append(Question.created_by == user_id)
+
+    q_topic_counts_stmt = select(Question.topic_id, func.count(Question.id)).where(*topic_conds).group_by(Question.topic_id)
     q_topic_counts = dict((await db.execute(q_topic_counts_stmt)).all())
 
-    q_chap_counts_stmt = select(Question.chapter_id, func.count(Question.id)).where(Question.status != "archived", Question.chapter_id != None).group_by(Question.chapter_id)
+    q_chap_counts_stmt = select(Question.chapter_id, func.count(Question.id)).where(*chap_conds).group_by(Question.chapter_id)
     q_chap_counts = dict((await db.execute(q_chap_counts_stmt)).all())
 
     stmt = (

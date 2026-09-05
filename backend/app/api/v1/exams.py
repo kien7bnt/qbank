@@ -45,7 +45,8 @@ async def list_matrices(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    return await exam_service.list_matrices(db, subject_id, class_id)
+    user_id = None if current_user.has_role("admin") else current_user.id
+    return await exam_service.list_matrices(db, subject_id, class_id, user_id=user_id)
 
 
 @router.get("/exam-matrices/{matrix_id}", response_model=ExamMatrixOut)
@@ -147,7 +148,8 @@ async def list_exams(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    return await exam_service.list_exams(db, class_id)
+    user_id = None if current_user.has_role("admin") else current_user.id
+    return await exam_service.list_exams(db, class_id, user_id=user_id)
 
 
 @router.get("/exams/{exam_id}")

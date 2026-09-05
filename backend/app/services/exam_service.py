@@ -48,13 +48,18 @@ async def get_matrix(db: AsyncSession, matrix_id: uuid.UUID) -> Optional[ExamMat
 
 
 async def list_matrices(
-    db: AsyncSession, subject_id: Optional[str] = None, class_id: Optional[uuid.UUID] = None
+    db: AsyncSession,
+    subject_id: Optional[str] = None,
+    class_id: Optional[uuid.UUID] = None,
+    user_id: Optional[uuid.UUID] = None,
 ) -> Sequence[ExamMatrix]:
     stmt = select(ExamMatrix).options(selectinload(ExamMatrix.sections)).order_by(ExamMatrix.created_at.desc())
     if subject_id:
         stmt = stmt.where(ExamMatrix.subject_id == subject_id)
     if class_id:
         stmt = stmt.where(ExamMatrix.class_id == class_id)
+    if user_id:
+        stmt = stmt.where(ExamMatrix.created_by == user_id)
         
     result = await db.execute(stmt)
     return result.scalars().all()
@@ -207,7 +212,11 @@ async def get_exam(db: AsyncSession, exam_id: uuid.UUID) -> Optional[Exam]:
     return result.scalar_one_or_none()
 
 
-async def list_exams(db: AsyncSession, class_id: Optional[uuid.UUID] = None) -> Sequence[Exam]:
+async def list_exams(
+    db: AsyncSession,
+    class_id: Optional[uuid.UUID] = None,
+    user_id: Optional[uuid.UUID] = None,
+) -> Sequence[Exam]:
     stmt = (
         select(Exam)
         .options(selectinload(Exam.sections).selectinload(ExamSection.questions))
@@ -215,6 +224,8 @@ async def list_exams(db: AsyncSession, class_id: Optional[uuid.UUID] = None) -> 
     )
     if class_id:
         stmt = stmt.where(Exam.class_id == class_id)
+    if user_id:
+        stmt = stmt.where(Exam.created_by == user_id)
         
     result = await db.execute(stmt)
     return result.scalars().all()

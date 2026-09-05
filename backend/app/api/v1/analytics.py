@@ -15,7 +15,8 @@ async def get_overview(
     current_user = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Thống kê tổng quan hệ thống, phân bố Bloom, độ khó và tiến độ định cỡ"""
-    return await analytics_service.get_overview_stats(db)
+    user_id = None if current_user.has_role("admin") else current_user.id
+    return await analytics_service.get_overview_stats(db, user_id=user_id)
 
 
 @router.get("/questions/{question_id}/psychometrics")

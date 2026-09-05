@@ -11,9 +11,11 @@ from app.models.class_ import Class, ClassMember
 from app.models.user import User
 
 
-async def get_overview_stats(db: AsyncSession) -> Dict[str, Any]:
+async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = None) -> Dict[str, Any]:
     # 1. Questions stats
     q_stmt = select(Question).where(Question.status != "archived")
+    if user_id:
+        q_stmt = q_stmt.where(Question.created_by == user_id)
     q_res = await db.execute(q_stmt)
     questions = q_res.scalars().all()
     total_questions = len(questions)
@@ -34,11 +36,19 @@ async def get_overview_stats(db: AsyncSession) -> Dict[str, Any]:
             type_dist[q.type] += 1
 
     # 2. Exams & Assignments
-    ex_count = len((await db.execute(select(Exam))).scalars().all())
-    assign_count = len((await db.execute(select(Assignment))).scalars().all())
+    ex_stmt = select(Exam)
+    assign_stmt = select(Assignment)
+    if user_id:
+        ex_stmt = ex_stmt.where(Exam.created_by == user_id)
+        assign_stmt = assign_stmt.where(Assignment.teacher_id == user_id)
+    ex_count = len((await db.execute(ex_stmt)).scalars().all())
+    assign_count = len((await db.execute(assign_stmt)).scalars().all())
 
     # 3. Attempts & Scores
     att_stmt = select(ExamAttempt).where(ExamAttempt.status.in_(["graded", "submitted"]))
+    if user_id:
+        # Only attempts on assignments created by this teacher
+        att_stmt = att_stmt.join(Assignment, ExamAttempt.assignment_id == Assignment.id).where(Assignment.teacher_id == user_id)
     attempts = (await db.execute(att_stmt)).scalars().all()
     total_attempts = len(attempts)
 

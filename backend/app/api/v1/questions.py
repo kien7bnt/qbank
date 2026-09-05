@@ -105,9 +105,15 @@ async def list_questions(
     bloom_level: Optional[str] = None,
     difficulty: Optional[str] = None,
     search: Optional[str] = None,
+    scope: Optional[str] = Query(None, description="mine | all"),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    # Non-admin users only see their own questions; admin can view all or filter
+    user_filter = None
+    if not current_user.has_role("admin") or scope == "mine":
+        user_filter = current_user.id
+
     items, total = await question_service.list_questions(
         db=db,
         page=page,
@@ -120,6 +126,7 @@ async def list_questions(
         bloom_level=bloom_level,
         difficulty=difficulty,
         search=search,
+        created_by=user_filter,
     )
     return PaginatedQuestions(
         items=[_question_to_list_item(q) for q in items],
@@ -314,7 +321,8 @@ async def update_question(
 ):
     if not current_user.has_role("teacher", "admin"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền")
-    q = await question_service.update_question(db, question_id, data, current_user.id)
+    is_admin = current_user.has_role("admin")
+    q = await question_service.update_question(db, question_id, data, current_user.id, is_admin=is_admin)
     return _question_to_out(q)
 
 
@@ -326,7 +334,8 @@ async def delete_question(
 ):
     if not current_user.has_role("teacher", "admin"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền")
-    deleted = await question_service.delete_question(db, question_id)
+    is_admin = current_user.has_role("admin")
+    deleted = await question_service.delete_question(db, question_id, user_id=current_user.id, is_admin=is_admin)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy câu hỏi")
 
@@ -339,7 +348,8 @@ async def bulk_action(
 ):
     if not current_user.has_role("teacher", "admin"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền")
-    result = await question_service.bulk_action(db, data, current_user.id)
+    is_admin = current_user.has_role("admin")
+    result = await question_service.bulk_action(db, data, current_user.id, is_admin=is_admin)
     return result
 
 

@@ -209,6 +209,7 @@ async def list_questions(
     difficulty: Optional[str] = None,
     search: Optional[str] = None,
     psychometric_status: Optional[str] = None,  # all | unscaled | scaled
+    created_by: Optional[uuid.UUID] = None,
 ) -> Tuple[list[Question], int]:
     query = (
         select(Question)
@@ -221,6 +222,8 @@ async def list_questions(
         .where(Question.status != "archived")
     )
 
+    if created_by:
+        query = query.where(Question.created_by == created_by)
     if type:
         query = query.where(Question.type == type)
     if status:
@@ -258,10 +261,13 @@ async def update_question(
     question_id: uuid.UUID,
     data: QuestionUpdate,
     user_id: uuid.UUID,
+    is_admin: bool = False,
 ) -> Question:
     question = await get_question(db, question_id)
     if not question:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy câu hỏi")
+    if not is_admin and question.created_by != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bạn không có quyền chỉnh sửa câu hỏi này")
 
     # Update scalar fields
     update_data = data.model_dump(exclude_unset=True, exclude={"options", "essay_data", "coding_data"})
@@ -302,10 +308,17 @@ async def update_question(
     return question
 
 
-async def delete_question(db: AsyncSession, question_id: uuid.UUID) -> bool:
+async def delete_question(
+    db: AsyncSession,
+    question_id: uuid.UUID,
+    user_id: Optional[uuid.UUID] = None,
+    is_admin: bool = False,
+) -> bool:
     question = await get_question(db, question_id)
     if not question:
         return False
+    if not is_admin and user_id and question.created_by != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bạn không có quyền xóa câu hỏi này")
     question.status = "archived"
     await db.commit()
     return True
@@ -326,6 +339,7 @@ async def bulk_action(
     db: AsyncSession,
     data: BulkActionRequest,
     user_id: uuid.UUID,
+    is_admin: bool = False,
 ) -> dict:
     question_ids = [
         uuid.UUID(str(qid)) if not isinstance(qid, uuid.UUID) else qid
@@ -338,10 +352,14 @@ async def bulk_action(
     if not question_ids:
         return {"updated": 0, "action": action}
 
+    base_filter = [Question.id.in_(question_ids)]
+    if not is_admin:
+        base_filter.append(Question.created_by == user_id)
+
     if action in ("archive", "delete"):
         stmt = (
             update(Question)
-            .where(Question.id.in_(question_ids))
+            .where(*base_filter)
             .values(status="archived")
         )
         result = await db.execute(stmt)
@@ -350,7 +368,7 @@ async def bulk_action(
     elif action == "approve":
         stmt = (
             update(Question)
-            .where(Question.id.in_(question_ids))
+            .where(*base_filter)
             .values(status="approved")
         )
         result = await db.execute(stmt)
