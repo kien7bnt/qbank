@@ -47,6 +47,8 @@ class RefreshRequest(BaseModel):
 
 
 class GoogleLoginRequest(BaseModel):
-    id_token: str
+    id_token: str | None = None
+    credential: str | None = None
+    token: str | None = None
     role: str = "student"  # Default role for new users
 

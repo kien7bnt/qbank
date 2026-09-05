@@ -67,8 +67,12 @@ export const authApi = {
   login: (email: string, password: string) =>
     apiClient.post<TokenResponse>('/auth/login', { email, password }),
 
-  loginGoogle: (credential: string) =>
-    apiClient.post<TokenResponse>('/auth/google', { credential }),
+  loginGoogle: (tokenOrCredential: string) =>
+    apiClient.post<TokenResponse>('/auth/google', {
+      id_token: tokenOrCredential,
+      credential: tokenOrCredential,
+      token: tokenOrCredential,
+    }),
 
   register: (data: { email: string; full_name: string; password: string; role?: string }) =>
     apiClient.post<User>('/auth/register', data),
@@ -402,7 +406,26 @@ export function getErrorMessage(error: unknown): string {
     if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
       return 'Không thể kết nối đến máy chủ Backend. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại sau vài giây!';
     }
-    return error.response?.data?.detail ?? error.message ?? 'Đã xảy ra lỗi';
+    const detail = error.response?.data?.detail;
+    if (typeof detail === 'string') {
+      return detail;
+    }
+    if (Array.isArray(detail)) {
+      return detail
+        .map((item: any) => {
+          if (typeof item === 'string') return item;
+          if (item?.msg) {
+            const field = Array.isArray(item.loc) ? item.loc[item.loc.length - 1] : '';
+            return field && field !== 'body' ? `${field}: ${item.msg}` : item.msg;
+          }
+          return JSON.stringify(item);
+        })
+        .join(', ');
+    }
+    if (detail && typeof detail === 'object') {
+      return (detail as any).msg || (detail as any).message || JSON.stringify(detail);
+    }
+    return error.message ?? 'Đã xảy ra lỗi';
   }
   if (error instanceof Error) return error.message;
   return 'Đã xảy ra lỗi không xác định';

@@ -51,9 +51,15 @@ async def google_login(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Đăng nhập / Đăng ký bằng Google OAuth 2.0 (OpenID Connect ID Token)
+    Đăng nhập / Đăng ký bằng Google OAuth 2.0 (OpenID Connect ID Token hoặc Gmail)
     """
-    user = await auth_service.authenticate_google_user(db, data.id_token, role_name=data.role)
+    token_str = data.id_token or data.credential or data.token
+    if not token_str:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vui lòng cung cấp mã xác thực Google hoặc địa chỉ Gmail (id_token, credential, hoặc token)",
+        )
+    user = await auth_service.authenticate_google_user(db, token_str, role_name=data.role)
     return _build_token_response(user)
 
 
