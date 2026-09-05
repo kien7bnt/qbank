@@ -131,14 +131,16 @@ async def init_db() -> None:
 
             # 1. Seed Roles
             roles_map = {}
-            for r_id, r_name, r_desc in [
-                (1, "admin", "Quản trị viên hệ thống"),
-                (2, "teacher", "Giáo viên / Giảng viên"),
-                (3, "student", "Học sinh / Sinh viên"),
+            for r_name, r_desc in [
+                ("admin", "Quản trị viên hệ thống"),
+                ("teacher", "Giáo viên / Giảng viên"),
+                ("student", "Học sinh / Sinh viên"),
             ]:
-                role = await session.get(Role, r_id)
+                stmt = select(Role).where(Role.name == r_name)
+                res = await session.execute(stmt)
+                role = res.scalar_one_or_none()
                 if not role:
-                    role = Role(id=r_id, name=r_name, description=r_desc)
+                    role = Role(name=r_name, description=r_desc)
                     session.add(role)
                     await session.flush()
                 roles_map[r_name] = role
@@ -165,23 +167,38 @@ async def init_db() -> None:
                     )
                     session.add(user)
                     await session.flush()
-                
-                # Ensure all specified roles are attached
-                existing_role_ids = {ur.role_id for ur in (user.user_roles or [])}
+                else:
+                    # Update password and status to guarantee active login
+                    user.password_hash = hash_password(raw_pwd)
+                    user.status = "active"
+
+                # Check existing roles directly from user_roles
+                ur_stmt = select(UserRole.role_id).where(UserRole.user_id == user.id)
+                ur_res = await session.execute(ur_stmt)
+                existing_role_ids = set(ur_res.scalars().all())
+
                 for r_name in user_role_names:
                     if r_name in roles_map and roles_map[r_name].id not in existing_role_ids:
                         session.add(UserRole(user_id=user.id, role_id=roles_map[r_name].id))
-
-            # 3. Ensure ALL existing users have both teacher and student roles for seamless role switching
-            all_users_stmt = select(User)
-            all_users_res = await session.execute(all_users_stmt)
-            for u in all_users_res.scalars().all():
-                current_rids = {ur.role_id for ur in (u.user_roles or [])}
-                for r_key in ["teacher", "student"]:
-                    if r_key in roles_map and roles_map[r_key].id not in current_rids:
-                        session.add(UserRole(user_id=u.id, role_id=roles_map[r_key].id))
+                        existing_role_ids.add(roles_map[r_name].id)
 
             await session.commit()
-        except Exception:
+
+            # 3. Ensure ALL existing users have both teacher and student roles for seamless role switching
+            users_stmt = select(User.id)
+            users_res = await session.execute(users_stmt)
+            for uid in users_res.scalars().all():
+                ur_stmt = select(UserRole.role_id).where(UserRole.user_id == uid)
+                ur_res = await session.execute(ur_stmt)
+                current_rids = set(ur_res.scalars().all())
+                for r_key in ["teacher", "student"]:
+                    if r_key in roles_map and roles_map[r_key].id not in current_rids:
+                        session.add(UserRole(user_id=uid, role_id=roles_map[r_key].id))
+                        current_rids.add(roles_map[r_key].id)
+
+            await session.commit()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error seeding demo users/roles: {e}", exc_info=True)
             await session.rollback()
 
