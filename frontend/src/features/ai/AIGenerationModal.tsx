@@ -306,6 +306,14 @@ export function AIGenerationModal({ open, onClose, onSuccess }: AIGenerationModa
   };
 
   const handleClose = () => {
+    if (result || multipleResults.length > 0) {
+      const confirmed = window.confirm(
+        'Bạn có câu hỏi AI đang tạo chưa lưu vào Ngân hàng. Bạn có chắc chắn muốn đóng và hủy bỏ kết quả không?'
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
     handleReset();
     onClose();
   };
@@ -327,7 +335,13 @@ export function AIGenerationModal({ open, onClose, onSuccess }: AIGenerationModa
     <>
       <Modal
         open={open}
-        onOpenChange={handleClose}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            handleClose();
+          }
+        }}
+        closeOnOutsideClick={false}
+        closeOnEscape={false}
         title={
           <div className="flex items-center justify-between w-full pr-6">
             <div className="flex items-center gap-2">

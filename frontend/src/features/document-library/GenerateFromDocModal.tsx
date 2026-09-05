@@ -88,6 +88,12 @@ export function GenerateFromDocModal({
   };
 
   const handleClose = () => {
+    if (results.length > 0) {
+      const confirmed = window.confirm(
+        'Bạn có câu hỏi vừa sinh từ tài liệu chưa hoàn tất. Bạn có chắc chắn muốn đóng không?'
+      );
+      if (!confirmed) return;
+    }
     setResults([]);
     setSelectedDocIds(preselectedDocIds);
     setExtraPrompt('');
@@ -102,7 +108,13 @@ export function GenerateFromDocModal({
   return (
     <Modal
       open={open}
-      onOpenChange={handleClose}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          handleClose();
+        }
+      }}
+      closeOnOutsideClick={false}
+      closeOnEscape={false}
       title={
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-purple-100 text-purple-700 rounded-lg">
