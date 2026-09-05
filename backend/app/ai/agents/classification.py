@@ -45,23 +45,28 @@ class QuestionClassificationAgent(Agent[QuestionClassification]):
         correct_answer: Optional[str] = None,
         essay_data: Optional[dict] = None,
         coding_data: Optional[dict] = None,
+        target_bloom: Optional[str] = None,
+        target_difficulty: Optional[str] = None,
         **kwargs
     ) -> AgentOutput[QuestionClassification]:
         """Classify a question"""
         
         start_time = datetime.now(timezone.utc)
         
-        system_prompt = """Bạn là chuyên gia phân loại câu hỏi giáo dục.
-Phân loại câu hỏi theo:
+        system_prompt = """Bạn là chuyên gia thẩm định và phân loại câu hỏi giáo dục theo chuẩn quốc tế và Bộ GD&ĐT.
+Phân loại chính xác:
 - Cấu trúc chương trình học (Môn > Chương > Chủ đề)
-- Mức độ Bloom
-- Độ khó
-- Loại câu hỏi
-- Mục tiêu học tập
+- Thang đo nhận thức Bloom:
+  + Nhận biết (remember): Nhận diện công thức, sự kiện cơ bản trực tiếp.
+  + Thông hiểu (understand): Giải thích, hiểu bản chất, tính toán cơ bản theo 1 công thức.
+  + Vận dụng (apply): Giải bài toán tình huống quen thuộc qua 2-3 bước.
+  + Vận dụng cao (analyze/evaluate/create): Bài toán nâng cao, đòi hỏi phân tích dữ kiện đa chiều, suy luận logic sâu (3-4 bước), cực trị hoặc phương pháp tư duy nâng cao.
+- Độ khó (easy/medium/hard).
+- Loại câu hỏi & Mục tiêu học tập.
 
-Hãy phân loại chính xác và cung cấp độ tin cậy cao."""
+Hãy phân loại chính xác, tôn trọng mức độ Bloom và độ khó tương ứng của bài toán."""
         
-        prompt = self._build_prompt(stem, options, correct_answer, essay_data, coding_data)
+        prompt = self._build_prompt(stem, options, correct_answer, essay_data, coding_data, target_bloom, target_difficulty)
         
         try:
             result = await self._call_provider(
@@ -106,10 +111,12 @@ Hãy phân loại chính xác và cung cấp độ tin cậy cao."""
         correct_answer: Optional[str],
         essay_data: Optional[dict],
         coding_data: Optional[dict],
+        target_bloom: Optional[str] = None,
+        target_difficulty: Optional[str] = None,
     ) -> str:
         """Build prompt for classification"""
         
-        prompt = f"""Hãy phân loại câu hỏi sau:
+        prompt = f"""Hãy phân loại và chuẩn hóa câu hỏi sau:
 
 NỘI DUNG CÂU HỎI:
 {stem}"""
@@ -128,6 +135,14 @@ NỘI DUNG CÂU HỎI:
         
         if coding_data:
             prompt += f"\nDỮ LIỆU LẬP TRÌNH:\n{json.dumps(coding_data, ensure_ascii=False)}"
+        
+        if target_bloom or target_difficulty:
+            prompt += f"\n\nTHÔNG TIN THIẾT KẾ MỤC TIÊU CỦA GIÁO VIÊN:"
+            if target_bloom:
+                prompt += f"\n- Mức độ Bloom thiết kế: {target_bloom}"
+            if target_difficulty:
+                prompt += f"\n- Độ khó thiết kế: {target_difficulty}"
+            prompt += "\nHãy đối chiếu cẩn thận và ưu tiên chuẩn hóa theo đúng mức độ sư phạm này nếu bài toán thỏa mãn các bước tư duy tương ứng."
         
         prompt += """
 

@@ -614,12 +614,13 @@ async def run_multi_agent_pipeline(
         stem=gen_data.stem,
         options=options,
         correct_answer=next((o.get("text") for o in options if o.get("is_correct")), None),
+        target_bloom=data.bloom_level,
+        target_difficulty=data.expected_difficulty,
     )
-    final_bloom = data.bloom_level
-    final_diff = data.expected_difficulty
+    # Priority: The teacher's explicitly chosen Bloom level & difficulty must ALWAYS be preserved
+    final_bloom = data.bloom_level or (class_out.data.bloom_level if (class_out.status == AgentStatus.SUCCESS and class_out.data) else "understand")
+    final_diff = data.expected_difficulty or (class_out.data.expected_difficulty if (class_out.status == AgentStatus.SUCCESS and class_out.data) else "medium")
     if class_out.status == AgentStatus.SUCCESS and class_out.data:
-        final_bloom = class_out.data.bloom_level or final_bloom
-        final_diff = class_out.data.expected_difficulty or final_diff
         traces.append({
             "agent": "QuestionClassificationAgent",
             "role": "Chuẩn hóa Bloom Taxonomy & Độ khó",
@@ -923,8 +924,8 @@ async def generate_from_document(
             "type": gen_data.type,
             "stem": gen_data.stem,
             "rationale": gen_data.rationale,
-            "bloom_level": gen_data.bloom_level or data.bloom_level,
-            "expected_difficulty": gen_data.expected_difficulty or data.expected_difficulty,
+            "bloom_level": data.bloom_level or gen_data.bloom_level,
+            "expected_difficulty": data.expected_difficulty or gen_data.expected_difficulty,
             "chapter_id": str(data.chapter_id) if data.chapter_id else None,
             "topic_id": str(data.topic_id) if data.topic_id else None,
             "options": options,
@@ -937,8 +938,8 @@ async def generate_from_document(
                 type=gen_data.type,
                 stem=gen_data.stem,
                 rationale=gen_data.rationale,
-                bloom_level=gen_data.bloom_level or data.bloom_level,
-                expected_difficulty=gen_data.expected_difficulty or data.expected_difficulty,
+                bloom_level=data.bloom_level or gen_data.bloom_level,
+                expected_difficulty=data.expected_difficulty or gen_data.expected_difficulty,
                 chapter_id=data.chapter_id,
                 topic_id=data.topic_id,
                 options=options,
