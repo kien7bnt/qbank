@@ -45,10 +45,24 @@ class User(Base):
 
     @property
     def roles(self) -> List[str]:
-        return [ur.role.name for ur in self.user_roles]
+        raw = []
+        if hasattr(self, "user_roles") and self.user_roles:
+            raw = [ur.role.name for ur in self.user_roles if getattr(ur, "role", None)]
+        if "admin" in raw:
+            return raw
+        # In Edumate, every standard user has both teacher and student roles
+        res = list(raw)
+        if "teacher" not in res:
+            res.append("teacher")
+        if "student" not in res:
+            res.append("student")
+        return res
 
     def has_role(self, *role_names: str) -> bool:
-        return any(r in self.roles for r in role_names)
+        user_roles = self.roles
+        if "admin" in user_roles:
+            return True
+        return any(r in user_roles for r in role_names)
 
 
 class UserRole(Base):

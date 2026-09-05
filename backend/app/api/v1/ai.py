@@ -525,8 +525,8 @@ async def run_multi_agent_pipeline(
     4. QualityReviewAgent: Thẩm định chất lượng & cấp điểm
     5. DuplicateDetectionAgent: Quét đối chiếu với ngân hàng câu hỏi
     """
-    if not current_user.has_role("teacher", "admin"):
-        raise HTTPException(status_code=403, detail="Chỉ giáo viên mới có thể sử dụng Multi-Agent AI")
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để sử dụng Multi-Agent AI")
 
     orchestrator = get_orchestrator()
     traces = []
