@@ -26,8 +26,9 @@ async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     db: DBDep,
 ):
-    from app.models.user import User
+    from app.models.user import User, UserRole, Role
     from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
     import uuid
 
     credentials_exception = HTTPException(
@@ -52,7 +53,12 @@ async def get_current_user(
     except ValueError:
         raise credentials_exception
 
-    result = await db.execute(select(User).where(User.id == user_id))
+    stmt = (
+        select(User)
+        .options(selectinload(User.user_roles).selectinload(UserRole.role))
+        .where(User.id == user_id)
+    )
+    result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
     if user is None:
@@ -62,6 +68,20 @@ async def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tài khoản đã bị khóa",
         )
+
+    # Auto-ensure user has both teacher and student roles if teacher is missing
+    existing_roles = {ur.role.name for ur in user.user_roles if ur.role}
+    if "teacher" not in existing_roles:
+        for r_name in ["teacher", "student"]:
+            if r_name not in existing_roles:
+                r_res = await db.execute(select(Role).where(Role.name == r_name))
+                role_obj = r_res.scalar_one_or_none()
+                if role_obj:
+                    db.add(UserRole(user_id=user.id, role_id=role_obj.id))
+        await db.commit()
+        # Reload user with updated roles
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
 
     return user
 

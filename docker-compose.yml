@@ -33,8 +33,8 @@ services:
 
   backend:
     build:
-      context: ../backend
-      dockerfile: ../docker/Dockerfile.backend
+      context: ./backend
+      dockerfile: ./docker/Dockerfile.backend
     container_name: qbank_backend
     environment:
       DATABASE_URL: postgresql+asyncpg://qbank:qbank@db:5432/qbank
@@ -43,12 +43,12 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
       REFRESH_TOKEN_EXPIRE_DAYS: 7
       REDIS_URL: redis://redis:6379/0
-      CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000","https://edumate.com.vn"]'
       DEBUG: "true"
     ports:
       - "8000:8000"
     volumes:
-      - ../backend:/app
+      - ./backend:/app
     depends_on:
       db:
         condition: service_healthy
@@ -58,13 +58,13 @@ services:
 
   frontend:
     build:
-      context: ../frontend
-      dockerfile: ../docker/Dockerfile.frontend
+      context: ./frontend
+      dockerfile: ./docker/Dockerfile.frontend
     container_name: qbank_frontend
     ports:
       - "5173:5173"
     volumes:
-      - ../frontend:/app
+      - ./frontend:/app
       - /app/node_modules
     environment:
       VITE_API_URL: http://localhost:8000/api/v1

@@ -73,15 +73,30 @@ class OpenAIProvider(AIProvider):
         if response_format:
             payload["response_format"] = {"type": "json_object"}
         
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.base_url}/chat/completions",
-                json=payload,
-                headers=headers,
-                timeout=30.0,
-            )
-            response.raise_for_status()
-            data = response.json()
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    json=payload,
+                    headers=headers,
+                    timeout=45.0,
+                )
+                if response.status_code == 429:
+                    from fastapi import HTTPException
+                    raise HTTPException(
+                        status_code=429,
+                        detail="Tài khoản OpenAI hiện tại đã hết hạn mức (Quota Exceeded / 429 Too Many Requests). Vui lòng nạp thêm credit hoặc chuyển AI Provider sang Google Gemini / Mock trong phần Cài đặt AI!",
+                    )
+                response.raise_for_status()
+                data = response.json()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429:
+                from fastapi import HTTPException
+                raise HTTPException(
+                    status_code=429,
+                    detail="Tài khoản OpenAI hiện tại đã hết hạn mức (Quota Exceeded / 429 Too Many Requests). Vui lòng nạp thêm credit hoặc chuyển AI Provider sang Google Gemini / Mock trong phần Cài đặt AI!",
+                )
+            raise
             
         content = data["choices"][0]["message"]["content"]
         
