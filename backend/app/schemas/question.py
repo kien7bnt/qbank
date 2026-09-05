@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any, List, Optional
 import uuid
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class QuestionOptionIn(BaseModel):
@@ -67,12 +67,40 @@ class QuestionCreate(BaseModel):
     # Coding
     coding_data: Optional[CodingDataIn] = None
 
+    @field_validator("subject_id", "chapter_id", "topic_id", "lesson_id", "learning_objective_id", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v):
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def normalize_type(cls, v):
+        if isinstance(v, str):
+            v_lower = v.strip().lower()
+            if v_lower in ["mcq", "single_choice", "multiple_choice", "true_false"]:
+                return "mcq"
+            if v_lower in ["essay", "tu_luan"]:
+                return "essay"
+            if v_lower in ["coding", "code"]:
+                return "coding"
+            return v_lower
+        return v
+
 
 class QuestionBatchCreateRequest(BaseModel):
     subject_id: Optional[uuid.UUID] = None
     chapter_id: Optional[uuid.UUID] = None
     topic_id: Optional[uuid.UUID] = None
     questions: List[QuestionCreate]
+
+    @field_validator("subject_id", "chapter_id", "topic_id", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v):
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
 
 class QuestionBatchCreateResponse(BaseModel):
@@ -95,6 +123,13 @@ class QuestionUpdate(BaseModel):
     options: Optional[List[QuestionOptionIn]] = None
     essay_data: Optional[EssayDataIn] = None
     coding_data: Optional[CodingDataIn] = None
+
+    @field_validator("subject_id", "chapter_id", "topic_id", "lesson_id", "learning_objective_id", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v):
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
 
 class QuestionOut(BaseModel):

@@ -18,9 +18,25 @@ from app.schemas.question import (
 
 
 async def _next_item_id(db: AsyncSession) -> str:
-    result = await db.execute(select(func.count()).select_from(Question))
-    count = result.scalar_one()
-    return f"Q{count + 1:04d}"
+    stmt = select(Question.item_id)
+    result = await db.execute(stmt)
+    all_item_ids = set(result.scalars().all())
+
+    max_num = 0
+    for iid in all_item_ids:
+        if iid and iid.startswith("Q") and iid[1:].isdigit():
+            try:
+                num = int(iid[1:])
+                if num > max_num:
+                    max_num = num
+            except ValueError:
+                pass
+
+    next_num = max(max_num + 1, len(all_item_ids) + 1)
+    while f"Q{next_num:04d}" in all_item_ids:
+        next_num += 1
+
+    return f"Q{next_num:04d}"
 
 
 async def create_question(
@@ -39,8 +55,8 @@ async def create_question(
         topic_id=data.topic_id,
         lesson_id=data.lesson_id,
         learning_objective_id=data.learning_objective_id,
-        bloom_level=data.bloom_level,
-        expected_difficulty=data.expected_difficulty,
+        bloom_level=data.bloom_level or "understand",
+        expected_difficulty=data.expected_difficulty or "medium",
         created_by=user_id,
         version=1,
     )
@@ -56,7 +72,7 @@ async def create_question(
                 text=opt_data.text,
                 is_correct=opt_data.is_correct,
                 distractor_reason=opt_data.distractor_reason,
-                order_index=idx,
+                order_index=opt_data.order_index if opt_data.order_index is not None else idx,
             )
             db.add(option)
 
@@ -78,8 +94,8 @@ async def create_question(
         )
         db.add(coding)
 
-    # Save initial version snapshot
-    snapshot = data.model_dump()
+    # Save initial version snapshot (mode="json" serializes UUIDs to strings)
+    snapshot = data.model_dump(mode="json")
     snapshot["item_id"] = item_id
     version = QuestionVersion(
         question_id=question.id,
@@ -99,12 +115,28 @@ async def create_questions_batch(
 ) -> QuestionBatchCreateResponse:
     created_ids: list[uuid.UUID] = []
     
-    result = await db.execute(select(func.count()).select_from(Question))
-    count = result.scalar_one()
+    stmt = select(Question.item_id)
+    result = await db.execute(stmt)
+    all_item_ids = set(result.scalars().all())
+
+    max_num = 0
+    for iid in all_item_ids:
+        if iid and iid.startswith("Q") and iid[1:].isdigit():
+            try:
+                num = int(iid[1:])
+                if num > max_num:
+                    max_num = num
+            except ValueError:
+                pass
+
+    next_num = max(max_num, len(all_item_ids))
 
     for q_data in data.questions:
-        count += 1
-        item_id = f"Q{count:04d}"
+        next_num += 1
+        while f"Q{next_num:04d}" in all_item_ids:
+            next_num += 1
+        item_id = f"Q{next_num:04d}"
+        all_item_ids.add(item_id)
 
         chapter_id = q_data.chapter_id or data.chapter_id
         topic_id = q_data.topic_id or data.topic_id
@@ -139,7 +171,7 @@ async def create_questions_batch(
                     text=opt_data.text,
                     is_correct=opt_data.is_correct,
                     distractor_reason=opt_data.distractor_reason,
-                    order_index=idx,
+                    order_index=opt_data.order_index if opt_data.order_index is not None else idx,
                 )
                 db.add(option)
 
@@ -162,7 +194,7 @@ async def create_questions_batch(
             db.add(coding)
 
         # Snapshot
-        snapshot = q_data.model_dump()
+        snapshot = q_data.model_dump(mode="json")
         snapshot["item_id"] = item_id
         version = QuestionVersion(
             question_id=question.id,
@@ -293,7 +325,7 @@ async def update_question(
 
     # Increment version and save snapshot
     question.version += 1
-    snapshot: dict[str, Any] = data.model_dump()
+    snapshot: dict[str, Any] = data.model_dump(mode="json")
     snapshot["version"] = question.version
     version = QuestionVersion(
         question_id=question.id,

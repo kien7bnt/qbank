@@ -236,35 +236,44 @@ export function AIGenerationModal({ open, onClose, onSuccess }: AIGenerationModa
   // ── Save to Question Bank Mutation ─────────────────────────────────
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (multipleResults.length > 0) {
-        // Save all multiple questions
-        for (const item of multipleResults) {
-          const q = item.question;
-          await questionApi.create({
-            type: q.type,
-            stem: q.stem,
-            rationale: q.rationale,
-            bloom_level: q.bloom_level,
-            expected_difficulty: q.expected_difficulty,
-            chapter_id: q.chapter_id,
-            topic_id: q.topic_id,
-            options: q.options || [],
-          });
+      const cleanQuestion = (q: any) => {
+        let qType = (q.type || 'mcq').toLowerCase();
+        if (['single_choice', 'multiple_choice', 'true_false'].includes(qType)) {
+          qType = 'mcq';
         }
-        return;
+        return {
+          type: qType,
+          stem: q.stem || '',
+          rationale: q.rationale || undefined,
+          bloom_level: q.bloom_level || 'understand',
+          expected_difficulty: q.expected_difficulty || 'medium',
+          chapter_id: (q.chapter_id && q.chapter_id !== '') ? q.chapter_id : (selectedDomainId || undefined),
+          topic_id: (q.topic_id && q.topic_id !== '') ? q.topic_id : (selectedTopicId || undefined),
+          options: (q.options || []).map((o: any, idx: number) => ({
+            label: o.label || String.fromCharCode(65 + idx),
+            text: o.text || '',
+            is_correct: Boolean(o.is_correct),
+            distractor_reason: o.distractor_reason || undefined,
+            order_index: typeof o.order_index === 'number' ? o.order_index : idx,
+          })),
+          essay_data: qType === 'essay' && q.essay_data ? q.essay_data : undefined,
+          coding_data: qType === 'coding' && q.coding_data ? q.coding_data : undefined,
+        };
+      };
+
+      if (multipleResults.length > 0) {
+        // Save batch in a single atomic transaction
+        const questionsToSave = multipleResults.map((item) => cleanQuestion(item.question));
+        return await questionApi.createBatch({
+          chapter_id: selectedDomainId || undefined,
+          topic_id: selectedTopicId || undefined,
+          questions: questionsToSave,
+        });
       }
+
       if (!result?.question) return;
-      const q = result.question;
-      return await questionApi.create({
-        type: q.type,
-        stem: q.stem,
-        rationale: q.rationale,
-        bloom_level: q.bloom_level,
-        expected_difficulty: q.expected_difficulty,
-        chapter_id: q.chapter_id,
-        topic_id: q.topic_id,
-        options: q.options || [],
-      });
+      const payload = cleanQuestion(result.question);
+      return await questionApi.create(payload);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['questions'] });

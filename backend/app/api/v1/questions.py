@@ -25,12 +25,36 @@ from app.services import question_service
 router = APIRouter(prefix="/questions", tags=["questions"])
 
 
+from sqlalchemy.orm import inspect as sa_inspect
+
+
+def _safe_attr(obj, attr_name: str, fallback=None):
+    try:
+        insp = sa_inspect(obj)
+        if attr_name in insp.unloaded:
+            return fallback
+        val = getattr(obj, attr_name, fallback)
+        return val if val is not None else fallback
+    except Exception:
+        return fallback
+
+
+def _safe_rel_name(obj, rel_name: str) -> Optional[str]:
+    rel_obj = _safe_attr(obj, rel_name)
+    if rel_obj is not None:
+        try:
+            return getattr(rel_obj, "name", None)
+        except Exception:
+            return None
+    return None
+
+
 def _question_to_list_item(q) -> QuestionListItem:
     sub_type = q.type
     if q.type == "mcq":
-        opts = q.options or []
-        correct_count = sum(1 for o in opts if o.is_correct)
-        if len(opts) == 2 and any(o.text.strip().lower() in ["đúng", "sai", "dung", "true", "false"] for o in opts):
+        opts = _safe_attr(q, "options", []) or []
+        correct_count = sum(1 for o in opts if getattr(o, "is_correct", False))
+        if len(opts) == 2 and any(getattr(o, "text", "").strip().lower() in ["đúng", "sai", "dung", "true", "false"] for o in opts):
             sub_type = "true_false"
         elif correct_count > 1:
             sub_type = "multiple_choice"
@@ -43,12 +67,12 @@ def _question_to_list_item(q) -> QuestionListItem:
         type=q.type,
         sub_type=sub_type,
         status=q.status,
-        stem_preview=q.stem[:100] + ("..." if len(q.stem) > 100 else ""),
+        stem_preview=(q.stem[:100] + ("..." if len(q.stem) > 100 else "")) if q.stem else "",
         bloom_level=q.bloom_level,
         expected_difficulty=q.expected_difficulty,
-        subject_name=q.subject.name if q.subject else None,
-        chapter_name=q.chapter.name if q.chapter else None,
-        topic_name=q.topic.name if q.topic else None,
+        subject_name=_safe_rel_name(q, "subject"),
+        chapter_name=_safe_rel_name(q, "chapter"),
+        topic_name=_safe_rel_name(q, "topic"),
         created_at=q.created_at,
     )
 
@@ -57,22 +81,10 @@ def _question_to_out(q) -> QuestionOut:
     from app.schemas.question import (
         EssayDataOut, CodingDataOut, QuestionOptionOut
     )
-    return QuestionOut(
-        id=q.id,
-        item_id=q.item_id,
-        type=q.type,
-        status=q.status,
-        stem=q.stem,
-        rationale=q.rationale,
-        subject_id=q.subject_id,
-        subject_name=q.subject.name if q.subject else None,
-        chapter_id=q.chapter_id,
-        chapter_name=q.chapter.name if q.chapter else None,
-        topic_id=q.topic_id,
-        topic_name=q.topic.name if q.topic else None,
-        bloom_level=q.bloom_level,
-        expected_difficulty=q.expected_difficulty,
-        options=[
+    raw_options = _safe_attr(q, "options", []) or []
+    opts_out = []
+    for o in raw_options:
+        opts_out.append(
             QuestionOptionOut(
                 id=o.id,
                 question_id=o.question_id,
@@ -82,10 +94,32 @@ def _question_to_out(q) -> QuestionOut:
                 distractor_reason=o.distractor_reason,
                 order_index=o.order_index,
             )
-            for o in q.options
-        ],
-        essay_data=EssayDataOut.model_validate(q.essay_data) if q.essay_data else None,
-        coding_data=CodingDataOut.model_validate(q.coding_data) if q.coding_data else None,
+        )
+
+    raw_essay = _safe_attr(q, "essay_data")
+    essay_data = EssayDataOut.model_validate(raw_essay) if raw_essay else None
+
+    raw_coding = _safe_attr(q, "coding_data")
+    coding_data = CodingDataOut.model_validate(raw_coding) if raw_coding else None
+
+    return QuestionOut(
+        id=q.id,
+        item_id=q.item_id,
+        type=q.type,
+        status=q.status,
+        stem=q.stem,
+        rationale=q.rationale,
+        subject_id=q.subject_id,
+        subject_name=_safe_rel_name(q, "subject"),
+        chapter_id=q.chapter_id,
+        chapter_name=_safe_rel_name(q, "chapter"),
+        topic_id=q.topic_id,
+        topic_name=_safe_rel_name(q, "topic"),
+        bloom_level=q.bloom_level,
+        expected_difficulty=q.expected_difficulty,
+        options=opts_out,
+        essay_data=essay_data,
+        coding_data=coding_data,
         version=q.version,
         created_by=q.created_by,
         created_at=q.created_at,
@@ -234,8 +268,18 @@ async def create_question(
 ):
     if not current_user.has_role("teacher", "admin"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền tạo câu hỏi")
-    q = await question_service.create_question(db, data, current_user.id)
-    return _question_to_out(q)
+    try:
+        q = await question_service.create_question(db, data, current_user.id)
+        return _question_to_out(q)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Lỗi khi lưu câu hỏi: {str(e)}"
+        )
 
 
 @router.post("/batch", response_model=QuestionBatchCreateResponse, status_code=status.HTTP_201_CREATED)
@@ -247,7 +291,17 @@ async def create_questions_batch(
     """Tạo nhiều câu hỏi cùng lúc vào ngân hàng trong 1 transaction duy nhất"""
     if not current_user.has_role("teacher", "admin"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền tạo câu hỏi")
-    return await question_service.create_questions_batch(db, data, current_user.id)
+    try:
+        return await question_service.create_questions_batch(db, data, current_user.id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Lỗi khi tạo batch câu hỏi: {str(e)}"
+        )
 
 
 @router.post("/parse-file")
