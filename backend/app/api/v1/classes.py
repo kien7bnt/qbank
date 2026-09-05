@@ -46,7 +46,11 @@ async def list_classes(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    if view == "mine" or "teacher" in current_user.roles or "admin" in current_user.roles:
+    if view == "joined":
+        items, total = await class_service.get_classes_for_student(
+            db, current_user.id, page, page_size, subject_id, status, search
+        )
+    elif "teacher" in current_user.roles or "admin" in current_user.roles:
         items, total = await class_service.get_classes_for_teacher(
             db, current_user.id, page, page_size, subject_id, status, search
         )

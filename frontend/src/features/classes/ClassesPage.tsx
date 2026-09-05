@@ -19,9 +19,10 @@ import type { Class, ClassFilter } from '@/types';
 export function ClassesPage() {
   const qc = useQueryClient();
   const [searchParams] = useSearchParams();
-  const view = (searchParams.get('view') as 'mine' | 'joined') ?? 'mine';
-  const { hasRole } = useAuthStore();
-  const isTeacher = hasRole('teacher', 'admin');
+  const { activeRole } = useAuthStore();
+  const isTeacher = activeRole === 'teacher';
+  const defaultView = isTeacher ? 'mine' : 'joined';
+  const view = (searchParams.get('view') as 'mine' | 'joined') ?? defaultView;
 
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -30,7 +31,7 @@ export function ClassesPage() {
   const [deletingClass, setDeletingClass] = useState<Class | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['classes', view, search],
+    queryKey: ['classes', isTeacher ? 'mine' : 'joined', search],
     queryFn: () =>
       classApi.list({ view: isTeacher ? 'mine' : 'joined', search: search || undefined }),
   });

@@ -101,11 +101,6 @@ const STUDENT_NAV_ITEMS: NavItem[] = [
     to: '/classes',
   },
   {
-    label: 'Kho tài liệu',
-    icon: <BookMarked className="h-4 w-4" />,
-    to: '/document-library',
-  },
-  {
     label: 'Bài tập',
     icon: <BookOpen className="h-4 w-4" />,
     to: '/assignments?type=homework',

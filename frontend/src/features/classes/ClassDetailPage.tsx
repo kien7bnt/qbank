@@ -33,8 +33,8 @@ export function ClassDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { user } = useAuthStore();
-  const isTeacher = user?.roles.includes('teacher') || user?.roles.includes('admin');
+  const { user, activeRole } = useAuthStore();
+  const isTeacher = activeRole === 'teacher' && (user?.roles.includes('teacher') || user?.roles.includes('admin'));
 
   const [activeTab, setActiveTab] = useState<'sessions' | 'members'>('sessions');
   const [addModalOpen, setAddModalOpen] = useState(false);
