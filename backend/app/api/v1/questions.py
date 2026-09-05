@@ -25,7 +25,7 @@ from app.services import question_service
 router = APIRouter(prefix="/questions", tags=["questions"])
 
 
-from sqlalchemy.orm import inspect as sa_inspect
+from sqlalchemy import inspect as sa_inspect
 
 
 def _safe_attr(obj, attr_name: str, fallback=None):
