@@ -14,6 +14,8 @@ import {
   Pencil,
   Check,
   X,
+  Filter,
+  FolderTree,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
@@ -61,6 +63,7 @@ interface QuestionTableProps {
   onFilterChange: (updates: Partial<QuestionFilter>) => void;
   onSelectQuestion: (id: string) => void;
   selectedFolderName?: string;
+  onOpenFolderDrawer?: () => void;
 }
 
 export function QuestionTable({
@@ -68,12 +71,14 @@ export function QuestionTable({
   onFilterChange,
   onSelectQuestion,
   selectedFolderName,
+  onOpenFolderDrawer,
 }: QuestionTableProps) {
   const qc = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [searchInput, setSearchInput] = useState(filter.search ?? '');
   const [assignTopicOpen, setAssignTopicOpen] = useState(false);
   const [createExamOpen, setCreateExamOpen] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // Row action menu & edit modal
   const [activeRowMenuId, setActiveRowMenuId] = useState<string | null>(null);
@@ -235,38 +240,72 @@ export function QuestionTable({
     );
   };
 
+  const activeFilterCount = [
+    filter.status,
+    filter.type,
+    filter.bloom_level,
+    filter.difficulty,
+  ].filter(Boolean).length;
+
   return (
-    <div className="flex flex-col h-full space-y-3">
+    <div className="flex flex-col h-full space-y-2.5 sm:space-y-3">
       {/* Top Search & Filter Bar */}
-      <div className="bg-white border border-gray-200/80 rounded-2xl p-3.5 shadow-xs space-y-3">
-        {/* Search Input matching design */}
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Tìm câu hỏi theo nội dung..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={handleSearchKeyDown}
-            className="w-full pl-10 pr-10 py-2.5 text-xs bg-gray-50 border border-gray-200/80 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all placeholder:text-gray-400 text-gray-800"
-          />
-          {searchInput && (
-            <button
-              onClick={() => {
-                setSearchInput('');
-                onFilterChange({ search: undefined });
-              }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+      <div className="bg-white border border-gray-200/80 rounded-2xl p-3 sm:p-3.5 shadow-xs space-y-2.5 sm:space-y-3">
+        {/* Search Input & Mobile Action Toggles */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Tìm câu hỏi theo nội dung..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              className="w-full pl-10 pr-10 py-2 sm:py-2.5 text-xs bg-gray-50 border border-gray-200/80 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all placeholder:text-gray-400 text-gray-800"
+            />
+            {searchInput && (
+              <button
+                onClick={() => {
+                  setSearchInput('');
+                  onFilterChange({ search: undefined });
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Mobile Filter Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowMobileFilters(!showMobileFilters)}
+            className={clsx(
+              'sm:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold shrink-0 transition-colors',
+              showMobileFilters || activeFilterCount > 0
+                ? 'bg-primary-50 border-primary-200 text-primary-700'
+                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+            )}
+          >
+            <Filter className="h-3.5 w-3.5" />
+            <span>Lọc</span>
+            {activeFilterCount > 0 && (
+              <span className="h-4 min-w-4 px-1 rounded-full bg-primary-600 text-white text-[10px] flex items-center justify-center font-bold">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* Filters Row matching mockup */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        {/* Filters Row: Collapsible on mobile, always visible on sm: */}
+        <div
+          className={clsx(
+            'gap-2 flex-wrap items-center',
+            showMobileFilters ? 'flex' : 'hidden sm:flex'
+          )}
+        >
           {/* Dropdown 1: Tất cả / Status selector */}
-          <div className="relative min-w-[130px]">
+          <div className="relative flex-1 min-w-[125px] sm:flex-initial sm:w-36">
             <select
               value={filter.status ?? ''}
               onChange={(e) => onFilterChange({ status: (e.target.value as any) || undefined })}
@@ -285,7 +324,7 @@ export function QuestionTable({
           </div>
 
           {/* Dropdown 2: Tất cả loại */}
-          <div className="relative min-w-[130px]">
+          <div className="relative flex-1 min-w-[125px] sm:flex-initial sm:w-36">
             <select
               value={filter.type ?? ''}
               onChange={(e) => onFilterChange({ type: (e.target.value as any) || undefined })}
@@ -303,7 +342,7 @@ export function QuestionTable({
           </div>
 
           {/* Dropdown 3: Tất cả Bloom */}
-          <div className="relative min-w-[130px]">
+          <div className="relative flex-1 min-w-[125px] sm:flex-initial sm:w-36">
             <select
               value={filter.bloom_level ?? ''}
               onChange={(e) => onFilterChange({ bloom_level: (e.target.value as any) || undefined })}
@@ -321,7 +360,7 @@ export function QuestionTable({
           </div>
 
           {/* Dropdown 4: Tất cả mức độ */}
-          <div className="relative min-w-[130px]">
+          <div className="relative flex-1 min-w-[125px] sm:flex-initial sm:w-36">
             <select
               value={filter.difficulty ?? ''}
               onChange={(e) => onFilterChange({ difficulty: (e.target.value as any) || undefined })}
@@ -340,11 +379,11 @@ export function QuestionTable({
 
           {/* Active folder indicator & clear filter */}
           {selectedFolderName && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium ml-auto">
-              <span>Thư mục: <strong>{selectedFolderName}</strong></span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium w-full sm:w-auto sm:ml-auto">
+              <span className="truncate">Thư mục: <strong>{selectedFolderName}</strong></span>
               <button
                 onClick={() => onFilterChange({ chapter_id: undefined, topic_id: undefined })}
-                className="hover:text-blue-900 ml-1"
+                className="hover:text-blue-900 ml-auto sm:ml-1"
                 title="Bỏ lọc thư mục"
               >
                 <X className="h-3.5 w-3.5" />
@@ -356,15 +395,15 @@ export function QuestionTable({
 
       {/* Bulk actions toolbar */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-100 rounded-xl shadow-xs">
-          <span className="text-xs font-semibold text-blue-700">
+        <div className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-50 border border-blue-100 rounded-xl shadow-xs overflow-x-auto no-scrollbar">
+          <span className="text-xs font-semibold text-blue-700 whitespace-nowrap shrink-0">
             Đã chọn {selected.size} câu hỏi
           </span>
-          <div className="flex items-center gap-1.5 ml-auto">
+          <div className="flex items-center gap-1.5 ml-auto shrink-0">
             <Button
               size="sm"
               variant="ghost"
-              className="text-purple-700 bg-purple-100/70 hover:bg-purple-200/70 font-medium text-xs"
+              className="text-purple-700 bg-purple-100/70 hover:bg-purple-200/70 font-medium text-xs whitespace-nowrap"
               leftIcon={<CheckSquare className="h-3.5 w-3.5" />}
               onClick={() => setCreateExamOpen(true)}
             >
@@ -373,16 +412,16 @@ export function QuestionTable({
             <Button
               size="sm"
               variant="ghost"
-              className="text-primary-700 hover:bg-primary-100/60 font-medium text-xs"
+              className="text-primary-700 hover:bg-primary-100/60 font-medium text-xs whitespace-nowrap"
               leftIcon={<Tag className="h-3.5 w-3.5" />}
               onClick={() => setAssignTopicOpen(true)}
             >
-              Gắn thư mục/chủ đề
+              Gắn thư mục
             </Button>
             <Button
               size="sm"
               variant="ghost"
-              className="text-emerald-700 hover:bg-emerald-50 font-medium text-xs"
+              className="text-emerald-700 hover:bg-emerald-50 font-medium text-xs whitespace-nowrap"
               leftIcon={<CheckCircle2 className="h-3.5 w-3.5" />}
               loading={bulkMutation.isPending}
               onClick={() => bulkMutation.mutate({ action: 'approve' })}
@@ -392,7 +431,7 @@ export function QuestionTable({
             <Button
               size="sm"
               variant="ghost"
-              className="text-gray-700 hover:bg-gray-100 font-medium text-xs"
+              className="text-gray-700 hover:bg-gray-100 font-medium text-xs whitespace-nowrap"
               leftIcon={<Archive className="h-3.5 w-3.5" />}
               loading={bulkMutation.isPending}
               onClick={() => bulkMutation.mutate({ action: 'archive' })}
@@ -402,7 +441,7 @@ export function QuestionTable({
             <Button
               size="sm"
               variant="ghost"
-              className="text-red-600 hover:bg-red-50 font-medium text-xs"
+              className="text-red-600 hover:bg-red-50 font-medium text-xs whitespace-nowrap"
               leftIcon={<Trash2 className="h-3.5 w-3.5" />}
               loading={bulkMutation.isPending}
               onClick={handleBulkDelete}
@@ -413,14 +452,14 @@ export function QuestionTable({
         </div>
       )}
 
-      {/* Main Table Card */}
+      {/* Main Table / Cards Card */}
       <div className="flex-1 bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-xs flex flex-col min-h-0">
         {isLoading ? (
           <div className="py-20 flex justify-center items-center flex-1">
             <PageSpinner />
           </div>
         ) : items.length === 0 ? (
-          <div className="py-20 flex-1 flex flex-col justify-center items-center">
+          <div className="py-20 flex-1 flex flex-col justify-center items-center px-4 text-center">
             <EmptyState
               title="Chưa có câu hỏi nào"
               description={
@@ -432,7 +471,137 @@ export function QuestionTable({
           </div>
         ) : (
           <div className="flex-1 overflow-auto">
-            <table className="w-full text-left border-collapse">
+            {/* 1. Mobile Cards View (< md) */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {/* Select All on Mobile */}
+              <div className="flex items-center justify-between px-3.5 py-2.5 bg-gray-50/80 border-b border-gray-100 text-xs text-gray-600 font-medium">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={selected.size === items.length && items.length > 0}
+                    onChange={toggleAll}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer h-4 w-4"
+                  />
+                  <span>Chọn tất cả ({items.length})</span>
+                </label>
+                <span className="text-[11px] text-gray-400">Tổng {total} câu</span>
+              </div>
+
+              {items.map((q) => {
+                const isChecked = selected.has(q.id);
+                const isMenuOpen = activeRowMenuId === q.id;
+
+                return (
+                  <div
+                    key={q.id}
+                    onClick={() => onSelectQuestion(q.id)}
+                    className={clsx(
+                      'p-3 transition-colors cursor-pointer relative',
+                      isChecked ? 'bg-blue-50/50' : 'hover:bg-gray-50/70'
+                    )}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      {/* Checkbox */}
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="pt-0.5 shrink-0"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleSelect(q.id)}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer h-4 w-4"
+                        />
+                      </div>
+
+                      {/* Card Content */}
+                      <div className="flex-1 min-w-0">
+                        {/* Badges row */}
+                        <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                          {renderTypeBadge(q)}
+                          {renderBloom(q.bloom_level)}
+                          {renderDifficulty(q)}
+                        </div>
+
+                        {/* Question Stem Preview */}
+                        <p className="text-xs font-medium text-gray-900 line-clamp-2 leading-relaxed">
+                          {q.stem_preview}
+                        </p>
+
+                        {/* Folder / Topic info */}
+                        <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500">
+                          <span className="truncate max-w-[200px] text-gray-500 font-normal">
+                            📁 {q.topic_name || q.chapter_name || 'Chưa phân loại'}
+                          </span>
+                          <span className="text-primary-600 font-semibold text-[11px]">
+                            Chi tiết →
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 3-dots Menu Button */}
+                      <div
+                        className="shrink-0 relative -mr-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setActiveRowMenuId(isMenuOpen ? null : q.id)}
+                          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+
+                        {isMenuOpen && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-20"
+                              onClick={() => setActiveRowMenuId(null)}
+                            />
+                            <div className="absolute right-0 top-full mt-1 z-30 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 text-xs text-gray-700 text-left animate-in fade-in zoom-in-95">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveRowMenuId(null);
+                                  onSelectQuestion(q.id);
+                                }}
+                                className="w-full px-3 py-1.5 hover:bg-gray-50 flex items-center gap-2"
+                              >
+                                <Eye className="h-3.5 w-3.5 text-gray-500" />
+                                Xem chi tiết
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEdit(q.id)}
+                                className="w-full px-3 py-1.5 hover:bg-gray-50 flex items-center gap-2"
+                              >
+                                <Pencil className="h-3.5 w-3.5 text-gray-500" />
+                                Chỉnh sửa
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm('Bạn có chắc muốn xóa câu hỏi này?')) {
+                                    deleteSingleMutation.mutate(q.id);
+                                  }
+                                }}
+                                className="w-full px-3 py-1.5 hover:bg-red-50 text-red-600 flex items-center gap-2 border-t border-gray-100"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Xóa câu hỏi
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 2. Desktop Table View (>= md) */}
+            <table className="hidden md:table w-full text-left border-collapse">
               <thead className="sticky top-0 bg-white border-b border-gray-200/80 z-10 text-[11px] font-semibold text-gray-500 uppercase tracking-wider select-none">
                 <tr>
                   <th className="w-10 px-4 py-3 text-center">
@@ -485,7 +654,7 @@ export function QuestionTable({
                         </p>
                       </td>
 
-                      {/* Loại: 3 dạng Trắc nghiệm / Tự luận / Lập trình */}
+                      {/* Loại */}
                       <td className="px-4 py-3.5 shrink-0 whitespace-nowrap">
                         {renderTypeBadge(q)}
                       </td>
@@ -501,7 +670,10 @@ export function QuestionTable({
                       </td>
 
                       {/* Lĩnh vực · Chủ đề */}
-                      <td className="px-4 py-3.5 text-gray-600 truncate max-w-[200px]" title={q.topic_name || q.chapter_name || 'Chưa phân loại'}>
+                      <td
+                        className="px-4 py-3.5 text-gray-600 truncate max-w-[200px]"
+                        title={q.topic_name || q.chapter_name || 'Chưa phân loại'}
+                      >
                         {q.topic_name || q.chapter_name || (
                           <span className="text-gray-400 italic">Chưa phân loại</span>
                         )}
@@ -574,17 +746,17 @@ export function QuestionTable({
 
         {/* Pagination bar */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-gray-100 px-5 py-3 bg-white shrink-0">
-            <span className="text-xs text-gray-500">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-gray-100 px-4 py-2.5 sm:px-5 sm:py-3 bg-white shrink-0">
+            <span className="text-xs text-gray-500 text-center sm:text-left">
               Trang {page} / {totalPages} (Tổng {total} câu)
             </span>
-            <div className="flex gap-1.5">
+            <div className="flex justify-center gap-1.5">
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => onFilterChange({ page: page - 1 })}
                 disabled={page <= 1}
-                className="h-8 px-2.5 rounded-lg border border-gray-200"
+                className="h-8 px-2.5 rounded-lg border border-gray-200 text-xs"
               >
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 Trước
@@ -594,7 +766,7 @@ export function QuestionTable({
                 variant="ghost"
                 onClick={() => onFilterChange({ page: page + 1 })}
                 disabled={page >= totalPages}
-                className="h-8 px-2.5 rounded-lg border border-gray-200"
+                className="h-8 px-2.5 rounded-lg border border-gray-200 text-xs"
               >
                 Sau
                 <ChevronRight className="h-4 w-4 ml-1" />

@@ -34,12 +34,16 @@ interface FolderTreeSidebarProps {
   selectedFolder: SelectedFolder | null;
   onSelectFolder: (folder: SelectedFolder | null) => void;
   totalQuestions: number;
+  className?: string;
+  onClose?: () => void;
 }
 
 export function FolderTreeSidebar({
   selectedFolder,
   onSelectFolder,
   totalQuestions,
+  className,
+  onClose,
 }: FolderTreeSidebarProps) {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
@@ -189,7 +193,7 @@ export function FolderTreeSidebar({
   });
 
   return (
-    <aside className="w-64 lg:w-72 shrink-0 bg-white border border-gray-200/80 rounded-2xl p-3.5 flex flex-col h-full shadow-xs select-none">
+    <aside className={clsx(className || 'w-64 lg:w-72 shrink-0 bg-white border border-gray-200/80 rounded-2xl p-3.5 flex flex-col h-full shadow-xs select-none')}>
       {/* Search folder input */}
       <div className="relative mb-3">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -240,6 +244,16 @@ export function FolderTreeSidebar({
           >
             <Trash2 className="h-4 w-4" />
           </button>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors ml-1 text-gray-400"
+              title="Đóng"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -247,7 +261,10 @@ export function FolderTreeSidebar({
       <div className="flex-1 overflow-y-auto space-y-1 pr-0.5 custom-scrollbar">
         {/* Item "Tất cả câu hỏi" */}
         <div
-          onClick={() => onSelectFolder(null)}
+          onClick={() => {
+            onSelectFolder(null);
+            onClose?.();
+          }}
           className={clsx(
             'group flex items-center justify-between px-3 py-2 rounded-xl text-xs cursor-pointer transition-all',
             !selectedFolder
@@ -298,13 +315,14 @@ export function FolderTreeSidebar({
               <div key={domain.id} className="relative">
                 {/* Domain folder item */}
                 <div
-                  onClick={() =>
+                  onClick={() => {
                     onSelectFolder({
                       type: 'domain',
                       id: domain.id,
                       name: domain.name,
-                    })
-                  }
+                    });
+                    onClose?.();
+                  }}
                   className={clsx(
                     'group flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs cursor-pointer transition-all',
                     isDomainSelected
@@ -433,14 +451,15 @@ export function FolderTreeSidebar({
                       return (
                         <div
                           key={topic.id}
-                          onClick={() =>
+                          onClick={() => {
                             onSelectFolder({
                               type: 'topic',
                               id: topic.id,
                               name: topic.name,
                               parentId: domain.id,
-                            })
-                          }
+                            });
+                            onClose?.();
+                          }}
                           className={clsx(
                             'group flex items-center justify-between px-2 py-1.5 rounded-lg text-xs cursor-pointer transition-all',
                             isTopicSelected

@@ -49,9 +49,9 @@ export function ClassesPage() {
   const total = data?.data?.total ?? 0;
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Lớp học</h1>
           <p className="text-sm text-gray-500 mt-0.5">
@@ -59,7 +59,7 @@ export function ClassesPage() {
             {total > 0 && ` · ${total} lớp`}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           {!isTeacher && (
             <Button
               variant="secondary"
@@ -81,7 +81,7 @@ export function ClassesPage() {
       </div>
 
       {/* Search */}
-      <div className="mb-4 max-w-xs">
+      <div className="mb-4 w-full sm:max-w-xs">
         <Input
           placeholder="Tìm kiếm lớp..."
           value={search}

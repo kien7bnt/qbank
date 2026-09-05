@@ -83,7 +83,7 @@ function UserMenu() {
 
 export function Layout() {
   const { isAuthenticated, activeRole, toggleRole } = useAuthStore();
-  const { sidebarCollapsed, toggleSidebar } = useUIStore();
+  const { toggleSidebar, toggleSidebarMobile } = useUIStore();
   const navigate = useNavigate();
 
   if (!isAuthenticated()) {
@@ -101,28 +101,36 @@ export function Layout() {
     }
   };
 
+  const handleMenuClick = () => {
+    if (window.innerWidth < 768) {
+      toggleSidebarMobile();
+    } else {
+      toggleSidebar();
+    }
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         {/* Top header */}
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4">
-          <div className="flex items-center gap-3">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-3 sm:px-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
-              onClick={toggleSidebar}
-              className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 transition-colors"
-              aria-label="Toggle sidebar"
+              onClick={handleMenuClick}
+              className="rounded-lg p-1.5 text-gray-600 hover:bg-gray-100 transition-colors"
+              aria-label="Toggle menu"
             >
               <Menu className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3">
             {/* Prominent Role Switcher Button */}
             <button
               onClick={handleToggleRole}
               title="Nhấn để đổi ngay giữa giao diện Người dạy và Người học"
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-xs active:scale-95 ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-xs active:scale-95 ${
                 activeRole === 'teacher'
                   ? 'bg-gradient-to-r from-indigo-50 to-primary-50 border-primary-200 text-primary-800 hover:border-primary-300'
                   : 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 text-emerald-800 hover:border-emerald-300'
@@ -130,22 +138,22 @@ export function Layout() {
             >
               {activeRole === 'teacher' ? (
                 <>
-                  <GraduationCap className="h-4 w-4 text-primary-600" />
-                  <span className="hidden xs:inline">Vai trò: <strong>Người dạy</strong></span>
-                  <span className="xs:hidden">Người dạy</span>
-                  <div className="flex items-center gap-1 pl-1.5 border-l border-primary-200 text-primary-600 hover:text-primary-800 font-medium">
+                  <GraduationCap className="h-4 w-4 text-primary-600 shrink-0" />
+                  <span className="hidden sm:inline">Vai trò: <strong>Người dạy</strong></span>
+                  <span className="sm:hidden font-semibold">Người dạy</span>
+                  <div className="flex items-center gap-1 pl-1 sm:pl-1.5 border-l border-primary-200 text-primary-600 hover:text-primary-800 font-medium shrink-0">
                     <ArrowLeftRight className="h-3 w-3" />
-                    <span className="hidden sm:inline">Đổi vai trò</span>
+                    <span className="hidden md:inline">Đổi</span>
                   </div>
                 </>
               ) : (
                 <>
-                  <BookOpen className="h-4 w-4 text-emerald-600" />
-                  <span className="hidden xs:inline">Vai trò: <strong>Người học</strong></span>
-                  <span className="xs:hidden">Người học</span>
-                  <div className="flex items-center gap-1 pl-1.5 border-l border-emerald-200 text-emerald-600 hover:text-emerald-800 font-medium">
+                  <BookOpen className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span className="hidden sm:inline">Vai trò: <strong>Người học</strong></span>
+                  <span className="sm:hidden font-semibold">Người học</span>
+                  <div className="flex items-center gap-1 pl-1 sm:pl-1.5 border-l border-emerald-200 text-emerald-600 hover:text-emerald-800 font-medium shrink-0">
                     <ArrowLeftRight className="h-3 w-3" />
-                    <span className="hidden sm:inline">Đổi vai trò</span>
+                    <span className="hidden md:inline">Đổi</span>
                   </div>
                 </>
               )}

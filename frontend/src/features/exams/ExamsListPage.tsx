@@ -35,29 +35,31 @@ export function ExamsListPage() {
   const examList: Exam[] = exams?.data || [];
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-            <FileText className="h-6 w-6 text-primary-600" />
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-primary-600" />
             Danh Sách Đề Thi
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
             Quản lý các đề thi đã được tạo từ Ma trận hoặc biên soạn thủ công.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <Button
             variant="outline"
             onClick={() => setCreateFromBankOpen(true)}
+            size="sm"
+            className="sm:h-10 sm:px-4 text-xs sm:text-sm"
           >
             <Plus className="h-4 w-4 mr-1.5" />
             Tạo đề từ Ngân hàng
           </Button>
           <Link to="/exam-matrices">
-            <Button>
+            <Button size="sm" className="sm:h-10 sm:px-4 text-xs sm:text-sm">
               <Layers className="h-4 w-4 mr-1.5" />
               Tạo đề từ Ma trận
             </Button>

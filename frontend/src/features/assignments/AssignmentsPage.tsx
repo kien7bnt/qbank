@@ -131,11 +131,11 @@ export function AssignmentsPage() {
       </div>
 
       {/* Filter Tabs if no query or general view */}
-      <div className="flex items-center gap-2 border-b border-gray-200 pb-2">
+      <div className="flex items-center gap-2 border-b border-gray-200 pb-2 overflow-x-auto no-scrollbar">
         <button
           type="button"
           onClick={() => setSearchParams(typeFilter === null ? {} : {})}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
             !typeFilter ? 'bg-primary-600 text-white' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
@@ -144,7 +144,7 @@ export function AssignmentsPage() {
         <button
           type="button"
           onClick={() => setSearchParams({ type: 'exam' })}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
             typeFilter === 'exam' ? 'bg-rose-600 text-white' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
@@ -153,7 +153,7 @@ export function AssignmentsPage() {
         <button
           type="button"
           onClick={() => setSearchParams({ type: 'homework' })}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
             typeFilter === 'homework' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
