@@ -65,6 +65,7 @@ const PROVIDERS = [
 export function SettingsPage() {
   const qc = useQueryClient();
   const { user } = useAuthStore();
+  const isAdmin = !!user?.roles?.includes('admin');
 
   const [selectedProvider, setSelectedProvider] = useState('mock');
   const [apiKey, setApiKey] = useState('');
@@ -75,12 +76,14 @@ export function SettingsPage() {
   const { data: configData, isLoading } = useQuery({
     queryKey: ['ai-config'],
     queryFn: () => aiApi.getConfig(),
+    enabled: isAdmin,
   });
 
   const { data: healthData, refetch: checkHealth, isFetching: isCheckingHealth } = useQuery({
     queryKey: ['ai-health'],
     queryFn: () => aiApi.healthCheck(),
     retry: false,
+    enabled: isAdmin,
   });
 
   useEffect(() => {
@@ -109,6 +112,27 @@ export function SettingsPage() {
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-2xl border border-red-200 p-8 text-center shadow-xs space-y-4">
+          <div className="mx-auto w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center">
+            <Shield className="h-6 w-6" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900">Quyền truy cập bị từ chối</h2>
+          <p className="text-sm text-gray-500 leading-relaxed">
+            Chức năng <strong>Cài đặt hệ thống</strong> chỉ dành riêng cho Quản trị viên (Admin). Vui lòng liên hệ người quản trị nếu bạn cần phân quyền.
+          </p>
+          <div className="pt-2">
+            <Button onClick={() => window.location.href = '/dashboard'} className="w-full">
+              Quay lại Bảng điều khiển
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) return <PageSpinner />;
 

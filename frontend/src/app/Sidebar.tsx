@@ -13,6 +13,7 @@ import {
   History,
   FolderTree,
   BookMarked,
+  Sparkles,
 } from 'lucide-react';
 import { useUIStore } from '@/stores/ui.store';
 import { useAuthStore } from '@/stores/auth.store';
@@ -32,14 +33,24 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
   },
   { label: 'QUẢN LÝ ĐÀO TẠO', section: true, icon: <></> },
   {
-    label: 'Lớp học',
+    label: 'Quản lý lớp học',
     icon: <GraduationCap className="h-4 w-4" />,
     to: '/classes',
   },
   {
+    label: 'Kho tài liệu',
+    icon: <BookMarked className="h-4 w-4" />,
+    to: '/document-library',
+  },
+  {
     label: 'Bài kiểm tra',
     icon: <ClipboardList className="h-4 w-4" />,
-    to: '/assignments',
+    to: '/assignments?type=exam',
+  },
+  {
+    label: 'Bài tập',
+    icon: <BookOpen className="h-4 w-4" />,
+    to: '/assignments?type=homework',
   },
   { label: 'NGÂN HÀNG & ĐỀ THI', section: true, icon: <></> },
   {
@@ -53,11 +64,6 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
     to: '/domains',
   },
   {
-    label: 'Kho Tài Liệu',
-    icon: <BookMarked className="h-4 w-4" />,
-    to: '/document-library',
-  },
-  {
     label: 'Ma trận đề',
     icon: <CheckSquare className="h-4 w-4" />,
     to: '/exam-matrices',
@@ -67,11 +73,22 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
     icon: <FileText className="h-4 w-4" />,
     to: '/exams',
   },
+  { label: 'TRÍ TUỆ NHÂN TẠO', section: true, icon: <></> },
+  {
+    label: 'Quy tắc AI',
+    icon: <Sparkles className="h-4 w-4 text-amber-500" />,
+    to: '/ai-rules',
+  },
   { label: 'BÁO CÁO & KHẢO THÍ', section: true, icon: <></> },
   {
     label: 'Phân tích & Khảo thí',
     icon: <BarChart3 className="h-4 w-4" />,
     to: '/analytics',
+  },
+  {
+    label: 'Cài đặt hệ thống',
+    icon: <Settings className="h-4 w-4" />,
+    to: '/settings',
   },
 ];
 
@@ -83,9 +100,19 @@ const STUDENT_NAV_ITEMS: NavItem[] = [
     to: '/classes',
   },
   {
+    label: 'Kho tài liệu',
+    icon: <BookMarked className="h-4 w-4" />,
+    to: '/document-library',
+  },
+  {
+    label: 'Bài tập',
+    icon: <BookOpen className="h-4 w-4" />,
+    to: '/assignments?type=homework',
+  },
+  {
     label: 'Bài kiểm tra',
     icon: <ClipboardList className="h-4 w-4" />,
-    to: '/assignments',
+    to: '/assignments?type=exam',
   },
   {
     label: 'Lịch sử làm bài',
@@ -96,10 +123,23 @@ const STUDENT_NAV_ITEMS: NavItem[] = [
 
 export function Sidebar() {
   const collapsed = useUIStore((s) => s.sidebarCollapsed);
+  const activeRole = useAuthStore((s) => s.activeRole);
   const user = useAuthStore((s) => s.user);
+  const location = useLocation();
 
-  const isStudent = user?.roles.includes('student') && !user?.roles.includes('teacher') && !user?.roles.includes('admin');
-  const navItems = isStudent ? STUDENT_NAV_ITEMS : TEACHER_NAV_ITEMS;
+  const isAdmin = !!user?.roles?.includes('admin');
+  const isStudent = activeRole === 'student';
+  const rawItems = isStudent ? STUDENT_NAV_ITEMS : TEACHER_NAV_ITEMS;
+  const navItems = rawItems.filter((item) => item.to !== '/settings' || isAdmin);
+
+  const isItemActive = (targetTo?: string) => {
+    if (!targetTo) return false;
+    const currentFull = `${location.pathname}${location.search}`;
+    if (targetTo.includes('?')) {
+      return currentFull === targetTo;
+    }
+    return location.pathname === targetTo;
+  };
 
   return (
     <aside
@@ -117,8 +157,8 @@ export function Sidebar() {
           {!collapsed && (
             <div className="flex flex-col">
               <span className="text-base font-bold text-gray-900 leading-none">Edumate</span>
-              <span className="text-[10px] text-gray-400 font-medium mt-0.5">
-                {isStudent ? 'Cổng Học Sinh' : 'Cổng Khảo Thí'}
+              <span className="text-[10px] text-primary-600 font-bold mt-0.5">
+                {isStudent ? '🎒 Cổng Học Viên' : '👨‍🏫 Cổng Giảng Viên'}
               </span>
             </div>
           )}
@@ -140,18 +180,19 @@ export function Sidebar() {
                 </p>
               );
             }
+
+            const active = isItemActive(item.to);
+
             return (
               <NavLink
                 key={item.to}
                 to={item.to!}
-                className={({ isActive }) =>
-                  clsx(
-                    'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-primary-50 text-primary-700 font-semibold'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                  )
-                }
+                className={clsx(
+                  'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  active
+                    ? 'bg-primary-50 text-primary-700 font-semibold'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                )}
               >
                 <span className="shrink-0">{item.icon}</span>
                 {!collapsed && item.label}

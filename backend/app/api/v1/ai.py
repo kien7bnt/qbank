@@ -111,7 +111,9 @@ class AIConfigUpdateReq(BaseModel):
 
 @router.get("/config")
 async def get_ai_config(current_user=Depends(get_current_user)):
-    """Lấy cấu hình AI hiện tại"""
+    """Lấy cấu hình AI hiện tại (chỉ dành cho admin)"""
+    if not current_user.has_role("admin"):
+        raise HTTPException(status_code=403, detail="Chỉ quản trị viên (admin) mới có quyền xem cấu hình hệ thống")
     p = getattr(settings, "AI_PROVIDER", "mock")
     masked_key = ""
     if p in ("gemini", "google") and getattr(settings, "GEMINI_API_KEY", ""):
@@ -139,9 +141,9 @@ async def get_ai_config(current_user=Depends(get_current_user)):
 
 @router.post("/config")
 async def update_ai_config(data: AIConfigUpdateReq, current_user=Depends(get_current_user)):
-    """Cập nhật cấu hình AI (Provider, API Key, Model) thời gian thực"""
-    if not current_user.has_role("admin", "teacher"):
-        raise HTTPException(status_code=403, detail="Chỉ giáo viên/admin mới có quyền cấu hình AI")
+    """Cập nhật cấu hình AI (Provider, API Key, Model) thời gian thực (chỉ dành cho admin)"""
+    if not current_user.has_role("admin"):
+        raise HTTPException(status_code=403, detail="Chỉ quản trị viên (admin) mới có quyền cấu hình hệ thống")
 
     settings.AI_PROVIDER = data.provider
     if data.api_key:

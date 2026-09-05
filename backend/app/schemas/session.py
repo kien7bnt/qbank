@@ -36,7 +36,7 @@ class SessionAssignmentSummary(BaseModel):
 
     id: uuid.UUID
     name: str
-    assignment_type: str = "exam"  # "assignment" | "exam"
+    assignment_type: str = "exam"  # "homework" | "exam"
     duration_minutes: int = 45
     max_attempts: int = 1
     pass_score: float = 5.0
@@ -46,6 +46,14 @@ class SessionAssignmentSummary(BaseModel):
     class_id: Optional[uuid.UUID] = None
     session_id: Optional[uuid.UUID] = None
     total_submissions: Optional[int] = 0
+
+    @model_validator(mode="after")
+    def normalize_type(self) -> SessionAssignmentSummary:
+        if self.assignment_type in ["assignment", "homework"]:
+            self.assignment_type = "homework"
+        else:
+            self.assignment_type = "exam"
+        return self
 
 
 class ClassSessionCreate(BaseModel):

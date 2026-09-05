@@ -436,7 +436,7 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
                 <div className="flex items-center justify-between text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   <span className="flex items-center gap-1.5 text-indigo-700">
                     <ClipboardCheck className="h-3.5 w-3.5" />
-                    Bài kiểm tra & Đánh giá ({session.assignments?.length || 0})
+                    Bài tập & Bài kiểm tra ({session.assignments?.length || 0})
                   </span>
                   {isTeacher && (
                     <button
@@ -450,7 +450,7 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
                 </div>
 
                 {(!session.assignments || session.assignments.length === 0) ? (
-                  <p className="text-xs text-gray-400 italic">Chưa có bài kiểm tra nào trong buổi học này.</p>
+                  <p className="text-xs text-gray-400 italic">Chưa có bài tập hoặc bài kiểm tra nào trong buổi học này.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                     {session.assignments.map((asgn) => (
@@ -464,7 +464,7 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5 mb-0.5">
-                              {asgn.assignment_type === 'homework' ? (
+                              {asgn.assignment_type === 'homework' || asgn.assignment_type === 'assignment' ? (
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">Bài tập</span>
                               ) : (
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">Kiểm tra</span>
@@ -499,11 +499,12 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
                                 Bài nộp ({asgn.total_submissions ?? 0})
                               </Button>
                               <button
-                                title="Xóa bài kiểm tra này"
+                                title="Xóa bài này"
                                 onClick={() => {
+                                  const isHw = asgn.assignment_type === 'homework' || asgn.assignment_type === 'assignment';
                                   if (
                                     confirm(
-                                      `Bạn có chắc muốn xóa bài kiểm tra "${asgn.name}" khỏi buổi học? Mọi bài nộp của học sinh cũng sẽ bị xóa.`
+                                      `Bạn có chắc muốn xóa ${isHw ? 'bài tập' : 'bài kiểm tra'} "${asgn.name}" khỏi buổi học? Mọi bài nộp của học sinh cũng sẽ bị xóa.`
                                     )
                                   ) {
                                     deleteAssignmentMutation.mutate(asgn.id);

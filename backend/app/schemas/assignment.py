@@ -68,6 +68,9 @@ class QuestionTakingOut(BaseModel):
     options: List[dict] = Field(default_factory=list)
     selected_option_id: Optional[uuid.UUID] = None
     text_response: Optional[str] = None
+    code_response: Optional[str] = None
+    coding_data: Optional[dict] = None
+    essay_data: Optional[dict] = None
 
 
 class ExamTakingStateOut(BaseModel):
@@ -92,9 +95,13 @@ class ResponseDetailOut(BaseModel):
     is_correct: Optional[bool] = None
     selected_option_id: Optional[uuid.UUID] = None
     correct_option_id: Optional[uuid.UUID] = None
+    text_response: Optional[str] = None
+    code_response: Optional[str] = None
     rationale: Optional[str] = None
     options: List[dict] = Field(default_factory=list)
     feedback: Optional[str] = None
+    coding_data: Optional[dict] = None
+    essay_data: Optional[dict] = None
 
 
 class AttemptResultOut(BaseModel):

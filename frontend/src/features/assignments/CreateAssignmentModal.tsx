@@ -12,6 +12,7 @@ interface CreateAssignmentModalProps {
   onOpenChange: (open: boolean) => void;
   initialClassId?: string;
   initialSessionId?: string;
+  initialType?: 'exam' | 'homework';
 }
 
 export function CreateAssignmentModal({
@@ -19,13 +20,16 @@ export function CreateAssignmentModal({
   onOpenChange,
   initialClassId,
   initialSessionId,
+  initialType,
 }: CreateAssignmentModalProps) {
   const qc = useQueryClient();
-  const [assignmentType, setAssignmentType] = useState<'exam' | 'homework'>('exam');
+  const [assignmentType, setAssignmentType] = useState<'exam' | 'homework'>(initialType || 'exam');
   const [name, setName] = useState('');
   const [examId, setExamId] = useState('');
   const [classId, setClassId] = useState(initialClassId || '');
   const [sessionId, setSessionId] = useState(initialSessionId || '');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(45);
   const [passScore, setPassScore] = useState(5.0);
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
@@ -35,8 +39,9 @@ export function CreateAssignmentModal({
     if (open) {
       if (initialClassId) setClassId(initialClassId);
       if (initialSessionId) setSessionId(initialSessionId);
+      if (initialType) setAssignmentType(initialType);
     }
-  }, [open, initialClassId, initialSessionId]);
+  }, [open, initialClassId, initialSessionId, initialType]);
 
   const { data: exams } = useQuery({
     queryKey: ['exams'],
@@ -66,6 +71,8 @@ export function CreateAssignmentModal({
         exam_id: examId,
         class_id: classId,
         session_id: sessionId || undefined,
+        start_time: startTime ? new Date(startTime).toISOString() : undefined,
+        end_time: endTime ? new Date(endTime).toISOString() : undefined,
         duration_minutes: Number(durationMinutes),
         pass_score: Number(passScore),
         shuffle_questions: shuffleQuestions,
@@ -77,7 +84,7 @@ export function CreateAssignmentModal({
       qc.invalidateQueries({ queryKey: ['class-sessions'] });
       toast.success(
         assignmentType === 'homework'
-          ? '✨ Đã giao bài tập rèn luyện cho lớp thành công!'
+          ? '✨ Đã giao bài tập cho lớp thành công!'
           : '✨ Đã giao bài kiểm tra cho lớp thành công!'
       );
       handleReset();
@@ -87,11 +94,13 @@ export function CreateAssignmentModal({
   });
 
   const handleReset = () => {
-    setAssignmentType('exam');
+    setAssignmentType(initialType || 'exam');
     setName('');
     setExamId('');
     setClassId(initialClassId || '');
     setSessionId(initialSessionId || '');
+    setStartTime('');
+    setEndTime('');
     setDurationMinutes(45);
     setPassScore(5.0);
   };
@@ -111,8 +120,12 @@ export function CreateAssignmentModal({
       onOpenChange={onOpenChange}
       title={
         <div className="flex items-center gap-2">
-          <ClipboardList className="h-5 w-5 text-primary-600" />
-          <span>Giao Bài Kiểm Tra Mới</span>
+          {assignmentType === 'homework' ? (
+            <BookOpen className="h-5 w-5 text-indigo-600" />
+          ) : (
+            <ClipboardList className="h-5 w-5 text-primary-600" />
+          )}
+          <span>{assignmentType === 'homework' ? 'Giao Bài Tập Mới' : 'Giao Bài Kiểm Tra Mới'}</span>
         </div>
       }
       size="lg"
@@ -179,7 +192,7 @@ export function CreateAssignmentModal({
               <div className="flex items-center justify-between">
                 <span className="font-bold text-sm text-gray-900 flex items-center gap-1.5">
                   <BookOpen className="h-4 w-4 text-indigo-600" />
-                  Bài tập rèn luyện
+                  Bài tập
                 </span>
                 {assignmentType === 'homework' && (
                   <span className="h-2 w-2 rounded-full bg-indigo-600" />
@@ -277,6 +290,35 @@ export function CreateAssignmentModal({
               ✓ Bài kiểm tra này sẽ hiển thị trực tiếp trong danh mục Buổi học đã chọn.
             </p>
           )}
+        </div>
+
+        {/* Start and End Date Time Picker */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 bg-gray-50/80 rounded-xl border border-gray-200">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
+              Thời gian mở bài (Bắt đầu)
+            </label>
+            <input
+              type="datetime-local"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            <p className="text-[11px] text-gray-400 mt-1">Học sinh chỉ có thể làm bài sau mốc này.</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
+              Thời hạn nộp bài (Kết thúc)
+            </label>
+            <input
+              type="datetime-local"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            <p className="text-[11px] text-gray-400 mt-1">Hệ thống sẽ khóa bài khi quá thời hạn này.</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">

@@ -2,11 +2,16 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User } from '@/types';
 
+export type UserActiveRole = 'teacher' | 'student';
+
 interface AuthState {
   user: User | null;
+  activeRole: UserActiveRole;
   accessToken: string | null;
   refreshToken: string | null;
   setAuth: (user: User, accessToken: string, refreshToken: string) => void;
+  setActiveRole: (role: UserActiveRole) => void;
+  toggleRole: () => UserActiveRole;
   logout: () => void;
   isAuthenticated: () => boolean;
   hasRole: (...roles: string[]) => boolean;
@@ -16,19 +21,36 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
+      activeRole: 'teacher',
       accessToken: null,
       refreshToken: null,
 
       setAuth: (user, accessToken, refreshToken) => {
         localStorage.setItem('access_token', accessToken);
         localStorage.setItem('refresh_token', refreshToken);
-        set({ user, accessToken, refreshToken });
+        
+        // Determine default role: if user is student only -> 'student', else 'teacher'
+        const currentActive = get().activeRole;
+        const isOnlyStudent = user.roles.includes('student') && !user.roles.includes('teacher') && !user.roles.includes('admin');
+        const nextActive = isOnlyStudent ? 'student' : (currentActive || 'teacher');
+
+        set({ user, activeRole: nextActive, accessToken, refreshToken });
+      },
+
+      setActiveRole: (role) => {
+        set({ activeRole: role });
+      },
+
+      toggleRole: () => {
+        const next: UserActiveRole = get().activeRole === 'teacher' ? 'student' : 'teacher';
+        set({ activeRole: next });
+        return next;
       },
 
       logout: () => {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
-        set({ user: null, accessToken: null, refreshToken: null });
+        set({ user: null, activeRole: 'teacher', accessToken: null, refreshToken: null });
       },
 
       isAuthenticated: () => !!get().accessToken && !!get().user,
@@ -43,6 +65,7 @@ export const useAuthStore = create<AuthState>()(
       name: 'qbank-auth',
       partialize: (state) => ({
         user: state.user,
+        activeRole: state.activeRole,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
       }),

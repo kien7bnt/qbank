@@ -27,6 +27,8 @@ function Placeholder({ title }: { title: string }) {
   );
 }
 
+import { AIRulesPage } from '@/features/ai';
+
 export const router = createBrowserRouter([
   {
     path: '/login',
@@ -54,6 +56,7 @@ export const router = createBrowserRouter([
       { path: 'exam-matrices', element: <ExamMatricesPage /> },
       { path: 'exams', element: <ExamsListPage /> },
       { path: 'assignments', element: <AssignmentsPage /> },
+      { path: 'ai-rules', element: <AIRulesPage /> },
       { path: 'student-history', element: <StudentHistoryPage /> },
       { path: 'analytics', element: <AnalyticsPage /> },
       { path: 'settings', element: <SettingsPage /> },

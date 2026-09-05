@@ -141,6 +141,8 @@ class QuestionCoding(Base):
     time_limit_ms: Mapped[int] = mapped_column(Integer, default=1000)
     memory_limit_mb: Mapped[int] = mapped_column(Integer, default=256)
     allowed_languages: Mapped[Any] = mapped_column(JSON, default=list)
+    starter_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    test_cases: Mapped[Any] = mapped_column(JSON, default=list)
 
     question: Mapped["Question"] = relationship(back_populates="coding_data")
 

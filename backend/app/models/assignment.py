@@ -53,6 +53,20 @@ class Assignment(Base):
     def total_submissions(self) -> int:
         return len(self.attempts) if self.attempts else 0
 
+    @property
+    def exam_name(self) -> Optional[str]:
+        return self.exam.name if self.exam else None
+
+    @property
+    def class_name(self) -> Optional[str]:
+        return self.class_.name if self.class_ else None
+
+    @property
+    def session_name(self) -> Optional[str]:
+        if self.session:
+            return getattr(self.session, "name", getattr(self.session, "title", None))
+        return None
+
 
 class ExamAttempt(Base):
     """Lượt làm bài của học sinh"""

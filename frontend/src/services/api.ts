@@ -25,6 +25,9 @@ import type {
   ExamAnalyticsOverview,
   ExamStudentResult,
   ExamQuestionPsychometrics,
+  CompilerLanguage,
+  CodeExecutionResult,
+  QuestionTestSummary,
 } from '@/types';
 
 const API_HOST = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
@@ -295,7 +298,7 @@ export const examAnalyticsApi = {
 
 // ─── Assignment API ──────────────────────────────────────────────────────────
 export const assignmentApi = {
-  list: (params?: { class_id?: string; session_id?: string }) => apiClient.get('/assignments', { params }),
+  list: (params?: { class_id?: string; session_id?: string; role?: string }) => apiClient.get('/assignments', { params }),
 
   get: (id: string) => apiClient.get(`/assignments/${id}`),
 
@@ -311,7 +314,7 @@ export const assignmentApi = {
 
   retry: (assignmentId: string) => apiClient.post(`/assignments/${assignmentId}/retry`),
 
-  saveResponse: (attemptId: string, data: { question_id: string; selected_option_id?: string; text_response?: string }) =>
+  saveResponse: (attemptId: string, data: { question_id: string; selected_option_id?: string; text_response?: string; code_response?: string }) =>
     apiClient.post(`/attempts/${attemptId}/responses`, data),
 
   submit: (attemptId: string) => apiClient.post(`/attempts/${attemptId}/submit`),
@@ -321,6 +324,18 @@ export const assignmentApi = {
   getState: (attemptId: string) => apiClient.get(`/attempts/${attemptId}/state`),
 
   history: () => apiClient.get('/student/history'),
+};
+
+// ─── Online Compiler API (Judge0 / compiler.edusoft.vn) ─────────────────────
+export const compilerApi = {
+  getLanguages: () =>
+    apiClient.get<CompilerLanguage[]>('/compiler/languages'),
+
+  runCode: (data: { source_code: string; language: string; stdin?: string; expected_output?: string }) =>
+    apiClient.post<CodeExecutionResult>('/compiler/run', data),
+
+  testQuestion: (data: { question_id: string; source_code: string; language: string }) =>
+    apiClient.post<QuestionTestSummary>('/compiler/test-question', data),
 };
 
 // ─── Analytics & Psychometrics API ───────────────────────────────────────────

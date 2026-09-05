@@ -31,10 +31,21 @@ async def create_assignment(
 async def list_assignments(
     class_id: Optional[uuid.UUID] = None,
     session_id: Optional[uuid.UUID] = None,
+    role: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    if current_user.has_role("teacher", "admin"):
+    is_teacher_request = False
+    if role == "teacher":
+        if not current_user.has_role("teacher", "admin"):
+            raise HTTPException(status_code=403, detail="Bạn không có quyền giáo viên")
+        is_teacher_request = True
+    elif role == "student":
+        is_teacher_request = False
+    elif current_user.has_role("teacher", "admin"):
+        is_teacher_request = True
+
+    if is_teacher_request:
         assignments = await assignment_service.list_assignments(db, class_id)
         if session_id:
             assignments = [a for a in assignments if a.session_id == session_id]
@@ -42,12 +53,13 @@ async def list_assignments(
             {
                 "id": a.id,
                 "name": a.name,
+                "assignment_type": "homework" if getattr(a, "assignment_type", None) in ["homework", "assignment"] else "exam",
                 "exam_id": a.exam_id,
                 "exam_name": a.exam.name if a.exam else "Đề thi",
                 "class_id": a.class_id,
                 "class_name": a.class_.name if a.class_ else "Lớp học",
                 "session_id": a.session_id,
-                "session_name": a.session.name if a.session else None,
+                "session_name": getattr(a.session, "name", getattr(a.session, "title", None)) if a.session else None,
                 "duration_minutes": a.duration_minutes,
                 "start_time": a.start_time,
                 "end_time": a.end_time,
@@ -75,12 +87,13 @@ async def get_assignment(
     return {
         "id": a.id,
         "name": a.name,
+        "assignment_type": "homework" if getattr(a, "assignment_type", None) in ["homework", "assignment"] else "exam",
         "exam_id": a.exam_id,
         "exam_name": a.exam.name if a.exam else "Đề thi",
         "class_id": a.class_id,
         "class_name": a.class_.name if a.class_ else "Lớp học",
         "session_id": a.session_id,
-        "session_name": a.session.name if a.session else None,
+        "session_name": getattr(a.session, "name", getattr(a.session, "title", None)) if a.session else None,
         "duration_minutes": a.duration_minutes,
         "start_time": a.start_time,
         "end_time": a.end_time,

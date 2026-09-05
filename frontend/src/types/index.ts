@@ -347,6 +347,27 @@ export interface QuestionTaking {
   }[];
   selected_option_id?: string;
   text_response?: string;
+  code_response?: string;
+  coding_data?: {
+    problem_statement?: string;
+    input_format?: string;
+    output_format?: string;
+    constraints?: string;
+    sample_input?: string;
+    sample_output?: string;
+    time_limit_ms?: number;
+    allowed_languages?: string[];
+    starter_code?: string;
+    test_cases?: {
+      input: string;
+      output: string;
+      is_hidden?: boolean;
+    }[];
+  };
+  essay_data?: {
+    sample_answer?: string;
+    max_points?: number;
+  };
 }
 
 export interface ExamTakingState {
@@ -371,6 +392,10 @@ export interface ResponseDetail {
   is_correct?: boolean;
   selected_option_id?: string;
   correct_option_id?: string;
+  text_response?: string;
+  code_response?: string;
+  coding_data?: any;
+  essay_data?: any;
   rationale?: string;
   options: {
     id: string;
@@ -653,6 +678,45 @@ export interface ExamQuestionPsychometrics {
     chosen_count: number;
     percentage: number;
   }[];
+}
+
+// ─── Online Compiler (Judge0) ────────────────────────────────────────────────
+export interface CompilerLanguage {
+  id: string;
+  name: string;
+  judge0_id: number;
+  extension: string;
+}
+
+export interface CodeExecutionResult {
+  success: boolean;
+  status: string;
+  status_id: number;
+  stdout: string | null;
+  stderr: string | null;
+  compile_output: string | null;
+  time: string | null;
+  memory: number | null;
+  is_passed: boolean;
+}
+
+export interface TestCaseResult {
+  case_number: number;
+  is_passed: boolean;
+  input: string;
+  expected_output: string;
+  actual_output: string;
+  stderr: string;
+  status: string;
+  time?: string | null;
+  memory?: number | null;
+}
+
+export interface QuestionTestSummary {
+  passed_count: number;
+  total_count: number;
+  passed_all: boolean;
+  results: TestCaseResult[];
 }
 
 

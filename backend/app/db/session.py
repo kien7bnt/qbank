@@ -61,6 +61,9 @@ async def init_db() -> None:
                 ("questions", "learning_objective_id", "UUID", "CHAR(32)"),
                 # question_essays
                 ("question_essays", "rubric_id", "UUID", "CHAR(32)"),
+                # question_codings
+                ("question_codings", "starter_code", "TEXT", "TEXT"),
+                ("question_codings", "test_cases", "JSON", "JSON"),
                 # exams
                 ("exams", "allow_review", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 ("exams", "show_score", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
@@ -142,14 +145,14 @@ async def init_db() -> None:
 
             # 2. Seed Demo Users
             demo_users = [
-                ("admin@qbank.vn", "Admin@123", "Quản trị viên Hệ thống", "admin"),
-                ("teacher@qbank.vn", "Teacher@123", "Thầy Nguyễn Văn A", "teacher"),
-                ("student@qbank.vn", "Student@123", "Học sinh Trần Văn B", "student"),
-                ("student1@edumate.vn", "Student@123", "Học viên Nguyễn Văn An", "student"),
-                ("student2@edumate.vn", "Student@123", "Học viên Trần Thị Bình", "student"),
-                ("student3@edumate.vn", "Student@123", "Học viên Lê Hoàng Cường", "student"),
+                ("admin@qbank.vn", "Admin@123", "Quản trị viên Hệ thống", ["admin", "teacher", "student"]),
+                ("teacher@qbank.vn", "Teacher@123", "Thầy Nguyễn Văn A", ["teacher", "student"]),
+                ("student@qbank.vn", "Student@123", "Học sinh Trần Văn B", ["student", "teacher"]),
+                ("student1@edumate.vn", "Student@123", "Học viên Nguyễn Văn An", ["student", "teacher"]),
+                ("student2@edumate.vn", "Student@123", "Học viên Trần Thị Bình", ["student", "teacher"]),
+                ("student3@edumate.vn", "Student@123", "Học viên Lê Hoàng Cường", ["student", "teacher"]),
             ]
-            for email, raw_pwd, full_name, role_name in demo_users:
+            for email, raw_pwd, full_name, user_role_names in demo_users:
                 stmt = select(User).where(User.email == email)
                 res = await session.execute(stmt)
                 user = res.scalar_one_or_none()
@@ -162,9 +165,21 @@ async def init_db() -> None:
                     )
                     session.add(user)
                     await session.flush()
-                    if role_name in roles_map:
-                        user_role = UserRole(user_id=user.id, role_id=roles_map[role_name].id)
-                        session.add(user_role)
+                
+                # Ensure all specified roles are attached
+                existing_role_ids = {ur.role_id for ur in (user.user_roles or [])}
+                for r_name in user_role_names:
+                    if r_name in roles_map and roles_map[r_name].id not in existing_role_ids:
+                        session.add(UserRole(user_id=user.id, role_id=roles_map[r_name].id))
+
+            # 3. Ensure ALL existing users have both teacher and student roles for seamless role switching
+            all_users_stmt = select(User)
+            all_users_res = await session.execute(all_users_stmt)
+            for u in all_users_res.scalars().all():
+                current_rids = {ur.role_id for ur in (u.user_roles or [])}
+                for r_key in ["teacher", "student"]:
+                    if r_key in roles_map and roles_map[r_key].id not in current_rids:
+                        session.add(UserRole(user_id=u.id, role_id=roles_map[r_key].id))
 
             await session.commit()
         except Exception:

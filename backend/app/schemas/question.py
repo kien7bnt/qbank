@@ -40,7 +40,9 @@ class CodingDataIn(BaseModel):
     sample_output: Optional[str] = None
     time_limit_ms: int = 1000
     memory_limit_mb: int = 256
-    allowed_languages: List[str] = []
+    allowed_languages: List[str] = ["python", "cpp", "c", "java", "javascript"]
+    starter_code: Optional[str] = None
+    test_cases: List[dict] = []
 
 
 class CodingDataOut(CodingDataIn):

@@ -9,11 +9,12 @@ from sqlalchemy.orm import selectinload
 from app.models.assignment import Assignment, ExamAttempt, StudentResponse
 from app.models.exam import Exam, ExamSection, ExamQuestion
 from app.models.class_ import Class, ClassMember
-from app.models.question import Question, QuestionOption
+from app.models.question import Question, QuestionOption, QuestionCoding, QuestionEssay
 from app.schemas.assignment import (
     AssignmentCreate, AssignmentUpdate, AssignmentOut, SaveResponseRequest,
     ExamTakingStateOut, QuestionTakingOut, AttemptResultOut, ResponseDetailOut
 )
+from app.services import compiler_service
 
 
 async def create_assignment(db: AsyncSession, data: AssignmentCreate, user_id: uuid.UUID) -> Assignment:
@@ -119,24 +120,25 @@ async def list_student_assignments(db: AsyncSession, user_id: uuid.UUID) -> List
     class_ids = member_res.scalars().all()
 
     if not class_ids:
-        # Also return all published assignments for open testing
-        all_stmt = (
-            select(Assignment)
-            .options(selectinload(Assignment.exam), selectinload(Assignment.class_))
-            .where(Assignment.status == "published")
-            .order_by(Assignment.created_at.desc())
+        return []
+
+    stmt = (
+        select(Assignment)
+        .options(
+            selectinload(Assignment.exam),
+            selectinload(Assignment.class_),
+            selectinload(Assignment.session),
         )
-        all_res = await db.execute(all_stmt)
-        assignments = all_res.scalars().all()
-    else:
-        stmt = (
-            select(Assignment)
-            .options(selectinload(Assignment.exam), selectinload(Assignment.class_))
-            .where(Assignment.class_id.in_(class_ids))
-            .order_by(Assignment.created_at.desc())
+        .where(
+            and_(
+                Assignment.class_id.in_(class_ids),
+                Assignment.status.in_(["published", "closed"])
+            )
         )
-        res = await db.execute(stmt)
-        assignments = res.scalars().all()
+        .order_by(Assignment.created_at.desc())
+    )
+    res = await db.execute(stmt)
+    assignments = res.scalars().all()
 
     # 2. Attach student's attempts
     items = []
@@ -153,12 +155,12 @@ async def list_student_assignments(db: AsyncSession, user_id: uuid.UUID) -> List
         items.append({
             "id": a.id,
             "name": a.name,
-            "assignment_type": getattr(a, "assignment_type", "exam") or "exam",
+            "assignment_type": "homework" if getattr(a, "assignment_type", None) in ["homework", "assignment"] else "exam",
             "exam_id": a.exam_id,
             "exam_name": a.exam.name if a.exam else "Đề thi",
             "class_id": a.class_id,
             "class_name": a.class_.name if a.class_ else "Lớp học",
-            "session_name": a.session.title if getattr(a, "session", None) else None,
+            "session_name": getattr(a.session, "name", getattr(a.session, "title", None)) if getattr(a, "session", None) else None,
             "duration_minutes": a.duration_minutes,
             "max_attempts": a.max_attempts,
             "start_time": a.start_time,
@@ -187,7 +189,17 @@ async def start_or_resume_attempt(
     if not assignment:
         raise ValueError("Assignment not found")
 
-    is_homework = (getattr(assignment, "assignment_type", "exam") == "homework")
+    # Check student class enrollment
+    if assignment.class_id:
+        member_check = await db.execute(
+            select(ClassMember).where(
+                and_(ClassMember.class_id == assignment.class_id, ClassMember.user_id == user_id)
+            )
+        )
+        if not member_check.scalar_one_or_none():
+            raise ValueError("Bạn không thuộc danh sách học sinh của lớp học này.")
+
+    is_homework = getattr(assignment, "assignment_type", "exam") in ["homework", "assignment"]
 
     # 1. Check for active in_progress attempt
     stmt = (
@@ -222,6 +234,17 @@ async def start_or_resume_attempt(
         count_res = await db.execute(count_stmt)
         past_attempts = count_res.scalars().all()
 
+        now_utc = datetime.utcnow()
+        if assignment.start_time:
+            st_check = assignment.start_time.replace(tzinfo=None) if assignment.start_time.tzinfo else assignment.start_time
+            if now_utc < st_check:
+                raise ValueError(f"Chưa đến thời gian làm bài. Bài sẽ được mở vào lúc: {st_check.strftime('%H:%M ngày %d/%m/%Y')}")
+
+        if assignment.end_time:
+            et_check = assignment.end_time.replace(tzinfo=None) if assignment.end_time.tzinfo else assignment.end_time
+            if now_utc > et_check:
+                raise ValueError(f"Đã hết thời gian làm bài. Hạn chót đã kết thúc vào lúc: {et_check.strftime('%H:%M ngày %d/%m/%Y')}")
+
         if not is_homework:
             # Exam: strictly only 1 attempt!
             if past_attempts and any(pa.status in ["submitted", "graded"] for pa in past_attempts):
@@ -236,7 +259,15 @@ async def start_or_resume_attempt(
                 selectinload(Exam.sections)
                 .selectinload(ExamSection.questions)
                 .selectinload(ExamQuestion.question)
-                .selectinload(Question.options)
+                .selectinload(Question.options),
+                selectinload(Exam.sections)
+                .selectinload(ExamSection.questions)
+                .selectinload(ExamQuestion.question)
+                .selectinload(Question.coding_data),
+                selectinload(Exam.sections)
+                .selectinload(ExamSection.questions)
+                .selectinload(ExamQuestion.question)
+                .selectinload(Question.essay_data),
             )
             .where(Exam.id == assignment.exam_id)
         )
@@ -257,10 +288,34 @@ async def start_or_resume_attempt(
                             "label": opt.label,
                             "text": opt.text,
                         }
-                        for opt in eq.question.options
+                        for opt in (eq.question.options or [])
                     ]
                     if assignment.shuffle_options:
                         random.shuffle(options_data)
+
+                    coding_info = None
+                    if eq.question.type == "coding":
+                        cd = eq.question.coding_data
+                        coding_info = {
+                            "problem_statement": cd.problem_statement if cd else eq.question.stem,
+                            "input_format": cd.input_format if cd else None,
+                            "output_format": cd.output_format if cd else None,
+                            "constraints": cd.constraints if cd else None,
+                            "sample_input": cd.sample_input if cd else None,
+                            "sample_output": cd.sample_output if cd else None,
+                            "time_limit_ms": cd.time_limit_ms if cd else 1000,
+                            "allowed_languages": cd.allowed_languages if cd and cd.allowed_languages else ["python", "cpp", "c", "java", "javascript"],
+                            "starter_code": getattr(cd, "starter_code", "") or "" if cd else "",
+                            "test_cases": getattr(cd, "test_cases", []) or [] if cd else [],
+                        }
+
+                    essay_info = None
+                    if eq.question.type == "essay" and eq.question.essay_data:
+                        ed = eq.question.essay_data
+                        essay_info = {
+                            "sample_answer": ed.sample_answer,
+                            "max_points": ed.max_points or eq.points,
+                        }
 
                     question_items.append({
                         "id": str(eq.question.id),
@@ -270,6 +325,8 @@ async def start_or_resume_attempt(
                         "points": eq.points,
                         "bloom_level": eq.question.bloom_level,
                         "options": options_data,
+                        "coding_data": coding_info,
+                        "essay_data": essay_info,
                     })
                     total_max_points += eq.points
 
@@ -322,6 +379,9 @@ async def start_or_resume_attempt(
                 options=q_item.get("options", []),
                 selected_option_id=user_resp.selected_option_id if user_resp else None,
                 text_response=user_resp.text_response if user_resp else None,
+                code_response=user_resp.code_response if user_resp else None,
+                coding_data=q_item.get("coding_data"),
+                essay_data=q_item.get("essay_data"),
             )
         )
 
@@ -375,6 +435,9 @@ async def get_attempt_state(db: AsyncSession, attempt_id: uuid.UUID, user_id: uu
                 options=q_item.get("options", []),
                 selected_option_id=user_resp.selected_option_id if user_resp else None,
                 text_response=user_resp.text_response if user_resp else None,
+                code_response=user_resp.code_response if user_resp else None,
+                coding_data=q_item.get("coding_data"),
+                essay_data=q_item.get("essay_data"),
             )
         )
 
@@ -453,33 +516,113 @@ async def submit_and_grade_attempt(db: AsyncSession, attempt_id: uuid.UUID, user
         qid = uuid.UUID(q_item["id"])
         pts = float(q_item.get("points", 1.0))
         resp = resp_map.get(qid)
+        q_type = q_item.get("type", "mcq")
 
         # Fetch actual question options for answer key
         q_obj = await db.get(Question, qid)
         if not q_obj:
             continue
 
-        correct_opt = next((o for o in q_obj.options if o.is_correct), None)
+        if q_type == "mcq":
+            correct_opt = next((o for o in (q_obj.options or []) if o.is_correct), None)
+            if resp:
+                if resp.selected_option_id and correct_opt and resp.selected_option_id == correct_opt.id:
+                    resp.is_correct = True
+                    resp.points_earned = pts
+                    total_score += pts
+                    correct_count += 1
+                else:
+                    resp.is_correct = False
+                    resp.points_earned = 0.0
+            else:
+                blank_resp = StudentResponse(
+                    attempt_id=attempt.id,
+                    question_id=qid,
+                    is_correct=False,
+                    points_earned=0.0,
+                    answered_at=datetime.utcnow()
+                )
+                db.add(blank_resp)
 
-        if resp:
-            if resp.selected_option_id and correct_opt and resp.selected_option_id == correct_opt.id:
-                resp.is_correct = True
+        elif q_type == "coding":
+            if resp and resp.code_response and resp.code_response.strip():
+                cd_data = q_item.get("coding_data") or {}
+                test_cases = cd_data.get("test_cases") or []
+
+                if not test_cases and (cd_data.get("sample_input") or cd_data.get("sample_output")):
+                    test_cases = [{
+                        "input": cd_data.get("sample_input", ""),
+                        "output": cd_data.get("sample_output", ""),
+                        "is_hidden": False,
+                    }]
+
+                if not test_cases and q_obj and q_obj.coding_data:
+                    test_cases = getattr(q_obj.coding_data, "test_cases", []) or []
+                    if not test_cases and (q_obj.coding_data.sample_input or q_obj.coding_data.sample_output):
+                        test_cases = [{
+                            "input": q_obj.coding_data.sample_input or "",
+                            "output": q_obj.coding_data.sample_output or "",
+                            "is_hidden": False,
+                        }]
+
+                lang = "python"
+                if cd_data.get("allowed_languages"):
+                    lang = cd_data["allowed_languages"][0]
+
+                eval_res = await compiler_service.run_test_cases(
+                    source_code=resp.code_response,
+                    language=lang,
+                    test_cases=test_cases,
+                )
+
+                p_count = eval_res["passed_count"]
+                t_count = max(1, eval_res["total_count"])
+                earned = round(pts * (p_count / t_count), 2)
+
+                resp.points_earned = earned
+                resp.is_correct = (p_count == t_count)
+                total_score += earned
+                if resp.is_correct:
+                    correct_count += 1
+                resp.feedback = f"Chấm tự động qua Judge0 (edusoft.vn): Vượt qua {p_count}/{t_count} test case. Điểm: {earned}/{pts}."
+            else:
+                if resp:
+                    resp.is_correct = False
+                    resp.points_earned = 0.0
+                    resp.feedback = "Chưa làm bài lập trình."
+                else:
+                    blank_resp = StudentResponse(
+                        attempt_id=attempt.id,
+                        question_id=qid,
+                        is_correct=False,
+                        points_earned=0.0,
+                        feedback="Chưa làm bài lập trình.",
+                        answered_at=datetime.utcnow()
+                    )
+                    db.add(blank_resp)
+
+        elif q_type == "essay":
+            if resp and resp.text_response and resp.text_response.strip():
                 resp.points_earned = pts
+                resp.is_correct = True
                 total_score += pts
                 correct_count += 1
+                resp.feedback = "Đã nộp bài tự luận thành công."
             else:
-                resp.is_correct = False
-                resp.points_earned = 0.0
-        else:
-            # Create blank response for unanswered question
-            blank_resp = StudentResponse(
-                attempt_id=attempt.id,
-                question_id=qid,
-                is_correct=False,
-                points_earned=0.0,
-                answered_at=datetime.utcnow()
-            )
-            db.add(blank_resp)
+                if resp:
+                    resp.is_correct = False
+                    resp.points_earned = 0.0
+                    resp.feedback = "Chưa làm bài tự luận."
+                else:
+                    blank_resp = StudentResponse(
+                        attempt_id=attempt.id,
+                        question_id=qid,
+                        is_correct=False,
+                        points_earned=0.0,
+                        feedback="Chưa làm bài tự luận.",
+                        answered_at=datetime.utcnow()
+                    )
+                    db.add(blank_resp)
 
     # 2. Update Attempt status and score
     attempt.score = round(total_score, 2)
@@ -531,6 +674,10 @@ async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_id: u
                 is_correct=resp.is_correct if resp else False,
                 selected_option_id=resp.selected_option_id if resp else None,
                 correct_option_id=correct_opt.id if correct_opt else None,
+                text_response=resp.text_response if resp else None,
+                code_response=resp.code_response if resp else None,
+                coding_data=q_item.get("coding_data"),
+                essay_data=q_item.get("essay_data"),
                 rationale=q_obj.rationale if q_obj else None,
                 options=[
                     {
