@@ -147,6 +147,13 @@ class QuestionOut(BaseModel):
     topic_name: Optional[str] = None
     bloom_level: Optional[str] = None
     expected_difficulty: Optional[str] = None
+    actual_difficulty: Optional[float] = None
+    discrimination_index: Optional[float] = None
+    irt_a: Optional[float] = None
+    irt_b: Optional[float] = None
+    irt_c: Optional[float] = None
+    usage_count: int = 0
+    in_exercise_bank: bool = False
     options: List[QuestionOptionOut] = []
     essay_data: Optional[EssayDataOut] = None
     coding_data: Optional[CodingDataOut] = None
@@ -167,12 +174,65 @@ class QuestionListItem(BaseModel):
     stem_preview: str  # Truncated to 100 chars
     bloom_level: Optional[str] = None
     expected_difficulty: Optional[str] = None
+    actual_difficulty: Optional[float] = None
+    usage_count: int = 0
+    in_exercise_bank: bool = False
     subject_name: Optional[str] = None
     chapter_name: Optional[str] = None
     topic_name: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ─── Question Usage & Assessment Operations Schemas ──────────────────────────
+
+class AssessmentReference(BaseModel):
+    id: uuid.UUID
+    name: str
+    type: str  # "exercise" | "exam"
+    status: str
+    created_at: datetime
+    class_name: Optional[str] = None
+    question_count: int = 0
+
+
+class QuestionUsageOut(BaseModel):
+    question_id: uuid.UUID
+    item_id: str
+    stem_preview: str
+    usage_count: int
+    attempt_count: int = 0
+    correct_count: int = 0
+    actual_difficulty: Optional[float] = None
+    discrimination_index: Optional[float] = None
+    irt_a: Optional[float] = None
+    irt_b: Optional[float] = None
+    irt_c: Optional[float] = None
+    assessments: List[AssessmentReference] = []
+
+
+class AddToAssessmentRequest(BaseModel):
+    target_type: str = "exercise"  # "exercise" | "exam"
+    mode: str = "new"              # "new" | "existing"
+    assessment_id: Optional[uuid.UUID] = None
+    name: Optional[str] = None
+    class_id: Optional[uuid.UUID] = None
+    duration_minutes: Optional[int] = 45
+    question_ids: List[uuid.UUID]
+
+
+class AutoGenerateAssessmentRequest(BaseModel):
+    target_type: str = "exercise"  # "exercise" | "exam"
+    name: str
+    class_id: Optional[uuid.UUID] = None
+    chapter_id: Optional[uuid.UUID] = None
+    topic_id: Optional[uuid.UUID] = None
+    total_questions: int = 10
+    duration_minutes: int = 45
+    bloom_mix: dict[str, int] = {}       # e.g. {"remember": 3, "understand": 3, "apply": 2, "analyze": 2}
+    difficulty_mix: dict[str, int] = {}  # e.g. {"easy": 4, "medium": 4, "hard": 2}
+    question_types: List[str] = ["mcq"]
 
 
 class PaginatedQuestions(BaseModel):

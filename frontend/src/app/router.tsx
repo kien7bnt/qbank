@@ -7,6 +7,7 @@ import { ClassDetailPage } from '@/features/classes/ClassDetailPage';
 import { QuestionBankPage } from '@/features/question-bank/QuestionBankPage';
 import { ExamMatricesPage } from '@/features/exams/ExamMatricesPage';
 import { ExamsListPage } from '@/features/exams/ExamsListPage';
+import { ExercisesListPage } from '@/features/exercises/ExercisesListPage';
 import { AssignmentsPage } from '@/features/assignments/AssignmentsPage';
 import { ExamTakingPage } from '@/features/exam-taking/ExamTakingPage';
 import { ExamResultPage } from '@/features/exam-taking/ExamResultPage';
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
       { path: 'document-library', element: <DocumentLibraryPage /> },
       { path: 'exam-matrices', element: <ExamMatricesPage /> },
       { path: 'exams', element: <ExamsListPage /> },
+      { path: 'exercises', element: <ExercisesListPage /> },
       { path: 'assignments', element: <AssignmentsPage /> },
       { path: 'ai-rules', element: <AIRulesPage /> },
       { path: 'student-history', element: <StudentHistoryPage /> },

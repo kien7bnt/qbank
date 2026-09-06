@@ -48,6 +48,17 @@ class Question(Base):
     actual_difficulty: Mapped[float | None] = mapped_column(Float, nullable=True)  # Item Facility (IF 0.0 - 1.0)
     discrimination_index: Mapped[float | None] = mapped_column(Float, nullable=True)  # Item Discrimination (ID -1.0 to 1.0)
 
+    # IRT parameters (Item Response Theory 2PL / 3PL)
+    irt_a: Mapped[float | None] = mapped_column(Float, nullable=True)  # Discrimination (0.0 to 2.5)
+    irt_b: Mapped[float | None] = mapped_column(Float, nullable=True)  # Difficulty (-3.0 to 3.0)
+    irt_c: Mapped[float | None] = mapped_column(Float, nullable=True)  # Guessing (0.0 to 0.5)
+
+    # Usage tracking
+    usage_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Exercise Bank membership
+    in_exercise_bank: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
     # Versioning
     version: Mapped[int] = mapped_column(Integer, default=1)
 

@@ -56,6 +56,7 @@ class Exam(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(255))
+    type: Mapped[str] = mapped_column(String(20), default="exam")  # "exam" (Đề kiểm tra) | "exercise" (Bộ bài tập)
     matrix_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("exam_matrices.id"), nullable=True)
     class_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("classes.id"), nullable=True)
     
@@ -68,6 +69,11 @@ class Exam(Base):
     shuffle_questions: Mapped[bool] = mapped_column(Boolean, default=False)
     shuffle_options: Mapped[bool] = mapped_column(Boolean, default=False)
     show_results: Mapped[str] = mapped_column(String(20), default="after_close") # immediately, after_close, manual
+    
+    # Practice / Exercise specific settings
+    practice_mode: Mapped[str] = mapped_column(String(20), default="free")  # free, linear
+    allow_retry: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_hints: Mapped[bool] = mapped_column(Boolean, default=True)
     
     # Review and Results permission settings
     allow_review: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -161,5 +167,6 @@ class ExamQuestion(Base):
     points: Mapped[float] = mapped_column(Float, default=1.0)
     
     section = relationship("ExamSection", back_populates="questions")
+    exam = relationship("Exam")
     question = relationship("Question")
     question_version = relationship("QuestionVersion")

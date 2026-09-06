@@ -6,7 +6,7 @@ from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api.v1 import auth, classes, curriculum, questions, ai, exams, assignments, analytics, documents, sessions, rubrics, compiler
+from app.api.v1 import auth, classes, curriculum, questions, ai, exams, exercises, assignments, analytics, documents, sessions, rubrics, compiler
 
 
 @asynccontextmanager
@@ -44,6 +44,7 @@ app.include_router(curriculum.router, prefix=PREFIX)
 app.include_router(questions.router, prefix=PREFIX)
 app.include_router(ai.router, prefix=PREFIX)
 app.include_router(exams.router, prefix=PREFIX)
+app.include_router(exercises.router, prefix=PREFIX)
 app.include_router(assignments.router, prefix=PREFIX)
 app.include_router(rubrics.router, prefix=PREFIX)
 app.include_router(analytics.router, prefix=PREFIX)

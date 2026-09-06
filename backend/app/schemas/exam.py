@@ -71,6 +71,7 @@ class ExamSectionOut(ExamSectionBase):
 
 class ExamBase(BaseModel):
     name: str = Field(..., max_length=255)
+    type: str = Field(default="exam", max_length=20)  # "exam" | "exercise"
     matrix_id: Optional[uuid.UUID] = None
     class_id: Optional[uuid.UUID] = None
     duration_minutes: int = Field(default=45, ge=1)
@@ -79,6 +80,11 @@ class ExamBase(BaseModel):
     shuffle_questions: bool = False
     shuffle_options: bool = False
     show_results: str = Field("after_close", max_length=20)
+    
+    # Practice / Exercise specific settings
+    practice_mode: str = Field("free", max_length=20)  # free, linear
+    allow_retry: bool = True
+    show_hints: bool = True
     
     # Detailed review settings
     allow_review: bool = True
@@ -95,6 +101,7 @@ class ExamCreate(ExamBase):
 
 class ExamUpdate(BaseModel):
     name: Optional[str] = None
+    type: Optional[str] = None
     status: Optional[str] = None
     duration_minutes: Optional[int] = None
     start_time: Optional[datetime] = None
@@ -102,6 +109,9 @@ class ExamUpdate(BaseModel):
     shuffle_questions: Optional[bool] = None
     shuffle_options: Optional[bool] = None
     show_results: Optional[str] = None
+    practice_mode: Optional[str] = None
+    allow_retry: Optional[bool] = None
+    show_hints: Optional[bool] = None
     allow_review: Optional[bool] = None
     show_score: Optional[bool] = None
     show_responses: Optional[bool] = None
@@ -132,6 +142,7 @@ class GenerateExamRequest(BaseModel):
 
 class CreateExamFromQuestionsRequest(BaseModel):
     name: str = Field(..., max_length=255)
+    type: str = Field(default="exam", max_length=20)  # "exam" | "exercise"
     class_id: Optional[uuid.UUID] = None
     duration_minutes: int = Field(default=45, ge=1)
     question_ids: list[uuid.UUID] = Field(..., min_length=1)

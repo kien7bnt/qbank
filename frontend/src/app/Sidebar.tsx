@@ -12,6 +12,7 @@ import {
   FileText,
   History,
   FolderTree,
+  FolderCheck,
   BookMarked,
   Sparkles,
   X,
@@ -60,19 +61,19 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
     to: '/question-bank',
   },
   {
-    label: 'Lĩnh vực · Chủ đề',
-    icon: <FolderTree className="h-4 w-4" />,
-    to: '/domains',
+    label: 'Kho bài tập',
+    icon: <FolderCheck className="h-4 w-4 text-emerald-600" />,
+    to: '/exercises',
+  },
+  {
+    label: 'Kho đề kiểm tra',
+    icon: <FileText className="h-4 w-4 text-purple-600" />,
+    to: '/exams',
   },
   {
     label: 'Ma trận đề',
     icon: <CheckSquare className="h-4 w-4" />,
     to: '/exam-matrices',
-  },
-  {
-    label: 'Đề thi',
-    icon: <FileText className="h-4 w-4" />,
-    to: '/exams',
   },
   { label: 'TRÍ TUỆ NHÂN TẠO', section: true, icon: <></> },
   {

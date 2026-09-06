@@ -242,6 +242,7 @@ async def list_questions(
     search: Optional[str] = None,
     psychometric_status: Optional[str] = None,  # all | unscaled | scaled
     created_by: Optional[uuid.UUID] = None,
+    in_exercise_bank: Optional[bool] = None,
 ) -> Tuple[list[Question], int]:
     query = (
         select(Question)
@@ -254,6 +255,8 @@ async def list_questions(
         .where(Question.status != "archived")
     )
 
+    if in_exercise_bank is not None:
+        query = query.where(Question.in_exercise_bank == in_exercise_bank)
     if created_by:
         query = query.where(Question.created_by == created_by)
     if type:
@@ -476,3 +479,206 @@ async def bulk_action(
 
     await db.commit()
     return {"updated": updated, "action": action}
+
+
+# ─── Question Usage & Assessment Operations ──────────────────────────────────
+
+import random
+from app.models.exam import Exam, ExamSection, ExamQuestion
+from app.schemas.question import (
+    AddToAssessmentRequest, AutoGenerateAssessmentRequest,
+    QuestionUsageOut, AssessmentReference
+)
+from app.services import exercise_service, exam_service
+
+
+async def get_question_usage(db: AsyncSession, question_id: uuid.UUID) -> QuestionUsageOut:
+    """Lấy danh sách các bài tập & đề thi đang sử dụng câu hỏi này kèm thống kê"""
+    q = await db.get(Question, question_id)
+    if not q:
+        raise HTTPException(status_code=404, detail="Không tìm thấy câu hỏi")
+
+    stmt = (
+        select(ExamQuestion)
+        .options(
+            selectinload(ExamQuestion.exam)
+            .selectinload(Exam.sections)
+            .selectinload(ExamSection.questions)
+        )
+        .where(ExamQuestion.question_id == question_id)
+    )
+    result = await db.execute(stmt)
+    exam_questions = result.scalars().all()
+
+    assessments_dict: dict[uuid.UUID, AssessmentReference] = {}
+    for eq in exam_questions:
+        if eq.exam and eq.exam.id not in assessments_dict:
+            q_count = sum(len(sec.questions) for sec in eq.exam.sections) if eq.exam.sections else 0
+            assessments_dict[eq.exam.id] = AssessmentReference(
+                id=eq.exam.id,
+                name=eq.exam.name,
+                type=getattr(eq.exam, "type", "exam") or "exam",
+                status=eq.exam.status,
+                created_at=eq.exam.created_at,
+                class_name=None,
+                question_count=q_count,
+            )
+
+    assessments_list = sorted(assessments_dict.values(), key=lambda a: a.created_at, reverse=True)
+    usage_count = len(assessments_list)
+
+    if q.usage_count != usage_count:
+        q.usage_count = usage_count
+        await db.commit()
+
+    stem_prev = (q.stem[:120] + "...") if q.stem and len(q.stem) > 120 else (q.stem or "")
+
+    return QuestionUsageOut(
+        question_id=q.id,
+        item_id=q.item_id,
+        stem_preview=stem_prev,
+        usage_count=usage_count,
+        attempt_count=0,
+        correct_count=0,
+        actual_difficulty=q.actual_difficulty,
+        discrimination_index=q.discrimination_index,
+        irt_a=q.irt_a,
+        irt_b=q.irt_b,
+        irt_c=q.irt_c,
+        assessments=assessments_list,
+    )
+
+
+async def add_to_assessment(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    req: AddToAssessmentRequest,
+) -> dict:
+    """Thêm một hoặc nhiều câu hỏi vào bài tập hoặc đề kiểm tra (tạo mới hoặc thêm vào bài có sẵn)"""
+    if not req.question_ids:
+        raise HTTPException(status_code=400, detail="Vui lòng chọn ít nhất 1 câu hỏi")
+
+    if req.mode == "new":
+        name = (req.name or "").strip() or ("Bài tập mới" if req.target_type == "exercise" else "Đề thi mới")
+        if req.target_type == "exercise":
+            item = await exercise_service.create_exercise_from_question_ids(
+                db,
+                name=name,
+                question_ids=req.question_ids,
+                user_id=user_id,
+                class_id=req.class_id,
+                duration_minutes=req.duration_minutes or 45,
+            )
+            return {"id": item.id, "name": item.name, "type": "exercise", "message": f"Đã tạo bài tập '{item.name}' với {len(req.question_ids)} câu hỏi"}
+        else:
+            item = await exam_service.create_exam_from_question_ids(
+                db,
+                name=name,
+                question_ids=req.question_ids,
+                user_id=user_id,
+                class_id=req.class_id,
+                duration_minutes=req.duration_minutes or 45,
+                type="exam",
+            )
+            return {"id": item.id, "name": item.name, "type": "exam", "message": f"Đã tạo đề thi '{item.name}' với {len(req.question_ids)} câu hỏi"}
+
+    elif req.mode == "existing":
+        if not req.assessment_id:
+            raise HTTPException(status_code=400, detail="Vui lòng chọn bài tập hoặc đề thi cần thêm vào")
+
+        if req.target_type == "exercise":
+            item = await exercise_service.add_questions_to_exercise(
+                db,
+                exercise_id=req.assessment_id,
+                question_ids=req.question_ids,
+                user_id=user_id,
+            )
+            return {"id": item.id, "name": item.name, "type": "exercise", "message": f"Đã thêm {len(req.question_ids)} câu hỏi vào bài tập '{item.name}'"}
+        else:
+            item = await exam_service.add_questions_to_exam(
+                db,
+                exam_id=req.assessment_id,
+                question_ids=req.question_ids,
+                user_id=user_id,
+            )
+            return {"id": item.id, "name": item.name, "type": "exam", "message": f"Đã thêm {len(req.question_ids)} câu hỏi vào đề thi '{item.name}'"}
+
+    raise HTTPException(status_code=400, detail="Chế độ (mode) không hợp lệ")
+
+
+async def auto_generate_assessment(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    req: AutoGenerateAssessmentRequest,
+) -> dict:
+    """Tự động sinh bộ bài tập hoặc đề thi theo tiêu chí ma trận (Bloom, độ khó, chủ đề)"""
+    stmt = select(Question).where(Question.status.in_(["approved", "draft"]))
+
+    if req.chapter_id:
+        stmt = stmt.where(Question.chapter_id == req.chapter_id)
+    if req.topic_id:
+        stmt = stmt.where(Question.topic_id == req.topic_id)
+    if req.question_types:
+        stmt = stmt.where(Question.type.in_(req.question_types))
+
+    res = await db.execute(stmt)
+    candidate_questions = list(res.scalars().all())
+
+    if not candidate_questions:
+        raise HTTPException(
+            status_code=400,
+            detail="Không tìm thấy câu hỏi phù hợp trong Ngân hàng câu hỏi để sinh đề/bài tập"
+        )
+
+    selected_questions: list[Question] = []
+    remaining_pool = list(candidate_questions)
+
+    def pick_matching(bloom: Optional[str], diff: Optional[str], count: int) -> list[Question]:
+        nonlocal remaining_pool
+        matched = []
+        for q in list(remaining_pool):
+            b_match = (bloom is None) or (q.bloom_level == bloom)
+            d_match = (diff is None) or (q.expected_difficulty == diff)
+            if b_match and d_match:
+                matched.append(q)
+                remaining_pool.remove(q)
+                if len(matched) >= count:
+                    break
+        return matched
+
+    # 1. Bốc theo Bloom
+    if req.bloom_mix:
+        for bloom, count in req.bloom_mix.items():
+            if count > 0:
+                picked = pick_matching(bloom, None, count)
+                selected_questions.extend(picked)
+
+    # 2. Bốc theo độ khó nếu còn thiếu
+    needed = req.total_questions - len(selected_questions)
+    if needed > 0 and req.difficulty_mix:
+        for diff, count in req.difficulty_mix.items():
+            if count > 0 and needed > 0:
+                picked = pick_matching(None, diff, min(count, needed))
+                selected_questions.extend(picked)
+                needed = req.total_questions - len(selected_questions)
+
+    # 3. Bốc bù ngẫu nhiên nếu vẫn còn thiếu
+    needed = req.total_questions - len(selected_questions)
+    if needed > 0 and remaining_pool:
+        random.shuffle(remaining_pool)
+        selected_questions.extend(remaining_pool[:needed])
+
+    if not selected_questions:
+        raise HTTPException(status_code=400, detail="Không đủ câu hỏi để sinh tự động")
+
+    q_ids = [q.id for q in selected_questions]
+
+    add_req = AddToAssessmentRequest(
+        target_type=req.target_type,
+        mode="new",
+        name=req.name,
+        class_id=req.class_id,
+        duration_minutes=req.duration_minutes,
+        question_ids=q_ids,
+    )
+    return await add_to_assessment(db, user_id, add_req)

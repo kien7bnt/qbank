@@ -2,6 +2,7 @@ import uuid
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db, get_current_user
@@ -250,4 +251,27 @@ async def get_exam_variants(
     stmt = select(ExamVariant).where(ExamVariant.exam_id == exam_id).order_by(ExamVariant.variant_code)
     res = await db.execute(stmt)
     return res.scalars().all()
+
+
+class AddQuestionsToExamRequest(BaseModel):
+    question_ids: list[uuid.UUID] = Field(..., min_length=1)
+
+
+@router.post("/exams/{exam_id}/questions", response_model=ExamOut)
+async def add_questions_to_exam_endpoint(
+    exam_id: uuid.UUID,
+    data: AddQuestionsToExamRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Thêm một hoặc nhiều câu hỏi từ Ngân hàng vào đề thi đã có"""
+    if not current_user.has_role("teacher", "admin"):
+        raise HTTPException(status_code=403, detail="Chỉ giáo viên được chỉnh sửa đề thi")
+    try:
+        return await exam_service.add_questions_to_exam(
+            db, exam_id, data.question_ids, current_user.id
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
 

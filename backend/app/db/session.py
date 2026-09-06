@@ -59,12 +59,21 @@ async def init_db() -> None:
                 ("questions", "discrimination_index", "DOUBLE PRECISION", "FLOAT"),
                 ("questions", "lesson_id", "UUID", "CHAR(32)"),
                 ("questions", "learning_objective_id", "UUID", "CHAR(32)"),
+                ("questions", "irt_a", "DOUBLE PRECISION", "FLOAT"),
+                ("questions", "irt_b", "DOUBLE PRECISION", "FLOAT"),
+                ("questions", "irt_c", "DOUBLE PRECISION", "FLOAT"),
+                ("questions", "usage_count", "INTEGER DEFAULT 0", "INTEGER DEFAULT 0"),
+                ("questions", "in_exercise_bank", "BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT 0"),
                 # question_essays
                 ("question_essays", "rubric_id", "UUID", "CHAR(32)"),
                 # question_codings
                 ("question_codings", "starter_code", "TEXT", "TEXT"),
                 ("question_codings", "test_cases", "JSON", "JSON"),
                 # exams
+                ("exams", "type", "VARCHAR(20) DEFAULT 'exam'", "VARCHAR(20) DEFAULT 'exam'"),
+                ("exams", "practice_mode", "VARCHAR(20) DEFAULT 'free'", "VARCHAR(20) DEFAULT 'free'"),
+                ("exams", "allow_retry", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("exams", "show_hints", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 ("exams", "allow_review", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 ("exams", "show_score", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 ("exams", "show_responses", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),

@@ -626,7 +626,10 @@ async def submit_and_grade_attempt(db: AsyncSession, attempt_id: uuid.UUID, user
 
     # 2. Update Attempt status and score
     attempt.score = round(total_score, 2)
-    attempt.is_passed = attempt.score >= assignment.pass_score
+    if getattr(assignment, "assignment_type", None) in ["homework", "assignment"] or (assignment.pass_score or 0) <= 0:
+        attempt.is_passed = True
+    else:
+        attempt.is_passed = attempt.score >= assignment.pass_score
     attempt.status = "graded"
     attempt.submitted_at = datetime.utcnow()
 

@@ -156,6 +156,12 @@ export interface Question {
   topic_name?: string;
   bloom_level?: BloomLevel;
   expected_difficulty?: DifficultyLevel;
+  actual_difficulty?: number;
+  discrimination_index?: number;
+  irt_a?: number;
+  irt_b?: number;
+  irt_c?: number;
+  usage_count?: number;
   options: QuestionOption[];
   essay_data?: EssayData;
   coding_data?: CodingData;
@@ -174,6 +180,9 @@ export interface QuestionListItem {
   stem_preview: string;
   bloom_level?: BloomLevel;
   expected_difficulty?: DifficultyLevel;
+  actual_difficulty?: number;
+  usage_count?: number;
+  in_exercise_bank?: boolean;
   subject_name?: string;
   chapter_name?: string;
   topic_name?: string;
@@ -207,6 +216,7 @@ export interface QuestionFilter {
   bloom_level?: BloomLevel;
   difficulty?: DifficultyLevel;
   psychometric_status?: string;
+  in_exercise_bank?: boolean;
   search?: string;
   page?: number;
   page_size?: number;
@@ -261,12 +271,14 @@ export interface ExamMatrixCreate {
 export interface ExamQuestionDetail {
   id: string;
   question_id: string;
+  question_version_id?: string;
   order_index: number;
   points: number;
   stem: string;
   type: string;
   bloom_level?: string;
   difficulty?: string;
+  rationale?: string;
   options: {
     id: string;
     label: string;
@@ -287,6 +299,7 @@ export interface ExamSectionDetail {
 export interface Exam {
   id: string;
   name: string;
+  type?: 'exam' | 'exercise';
   matrix_id?: string;
   class_id?: string;
   status: 'draft' | 'published' | 'active' | 'closed';
@@ -296,8 +309,66 @@ export interface Exam {
   shuffle_questions: boolean;
   shuffle_options: boolean;
   show_results: string;
+  practice_mode?: 'free' | 'linear';
+  allow_retry?: boolean;
+  show_hints?: boolean;
+  allow_review?: boolean;
+  show_score?: boolean;
+  show_responses?: boolean;
+  show_correct_answers?: boolean;
+  show_explanations?: boolean;
+  show_feedback?: boolean;
   created_at: string;
   sections?: ExamSectionDetail[];
+}
+
+// ─── Question Usage & Assessment Operations ──────────────────────────────────
+export interface AssessmentReference {
+  id: string;
+  name: string;
+  type: 'exam' | 'exercise';
+  status: string;
+  created_at: string;
+  class_name?: string;
+  question_count: number;
+}
+
+export interface QuestionUsage {
+  question_id: string;
+  item_id: string;
+  stem_preview: string;
+  usage_count: number;
+  attempt_count: number;
+  correct_count: number;
+  actual_difficulty?: number;
+  discrimination_index?: number;
+  irt_a?: number;
+  irt_b?: number;
+  irt_c?: number;
+  assessments: AssessmentReference[];
+}
+
+export interface AddToAssessmentPayload {
+  target_type: 'exercise' | 'exam';
+  mode: 'new' | 'existing';
+  assessment_id?: string;
+  name?: string;
+  class_id?: string;
+  duration_minutes?: number;
+  question_ids: string[];
+}
+
+export interface AutoGeneratePayload {
+  target_type: 'exercise' | 'exam';
+  name: string;
+  class_id?: string;
+  chapter_id?: string;
+  topic_id?: string;
+  total_questions: number;
+  duration_minutes?: number;
+  bloom_mix?: Record<string, number>;
+  difficulty_mix?: Record<string, number>;
+  question_types?: string[];
 }
 
 // ─── Assignment & Exam Taking ────────────────────────────────────────────────

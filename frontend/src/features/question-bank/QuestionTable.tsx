@@ -16,16 +16,23 @@ import {
   X,
   Filter,
   FolderTree,
+  BookOpen,
+  FolderPlus,
+  Sparkles,
+  BarChart2,
+  History,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
-import { questionApi, getErrorMessage } from '@/services/api';
+import { questionApi, exerciseApi, getErrorMessage } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageSpinner } from '@/components/ui/Spinner';
 import type { QuestionFilter, QuestionListItem, Question } from '@/types';
 import { AssignTopicModal } from './AssignTopicModal';
 import { CreateExamFromQuestionsModal } from '@/features/exams/CreateExamFromQuestionsModal';
+import { CreateExerciseModal } from '@/features/exercises/CreateExerciseModal';
+import { AutoGenerateModal } from './AutoGenerateModal';
 import { EditQuestionModal } from './EditQuestionModal';
 
 const STATUS_OPTIONS = [
@@ -78,6 +85,8 @@ export function QuestionTable({
   const [searchInput, setSearchInput] = useState(filter.search ?? '');
   const [assignTopicOpen, setAssignTopicOpen] = useState(false);
   const [createExamOpen, setCreateExamOpen] = useState(false);
+  const [createExerciseOpen, setCreateExerciseOpen] = useState(false);
+  const [autoGenerateOpen, setAutoGenerateOpen] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // Row action menu & edit modal
@@ -276,6 +285,18 @@ export function QuestionTable({
             )}
           </div>
 
+          {/* Smart Auto Generate Button */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setAutoGenerateOpen(true)}
+            className="text-amber-800 bg-amber-50/80 border-amber-200 hover:bg-amber-100 font-semibold text-xs whitespace-nowrap shrink-0"
+            leftIcon={<Sparkles className="h-3.5 w-3.5 text-amber-600" />}
+          >
+            <span className="hidden sm:inline">Sinh tự động theo tiêu chí</span>
+            <span className="sm:hidden">Sinh đề/bài</span>
+          </Button>
+
           {/* Mobile Filter Toggle */}
           <button
             type="button"
@@ -403,6 +424,27 @@ export function QuestionTable({
             <Button
               size="sm"
               variant="ghost"
+              className="text-emerald-800 bg-emerald-100 hover:bg-emerald-200 font-semibold text-xs whitespace-nowrap shadow-2xs"
+              leftIcon={<BookOpen className="h-3.5 w-3.5 text-emerald-700" />}
+              onClick={async () => {
+                try {
+                  const ids = Array.from(selected);
+                  await exerciseApi.addQuestionsToBank(ids);
+                  qc.invalidateQueries({ queryKey: ['questions'] });
+                  qc.invalidateQueries({ queryKey: ['exercises-questions'] });
+                  qc.invalidateQueries({ queryKey: ['exercises-bank-global-count'] });
+                  toast.success(`✨ Đã thêm ${ids.length} câu hỏi vào Kho Bài Tập!`);
+                  setSelected(new Set());
+                } catch (err) {
+                  toast.error(getErrorMessage(err));
+                }
+              }}
+            >
+              Đưa vào Kho bài tập ({selected.size})
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
               className="text-purple-700 bg-purple-100/70 hover:bg-purple-200/70 font-medium text-xs whitespace-nowrap"
               leftIcon={<CheckSquare className="h-3.5 w-3.5" />}
               onClick={() => setCreateExamOpen(true)}
@@ -521,6 +563,11 @@ export function QuestionTable({
                           {renderTypeBadge(q)}
                           {renderBloom(q.bloom_level)}
                           {renderDifficulty(q)}
+                          {q.in_exercise_bank && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold border border-indigo-200">
+                              Kho bài tập
+                            </span>
+                          )}
                         </div>
 
                         {/* Question Stem Preview */}
@@ -616,6 +663,7 @@ export function QuestionTable({
                   <th className="px-4 py-3 w-32">Loại</th>
                   <th className="px-4 py-3 w-28">Bloom</th>
                   <th className="px-4 py-3 w-32">Mức độ</th>
+                  <th className="px-4 py-3 w-28 text-center">Sử dụng</th>
                   <th className="px-4 py-3 w-44">Lĩnh vực · Chủ đề</th>
                   <th className="w-12 px-3 py-3 text-center"></th>
                 </tr>
@@ -669,9 +717,35 @@ export function QuestionTable({
                         {renderDifficulty(q)}
                       </td>
 
+                      {/* Sử dụng */}
+                      <td className="px-4 py-3.5 shrink-0 whitespace-nowrap text-center">
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          {q.in_exercise_bank && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200"
+                              title="Đã được đưa vào Kho Bài Tập"
+                            >
+                              <BookOpen className="h-3 w-3" />
+                              Kho bài tập
+                            </span>
+                          )}
+                          {q.usage_count && q.usage_count > 0 ? (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              title={`Đã xuất hiện trong ${q.usage_count} bài tập / đề thi`}
+                            >
+                              <CheckCircle2 className="h-3 w-3" />
+                              {q.usage_count} lần
+                            </span>
+                          ) : !q.in_exercise_bank ? (
+                            <span className="text-gray-300 text-xs">—</span>
+                          ) : null}
+                        </div>
+                      </td>
+
                       {/* Lĩnh vực · Chủ đề */}
                       <td
-                        className="px-4 py-3.5 text-gray-600 truncate max-w-[200px]"
+                        className="px-4 py-3.5 text-gray-600 max-w-xs truncate font-normal"
                         title={q.topic_name || q.chapter_name || 'Chưa phân loại'}
                       >
                         {q.topic_name || q.chapter_name || (
@@ -700,7 +774,7 @@ export function QuestionTable({
                               className="fixed inset-0 z-20"
                               onClick={() => setActiveRowMenuId(null)}
                             />
-                            <div className="absolute right-3 top-full mt-1 z-30 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 text-xs text-gray-700 text-left animate-in fade-in zoom-in-95">
+                            <div className="absolute right-3 top-full mt-1 z-30 w-44 bg-white border border-gray-200 rounded-xl shadow-lg py-1 text-xs text-gray-700 text-left animate-in fade-in zoom-in-95">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -711,6 +785,34 @@ export function QuestionTable({
                               >
                                 <Eye className="h-3.5 w-3.5 text-gray-500" />
                                 Xem chi tiết
+                              </button>
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  setActiveRowMenuId(null);
+                                  try {
+                                    if (q.in_exercise_bank) {
+                                      await exerciseApi.removeQuestionFromBank(q.id);
+                                      toast.success('Đã gỡ câu hỏi khỏi Kho Bài Tập');
+                                    } else {
+                                      await exerciseApi.addQuestionsToBank([q.id]);
+                                      toast.success('Đã thêm câu hỏi vào Kho Bài Tập');
+                                    }
+                                    qc.invalidateQueries({ queryKey: ['questions'] });
+                                    qc.invalidateQueries({ queryKey: ['exercises-questions'] });
+                                    qc.invalidateQueries({ queryKey: ['exercises-bank-global-count'] });
+                                  } catch (err) {
+                                    toast.error(getErrorMessage(err));
+                                  }
+                                }}
+                                className={clsx(
+                                  "w-full px-3 py-1.5 flex items-center gap-2 font-medium text-xs",
+                                  q.in_exercise_bank ? "text-amber-700 hover:bg-amber-50" : "text-emerald-700 hover:bg-emerald-50"
+                                )}
+                              >
+                                <BookOpen className={clsx("h-3.5 w-3.5", q.in_exercise_bank ? "text-amber-600" : "text-emerald-600")} />
+                                {q.in_exercise_bank ? 'Gỡ khỏi Kho bài tập' : 'Đưa vào Kho bài tập'}
                               </button>
                               <button
                                 type="button"
@@ -789,6 +891,18 @@ export function QuestionTable({
         onClose={() => setCreateExamOpen(false)}
         selectedQuestionIds={Array.from(selected)}
         onSuccess={() => setSelected(new Set())}
+      />
+
+      <CreateExerciseModal
+        open={createExerciseOpen}
+        onClose={() => setCreateExerciseOpen(false)}
+        selectedQuestionIds={Array.from(selected)}
+        onSuccess={() => setSelected(new Set())}
+      />
+
+      <AutoGenerateModal
+        open={autoGenerateOpen}
+        onClose={() => setAutoGenerateOpen(false)}
       />
 
       {editingQuestion && (

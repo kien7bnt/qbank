@@ -28,6 +28,10 @@ import type {
   CompilerLanguage,
   CodeExecutionResult,
   QuestionTestSummary,
+  Exam,
+  QuestionUsage,
+  AddToAssessmentPayload,
+  AutoGeneratePayload,
 } from '@/types';
 
 const API_HOST = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
@@ -174,6 +178,14 @@ export const questionApi = {
     apiClient.post('/questions/bulk-action', { question_ids, action, payload }),
 
   versions: (id: string) => apiClient.get(`/questions/${id}/versions`),
+
+  getUsage: (id: string) => apiClient.get<QuestionUsage>(`/questions/${id}/usage`),
+
+  addToAssessment: (data: AddToAssessmentPayload) =>
+    apiClient.post<{ id: string; name: string; type: string; message: string }>('/questions/add-to-assessment', data),
+
+  autoGenerate: (data: AutoGeneratePayload) =>
+    apiClient.post<{ id: string; name: string; type: string; message: string }>('/questions/auto-generate', data),
 };
 
 // ─── Curriculum / Domains & Interactive Tree API ──────────────────────────────
@@ -287,6 +299,48 @@ export const examApi = {
 
   getVariants: (examId: string) =>
     apiClient.get<ExamVariant[]>(`/exams/${examId}/variants`),
+
+  addQuestions: (examId: string, questionIds: string[]) =>
+    apiClient.post<Exam>(`/exams/${examId}/questions`, { question_ids: questionIds }),
+};
+
+// ─── Exercise Bank API (Kho Bài Tập) ──────────────────────────────────────────
+export const exerciseApi = {
+  list: (classId?: string) =>
+    apiClient.get<Exam[]>('/exercises', { params: { class_id: classId } }),
+
+  get: (id: string) => apiClient.get<Exam>(`/exercises/${id}`),
+
+  create: (data: {
+    name: string;
+    question_ids: string[];
+    class_id?: string;
+    duration_minutes?: number;
+    practice_mode?: string;
+    allow_retry?: boolean;
+    show_hints?: boolean;
+    points_per_question?: number;
+  }) => apiClient.post<Exam>('/exercises', data),
+
+  update: (id: string, data: Partial<Exam>) =>
+    apiClient.put<Exam>(`/exercises/${id}`, data),
+
+  delete: (id: string) => apiClient.delete(`/exercises/${id}`),
+
+  addQuestions: (exerciseId: string, questionIds: string[]) =>
+    apiClient.post<Exam>(`/exercises/${exerciseId}/questions`, { question_ids: questionIds }),
+
+  removeQuestion: (exerciseId: string, questionId: string) =>
+    apiClient.delete(`/exercises/${exerciseId}/questions/${questionId}`),
+
+  addQuestionsToBank: (questionIds: string[]) =>
+    apiClient.post<{ message: string; count: number }>('/exercises/bank/questions', { question_ids: questionIds }),
+
+  removeQuestionFromBank: (questionId: string) =>
+    apiClient.delete<{ message: string }>(`/exercises/bank/questions/${questionId}`),
+
+  removeMultipleFromBank: (questionIds: string[]) =>
+    apiClient.post<{ message: string; count: number }>('/exercises/bank/questions/remove', { question_ids: questionIds }),
 };
 
 // ─── Exam Analytics API ───────────────────────────────────────────────────────

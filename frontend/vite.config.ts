@@ -31,10 +31,11 @@ export default defineConfig({
     hmr: {
       overlay: false,
     },
-    allowedHosts: [
-      'localhost',
-      '127.0.0.1',
-      'edumate.com.vn',
-    ],
+    allowedHosts: true,
+  },
+  preview: {
+    port: 5173,
+    host: true,
+    allowedHosts: true,
   },
 })

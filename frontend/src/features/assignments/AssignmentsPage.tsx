@@ -297,10 +297,12 @@ export function AssignmentsPage() {
                       </div>
                     )}
 
-                    <div className="flex items-center gap-1.5 pt-1">
-                      <Award className="h-3.5 w-3.5 text-gray-400" />
-                      <span>Điểm đạt: &ge; {assignment.pass_score} đ</span>
-                    </div>
+                    {!isHomework(assignment.assignment_type) && assignment.pass_score ? (
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <Award className="h-3.5 w-3.5 text-gray-400" />
+                        <span>Điểm đạt: &ge; {assignment.pass_score} đ</span>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 

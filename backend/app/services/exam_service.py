@@ -220,6 +220,7 @@ async def list_exams(
     stmt = (
         select(Exam)
         .options(selectinload(Exam.sections).selectinload(ExamSection.questions))
+        .where((Exam.type == "exam") | (Exam.type == None))
         .order_by(Exam.created_at.desc())
     )
     if class_id:
@@ -250,11 +251,13 @@ async def create_exam_from_question_ids(
     points_per_question: Optional[float] = None,
     shuffle_questions: bool = False,
     shuffle_options: bool = False,
+    type: str = "exam",
 ) -> Exam:
     pts = points_per_question if points_per_question is not None else (10.0 / len(question_ids) if question_ids else 1.0)
 
     exam = Exam(
         name=name,
+        type=type,
         class_id=class_id,
         duration_minutes=duration_minutes,
         shuffle_questions=shuffle_questions,
@@ -283,17 +286,16 @@ async def create_exam_from_question_ids(
         v_res = await db.execute(v_stmt)
         q_version = v_res.scalars().first()
 
-        if not q_version:
-            q_obj = await db.get(Question, qid)
-            if q_obj:
-                q_version = QuestionVersion(
-                    question_id=qid,
-                    version_number=q_obj.version,
-                    snapshot={"stem": q_obj.stem, "type": q_obj.type},
-                    changed_by=user_id,
-                )
-                db.add(q_version)
-                await db.flush()
+        q_obj = await db.get(Question, qid)
+        if not q_version and q_obj:
+            q_version = QuestionVersion(
+                question_id=qid,
+                version_number=q_obj.version,
+                snapshot={"stem": q_obj.stem, "type": q_obj.type},
+                changed_by=user_id,
+            )
+            db.add(q_version)
+            await db.flush()
 
         if q_version:
             eq = ExamQuestion(
@@ -305,6 +307,78 @@ async def create_exam_from_question_ids(
                 points=round(pts, 2),
             )
             db.add(eq)
+
+        if q_obj:
+            q_obj.usage_count = (q_obj.usage_count or 0) + 1
+
+    await db.commit()
+    await db.refresh(exam)
+    return exam
+
+
+async def add_questions_to_exam(
+    db: AsyncSession,
+    exam_id: uuid.UUID,
+    question_ids: list[uuid.UUID],
+    user_id: uuid.UUID,
+) -> Exam:
+    """Thêm câu hỏi vào đề thi đã có"""
+    exam = await get_exam(db, exam_id)
+    if not exam:
+        raise ValueError("Không tìm thấy đề thi")
+
+    if not exam.sections:
+        section = ExamSection(
+            exam_id=exam.id,
+            name="Phần thi chính",
+            order_index=0,
+            question_type="mixed",
+        )
+        db.add(section)
+        await db.flush()
+    else:
+        section = exam.sections[0]
+
+    existing_qids = {eq.question_id for eq in section.questions}
+    current_count = len(section.questions)
+
+    for qid in question_ids:
+        if qid in existing_qids:
+            continue
+
+        v_stmt = (
+            select(QuestionVersion)
+            .where(QuestionVersion.question_id == qid)
+            .order_by(QuestionVersion.version_number.desc())
+        )
+        v_res = await db.execute(v_stmt)
+        q_version = v_res.scalars().first()
+
+        q_obj = await db.get(Question, qid)
+        if not q_version and q_obj:
+            q_version = QuestionVersion(
+                question_id=qid,
+                version_number=q_obj.version,
+                snapshot={"stem": q_obj.stem, "type": q_obj.type},
+                changed_by=user_id,
+            )
+            db.add(q_version)
+            await db.flush()
+
+        if q_version:
+            eq = ExamQuestion(
+                exam_id=exam.id,
+                section_id=section.id,
+                question_id=qid,
+                question_version_id=q_version.id,
+                order_index=current_count,
+                points=1.0,
+            )
+            db.add(eq)
+            current_count += 1
+
+        if q_obj:
+            q_obj.usage_count = (q_obj.usage_count or 0) + 1
 
     await db.commit()
     await db.refresh(exam)

@@ -475,8 +475,12 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
                             </div>
                             <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5">
                               <span>{asgn.duration_minutes} phút</span>
-                              <span>•</span>
-                              <span>Đạt: &ge; {asgn.pass_score} đ</span>
+                              {asgn.assignment_type !== 'homework' && asgn.assignment_type !== 'assignment' && asgn.pass_score ? (
+                                <>
+                                  <span>•</span>
+                                  <span>Đạt: &ge; {asgn.pass_score} đ</span>
+                                </>
+                              ) : null}
                               <span>•</span>
                               <span className="text-emerald-700 font-medium">
                                 {asgn.total_submissions ?? 0} bài nộp

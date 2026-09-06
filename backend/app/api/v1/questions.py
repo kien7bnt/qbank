@@ -19,6 +19,9 @@ from app.schemas.question import (
     QuestionVersionOut,
     QuestionBatchCreateRequest,
     QuestionBatchCreateResponse,
+    AddToAssessmentRequest,
+    AutoGenerateAssessmentRequest,
+    QuestionUsageOut,
 )
 from app.services import question_service
 
@@ -70,6 +73,9 @@ def _question_to_list_item(q) -> QuestionListItem:
         stem_preview=(q.stem[:100] + ("..." if len(q.stem) > 100 else "")) if q.stem else "",
         bloom_level=q.bloom_level,
         expected_difficulty=q.expected_difficulty,
+        actual_difficulty=getattr(q, "actual_difficulty", None),
+        usage_count=getattr(q, "usage_count", 0) or 0,
+        in_exercise_bank=bool(getattr(q, "in_exercise_bank", False)),
         subject_name=_safe_rel_name(q, "subject"),
         chapter_name=_safe_rel_name(q, "chapter"),
         topic_name=_safe_rel_name(q, "topic"),
@@ -117,6 +123,13 @@ def _question_to_out(q) -> QuestionOut:
         topic_name=_safe_rel_name(q, "topic"),
         bloom_level=q.bloom_level,
         expected_difficulty=q.expected_difficulty,
+        actual_difficulty=getattr(q, "actual_difficulty", None),
+        discrimination_index=getattr(q, "discrimination_index", None),
+        irt_a=getattr(q, "irt_a", None),
+        irt_b=getattr(q, "irt_b", None),
+        irt_c=getattr(q, "irt_c", None),
+        usage_count=getattr(q, "usage_count", 0) or 0,
+        in_exercise_bank=bool(getattr(q, "in_exercise_bank", False)),
         options=opts_out,
         essay_data=essay_data,
         coding_data=coding_data,
@@ -130,7 +143,7 @@ def _question_to_out(q) -> QuestionOut:
 @router.get("", response_model=PaginatedQuestions)
 async def list_questions(
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=500),
     type: Optional[str] = None,
     status: Optional[str] = None,
     subject_id: Optional[uuid.UUID] = None,
@@ -139,6 +152,7 @@ async def list_questions(
     bloom_level: Optional[str] = None,
     difficulty: Optional[str] = None,
     search: Optional[str] = None,
+    in_exercise_bank: Optional[bool] = None,
     scope: Optional[str] = Query(None, description="mine | all"),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -161,6 +175,7 @@ async def list_questions(
         difficulty=difficulty,
         search=search,
         created_by=user_filter,
+        in_exercise_bank=in_exercise_bank,
     )
     return PaginatedQuestions(
         items=[_question_to_list_item(q) for q in items],
@@ -415,3 +430,37 @@ async def get_versions(
 ):
     versions = await question_service.get_question_versions(db, question_id)
     return [QuestionVersionOut.model_validate(v) for v in versions]
+
+
+@router.post("/add-to-assessment", response_model=dict)
+async def add_to_assessment_endpoint(
+    data: AddToAssessmentRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Thêm một hoặc nhiều câu hỏi vào bài tập hoặc đề kiểm tra (tạo mới hoặc thêm vào bài có sẵn)"""
+    if not current_user.has_role("teacher", "admin"):
+        raise HTTPException(status_code=403, detail="Chỉ giáo viên được thực hiện thao tác này")
+    return await question_service.add_to_assessment(db, current_user.id, data)
+
+
+@router.post("/auto-generate", response_model=dict)
+async def auto_generate_assessment_endpoint(
+    data: AutoGenerateAssessmentRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Tự động sinh bộ bài tập hoặc đề thi theo ma trận tiêu chí (Bloom, độ khó)"""
+    if not current_user.has_role("teacher", "admin"):
+        raise HTTPException(status_code=403, detail="Chỉ giáo viên được thực hiện thao tác này")
+    return await question_service.auto_generate_assessment(db, current_user.id, data)
+
+
+@router.get("/{question_id}/usage", response_model=QuestionUsageOut)
+async def get_question_usage_endpoint(
+    question_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Lấy thống kê và danh sách các bài tập & đề thi đang sử dụng câu hỏi này"""
+    return await question_service.get_question_usage(db, question_id)
