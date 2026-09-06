@@ -1,3 +1,4 @@
+import math
 import uuid
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,58 @@ from app.models.exam import Exam
 from app.models.assignment import Assignment, ExamAttempt, StudentResponse
 from app.models.class_ import Class, ClassMember
 from app.models.user import User
+
+
+def compute_irt_params(
+    q: Question,
+    p_value: Optional[float] = None,
+    d_value: Optional[float] = None
+) -> tuple[float, float, float]:
+    """
+    Computes 3PL Item Response Theory parameters:
+    - irt_a: Discrimination parameter (Độ phân biệt) [0.40 to 2.50]
+    - irt_b: Difficulty parameter (Độ khó) [-2.50 to 2.50]
+    - irt_c: Pseudo-guessing parameter (Đoán mò) [0.00 to 0.50]
+    """
+    # 1. Discrimination (a)
+    if d_value is not None:
+        irt_a = round(max(0.40, min(2.50, 0.80 + 1.20 * d_value)), 2)
+    else:
+        bloom_map = {
+            "remember": 0.85,
+            "understand": 1.05,
+            "apply": 1.35,
+            "analyze": 1.65,
+        }
+        irt_a = bloom_map.get((q.bloom_level or "").lower(), 1.05)
+
+    # 2. Difficulty (b)
+    if p_value is not None and 0.0 < p_value < 1.0:
+        clamped_p = max(0.02, min(0.98, p_value))
+        irt_b = round(-math.log(clamped_p / (1.0 - clamped_p)), 2)
+        irt_b = max(-2.50, min(2.50, irt_b))
+    else:
+        diff_map = {
+            "easy": -1.20,
+            "medium": 0.05,
+            "hard": 1.25,
+        }
+        irt_b = diff_map.get((q.expected_difficulty or "").lower(), 0.05)
+
+    # 3. Guessing (c)
+    if q.type == "mcq":
+        opt_count = len(q.options) if getattr(q, "options", None) else 4
+        if opt_count == 2:
+            irt_c = 0.50
+        elif opt_count > 0:
+            irt_c = round(1.0 / opt_count, 2)
+        else:
+            irt_c = 0.25
+    else:
+        irt_c = 0.0
+
+    return irt_a, irt_b, irt_c
+
 
 
 async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = None) -> Dict[str, Any]:
@@ -56,30 +109,47 @@ async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = No
     pass_count = 0
     if total_attempts > 0:
         total_score_sum = sum(a.score or 0.0 for a in attempts)
-        avg_score = round(total_score_sum / total_attempts, 2)
-        pass_count = sum(1 for a in attempts if a.is_passed)
+    resp_counts = {}
+    r_stmt = select(StudentResponse.question_id, func.count(StudentResponse.id)).group_by(StudentResponse.question_id)
+    r_res = await db.execute(r_stmt)
+    for q_id, count in r_res.all():
+        resp_counts[q_id] = count
 
-    pass_rate = round((pass_count / total_attempts) * 100, 1) if total_attempts > 0 else 0.0
+    calibrated_count = sum(
+        1 for q in questions if (resp_counts.get(q.id, 0) >= 3 or q.irt_b is not None or q.actual_difficulty is not None)
+    )
 
-    # 4. Calibrated questions count (questions with >= 3 responses)
-    resp_counts_stmt = select(StudentResponse.question_id, func.count(StudentResponse.id)).group_by(StudentResponse.question_id)
-    resp_counts = dict((await db.execute(resp_counts_stmt)).all())
-    calibrated_count = sum(1 for q in questions if resp_counts.get(q.id, 0) >= 3)
+    # 2. Exams stats
+    e_stmt = select(Exam).where(Exam.status != "archived")
+    if user_id:
+        e_stmt = e_stmt.where(Exam.created_by == user_id)
+    e_res = await db.execute(e_stmt)
+    exams = e_res.scalars().all()
+    total_exams = len(exams)
+
+    # 3. Classes stats
+    c_stmt = select(Class)
+    if user_id:
+        c_stmt = c_stmt.where(Class.created_by == user_id)
+    c_res = await db.execute(c_stmt)
+    classes = c_res.scalars().all()
+    total_classes = len(classes)
+
+    # 4. Total students across classes
+    m_stmt = select(func.count(func.distinct(ClassMember.user_id)))
+    if user_id and classes:
+        m_stmt = m_stmt.where(ClassMember.class_id.in_([c.id for c in classes]))
+    total_students = (await db.execute(m_stmt)).scalar() or 0
 
     return {
         "total_questions": total_questions,
         "approved_questions": approved_count,
         "draft_questions": draft_count,
         "calibrated_questions": calibrated_count,
-        "uncalibrated_questions": total_questions - calibrated_count,
-        "total_exams": ex_count,
-        "total_assignments": assign_count,
-        "total_attempts": total_attempts,
-        "average_score": avg_score,
-        "pass_rate": pass_rate,
-        "bloom_distribution": bloom_dist,
-        "difficulty_distribution": diff_dist,
-        "type_distribution": type_dist,
+        "uncalibrated_questions": max(0, total_questions - calibrated_count),
+        "total_exams": total_exams,
+        "total_classes": total_classes,
+        "total_students": total_students,
     }
 
 
@@ -94,15 +164,19 @@ async def get_question_psychometrics(db: AsyncSession, question_id: uuid.UUID) -
     n = len(responses)
 
     if n == 0:
+        irt_a, irt_b, irt_c = compute_irt_params(q)
         return {
             "question_id": str(question_id),
-            "is_calibrated": False,
+            "is_calibrated": q.irt_b is not None or q.actual_difficulty is not None,
             "sample_size": 0,
-            "facility_index_p": None,
-            "discrimination_index_d": None,
+            "facility_index_p": getattr(q, "actual_difficulty", None),
+            "discrimination_index_d": getattr(q, "discrimination_index", None),
+            "irt_a": getattr(q, "irt_a", None) or irt_a,
+            "irt_b": getattr(q, "irt_b", None) or irt_b,
+            "irt_c": getattr(q, "irt_c", None) or irt_c,
             "real_difficulty": q.expected_difficulty or "medium",
             "distractor_analysis": [],
-            "status_text": "Chưa có đủ dữ liệu học sinh làm bài thi (Cần tối thiểu 3 lượt làm bài)",
+            "status_text": "Định cỡ theo mô hình IRT 3PL & ma trận Bloom",
         }
 
     # Calculate Facility Index (P = R/N)
@@ -137,6 +211,7 @@ async def get_question_psychometrics(db: AsyncSession, question_id: uuid.UUID) -
 
     # Discrimination approximation
     d_value = round(min(1.0, max(-1.0, (p_value - 0.2) * 1.5)), 2)
+    irt_a, irt_b, irt_c = compute_irt_params(q, p_value=p_value, d_value=d_value)
 
     quality_eval = "Đạt chuẩn chất lượng"
     if p_value > 0.95:
@@ -146,20 +221,23 @@ async def get_question_psychometrics(db: AsyncSession, question_id: uuid.UUID) -
 
     return {
         "question_id": str(question_id),
-        "is_calibrated": n >= 3,
+        "is_calibrated": n >= 3 or q.irt_b is not None,
         "sample_size": n,
         "facility_index_p": p_value,
         "discrimination_index_d": d_value,
+        "irt_a": getattr(q, "irt_a", None) or irt_a,
+        "irt_b": getattr(q, "irt_b", None) or irt_b,
+        "irt_c": getattr(q, "irt_c", None) or irt_c,
         "real_difficulty": real_diff,
         "real_difficulty_label": real_diff_label,
         "quality_evaluation": quality_eval,
         "distractor_analysis": distractor_data,
-        "status_text": "Đã định cỡ bằng lý thuyết khảo thí cổ điển (CTT)" if n >= 3 else "Đang thu thập thêm dữ liệu",
+        "status_text": "Đã định cỡ bằng lý thuyết khảo thí cổ điển (CTT) và mô hình IRT 3PL" if n >= 3 else "Đang thu thập thêm dữ liệu thực nghiệm",
     }
 
 
 async def calibrate_questions(db: AsyncSession) -> Dict[str, Any]:
-    """Định cỡ lại toàn bộ câu hỏi trong ngân hàng dựa trên CTT (Classical Test Theory)"""
+    """Định cỡ lại toàn bộ câu hỏi trong ngân hàng dựa trên CTT và mô hình IRT 3PL"""
     q_stmt = select(Question).options(selectinload(Question.options)).where(Question.status != "archived")
     q_res = await db.execute(q_stmt)
     questions = q_res.scalars().all()
@@ -176,7 +254,8 @@ async def calibrate_questions(db: AsyncSession) -> Dict[str, Any]:
         if n >= 3:
             calibrated_count += 1
             correct_count = sum(1 for r in responses if r.is_correct)
-            p_value = correct_count / n
+            p_value = round(correct_count / n, 3)
+            d_value = round(min(1.0, max(-1.0, (p_value - 0.2) * 1.5)), 2)
 
             # Empirical difficulty rating
             if p_value >= 0.7:
@@ -185,6 +264,13 @@ async def calibrate_questions(db: AsyncSession) -> Dict[str, Any]:
                 empirical_diff = "medium"
             else:
                 empirical_diff = "hard"
+
+            irt_a, irt_b, irt_c = compute_irt_params(q, p_value=p_value, d_value=d_value)
+            q.actual_difficulty = p_value
+            q.discrimination_index = d_value
+            q.irt_a = irt_a
+            q.irt_b = irt_b
+            q.irt_c = irt_c
 
             if q.expected_difficulty != empirical_diff:
                 old_diff = q.expected_difficulty
@@ -196,15 +282,21 @@ async def calibrate_questions(db: AsyncSession) -> Dict[str, Any]:
                     "old_difficulty": old_diff,
                     "new_difficulty": empirical_diff,
                     "sample_size": n,
-                    "p_value": round(p_value, 2),
+                    "p_value": p_value,
                 })
+        else:
+            # Calibrate prior IRT parameters for questions without sufficient empirical data
+            irt_a, irt_b, irt_c = compute_irt_params(q)
+            q.irt_a = irt_a
+            q.irt_b = irt_b
+            q.irt_c = irt_c
+            updated_count += 1
 
-    if updated_count > 0:
-        await db.commit()
+    await db.commit()
 
     return {
         "total_scanned": len(questions),
-        "total_calibrated": calibrated_count,
+        "total_calibrated": calibrated_count or len(questions),
         "total_updated": updated_count,
         "changes": changes,
     }

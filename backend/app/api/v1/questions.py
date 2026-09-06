@@ -64,6 +64,11 @@ def _question_to_list_item(q) -> QuestionListItem:
         else:
             sub_type = "single_choice"
 
+    irt_a = getattr(q, "irt_a", None)
+    irt_b = getattr(q, "irt_b", None)
+    irt_c = getattr(q, "irt_c", None)
+    is_calibrated = (irt_b is not None) or (getattr(q, "actual_difficulty", None) is not None)
+
     return QuestionListItem(
         id=q.id,
         item_id=q.item_id,
@@ -74,6 +79,11 @@ def _question_to_list_item(q) -> QuestionListItem:
         bloom_level=q.bloom_level,
         expected_difficulty=q.expected_difficulty,
         actual_difficulty=getattr(q, "actual_difficulty", None),
+        discrimination_index=getattr(q, "discrimination_index", None),
+        irt_a=irt_a,
+        irt_b=irt_b,
+        irt_c=irt_c,
+        is_calibrated=is_calibrated,
         usage_count=getattr(q, "usage_count", 0) or 0,
         in_exercise_bank=bool(getattr(q, "in_exercise_bank", False)),
         subject_id=getattr(q, "subject_id", None),
@@ -100,8 +110,8 @@ def _question_to_out(q) -> QuestionOut:
                 label=o.label,
                 text=o.text,
                 is_correct=o.is_correct,
-                distractor_reason=o.distractor_reason,
-                order_index=o.order_index,
+                distractor_reason=getattr(o, "distractor_reason", None),
+                order_index=getattr(o, "order_index", 0),
             )
         )
 
@@ -118,11 +128,11 @@ def _question_to_out(q) -> QuestionOut:
         status=q.status,
         stem=q.stem,
         rationale=q.rationale,
-        subject_id=q.subject_id,
+        subject_id=getattr(q, "subject_id", None),
+        chapter_id=getattr(q, "chapter_id", None),
+        topic_id=getattr(q, "topic_id", None),
         subject_name=_safe_rel_name(q, "subject"),
-        chapter_id=q.chapter_id,
         chapter_name=_safe_rel_name(q, "chapter"),
-        topic_id=q.topic_id,
         topic_name=_safe_rel_name(q, "topic"),
         bloom_level=q.bloom_level,
         expected_difficulty=q.expected_difficulty,
@@ -136,7 +146,7 @@ def _question_to_out(q) -> QuestionOut:
         options=opts_out,
         essay_data=essay_data,
         coding_data=coding_data,
-        version=q.version,
+        version=getattr(q, "version", 1),
         created_by=q.created_by,
         created_at=q.created_at,
         updated_at=q.updated_at,
@@ -155,6 +165,7 @@ async def list_questions(
     bloom_level: Optional[str] = None,
     difficulty: Optional[str] = None,
     search: Optional[str] = None,
+    psychometric_status: Optional[str] = Query(None, description="all | unscaled | scaled"),
     in_exercise_bank: Optional[bool] = None,
     scope: Optional[str] = Query(None, description="mine | all"),
     db: AsyncSession = Depends(get_db),
@@ -177,6 +188,7 @@ async def list_questions(
         bloom_level=bloom_level,
         difficulty=difficulty,
         search=search,
+        psychometric_status=psychometric_status,
         created_by=user_filter,
         in_exercise_bank=in_exercise_bank,
     )

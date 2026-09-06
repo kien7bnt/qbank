@@ -569,11 +569,11 @@ function QuestionTreeItem({
           : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50/70 bg-white'
       )}
     >
-      <div className="pt-0.5 shrink-0">
+      <div className="pt-0.5 shrink-0 pointer-events-none">
         <input
           type="checkbox"
           checked={isSelected}
-          onChange={() => {}} // handled by parent div
+          readOnly
           className="h-3.5 w-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
         />
       </div>

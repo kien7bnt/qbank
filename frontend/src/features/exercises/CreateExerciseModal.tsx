@@ -47,10 +47,12 @@ const INITIAL_OPTIONS: OptionForm[] = [
   { label: 'D', text: '', is_correct: false, distractor_reason: '' },
 ];
 
+const EMPTY_ARRAY: string[] = [];
+
 export function CreateExerciseModal({
   open,
   onClose,
-  selectedQuestionIds = [],
+  selectedQuestionIds = EMPTY_ARRAY,
   onSuccess,
   onAssignToClass,
 }: CreateExerciseModalProps) {
@@ -73,11 +75,11 @@ export function CreateExerciseModal({
 
   useEffect(() => {
     if (open) {
-      setQuestionIds(selectedQuestionIds);
+      setQuestionIds(selectedQuestionIds || []);
       setName('');
       setActiveTab('picker');
     }
-  }, [open, selectedQuestionIds]);
+  }, [open]);
 
   // Fetch domains & topics for folder selection in Tab b
   const { data: domainsData } = useQuery({

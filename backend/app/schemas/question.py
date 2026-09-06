@@ -175,6 +175,11 @@ class QuestionListItem(BaseModel):
     bloom_level: Optional[str] = None
     expected_difficulty: Optional[str] = None
     actual_difficulty: Optional[float] = None
+    discrimination_index: Optional[float] = None
+    irt_a: Optional[float] = None
+    irt_b: Optional[float] = None
+    irt_c: Optional[float] = None
+    is_calibrated: bool = False
     usage_count: int = 0
     in_exercise_bank: bool = False
     subject_id: Optional[uuid.UUID] = None

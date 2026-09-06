@@ -60,6 +60,12 @@ async def create_question(
         created_by=user_id,
         version=1,
     )
+    from app.services.analytics_service import compute_irt_params
+    irt_a, irt_b, irt_c = compute_irt_params(question)
+    question.irt_a = irt_a
+    question.irt_b = irt_b
+    question.irt_c = irt_c
+
     db.add(question)
     await db.flush()
 
@@ -276,6 +282,14 @@ async def list_questions(
     if search:
         query = query.where(
             Question.stem.ilike(f"%{search}%") | Question.item_id.ilike(f"%{search}%")
+        )
+    if psychometric_status == "scaled":
+        query = query.where(
+            Question.irt_b.isnot(None) | Question.actual_difficulty.isnot(None)
+        )
+    elif psychometric_status == "unscaled":
+        query = query.where(
+            Question.irt_b.is_(None) & Question.actual_difficulty.is_(None)
         )
 
     count_query = select(func.count()).select_from(query.subquery())

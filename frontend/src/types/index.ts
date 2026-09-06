@@ -181,6 +181,11 @@ export interface QuestionListItem {
   bloom_level?: BloomLevel;
   expected_difficulty?: DifficultyLevel;
   actual_difficulty?: number;
+  discrimination_index?: number;
+  irt_a?: number;
+  irt_b?: number;
+  irt_c?: number;
+  is_calibrated?: boolean;
   usage_count?: number;
   in_exercise_bank?: boolean;
   subject_id?: string;

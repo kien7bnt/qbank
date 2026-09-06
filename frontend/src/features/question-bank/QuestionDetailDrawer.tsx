@@ -315,34 +315,61 @@ export function QuestionDetailDrawer({ questionId, onClose }: QuestionDetailDraw
               </div>
 
               {/* Thông số IRT (Item Response Theory) */}
-              <div className="bg-gradient-to-br from-blue-50/60 to-indigo-50/40 border border-blue-100 rounded-xl p-3.5 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-indigo-600" />
-                  <span className="text-xs font-bold text-indigo-900">
-                    Mô hình Trắc lượng IRT (Item Response Theory)
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="bg-white p-2 rounded-lg border border-indigo-100">
-                    <span className="text-[10px] text-gray-500 block">Độ phân biệt (a)</span>
-                    <span className="text-xs font-bold text-indigo-900">
-                      {q.irt_a !== null && q.irt_a !== undefined ? q.irt_a.toFixed(2) : '—'}
-                    </span>
+              {(() => {
+                const irtAVal = (q.irt_a !== null && q.irt_a !== undefined)
+                  ? q.irt_a
+                  : (psycho?.irt_a !== undefined && psycho?.irt_a !== null)
+                  ? psycho.irt_a
+                  : (q.bloom_level === 'remember' ? 0.85 : q.bloom_level === 'understand' ? 1.05 : q.bloom_level === 'apply' ? 1.35 : q.bloom_level === 'analyze' ? 1.65 : 1.00);
+
+                const irtBVal = (q.irt_b !== null && q.irt_b !== undefined)
+                  ? q.irt_b
+                  : (psycho?.irt_b !== undefined && psycho?.irt_b !== null)
+                  ? psycho.irt_b
+                  : (q.expected_difficulty === 'easy' ? -1.20 : q.expected_difficulty === 'medium' ? 0.05 : q.expected_difficulty === 'hard' ? 1.25 : 0.00);
+
+                const irtCVal = (q.irt_c !== null && q.irt_c !== undefined)
+                  ? q.irt_c
+                  : (psycho?.irt_c !== undefined && psycho?.irt_c !== null)
+                  ? psycho.irt_c
+                  : (q.type === 'mcq' ? (q.options?.length === 2 ? 0.50 : 0.25) : 0.00);
+
+                return (
+                  <div className="bg-gradient-to-br from-blue-50/60 to-indigo-50/40 border border-blue-100 rounded-xl p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Activity className="h-4 w-4 text-indigo-600" />
+                        <span className="text-xs font-bold text-indigo-900">
+                          Mô hình Trắc lượng IRT (Item Response Theory)
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                        {psycho?.is_calibrated || q.actual_difficulty !== null ? 'Đã định cỡ' : 'Định cỡ tiên nghiệm'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-white p-2 rounded-lg border border-indigo-100 shadow-2xs">
+                        <span className="text-[10px] text-gray-500 block">Độ phân biệt (a)</span>
+                        <span className="text-xs font-bold text-indigo-900">
+                          {Number(irtAVal).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-indigo-100 shadow-2xs">
+                        <span className="text-[10px] text-gray-500 block">Độ khó (b)</span>
+                        <span className="text-xs font-bold text-indigo-900">
+                          {Number(irtBVal).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="bg-white p-2 rounded-lg border border-indigo-100 shadow-2xs">
+                        <span className="text-[10px] text-gray-500 block">Đoán mò (c)</span>
+                        <span className="text-xs font-bold text-indigo-900">
+                          {Number(irtCVal).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="bg-white p-2 rounded-lg border border-indigo-100">
-                    <span className="text-[10px] text-gray-500 block">Độ khó (b)</span>
-                    <span className="text-xs font-bold text-indigo-900">
-                      {q.irt_b !== null && q.irt_b !== undefined ? q.irt_b.toFixed(2) : '—'}
-                    </span>
-                  </div>
-                  <div className="bg-white p-2 rounded-lg border border-indigo-100">
-                    <span className="text-[10px] text-gray-500 block">Đoán mò (c)</span>
-                    <span className="text-xs font-bold text-indigo-900">
-                      {q.irt_c !== null && q.irt_c !== undefined ? q.irt_c.toFixed(2) : '—'}
-                    </span>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* AI Review Result */}
               {reviewData && (

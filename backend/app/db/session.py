@@ -168,10 +168,21 @@ async def init_db() -> None:
                     status="active",
                 )
                 session.add(admin_user)
-                await session.flush()
                 for r_name in ["admin", "teacher", "student"]:
                     if r_name in roles_map:
                         session.add(UserRole(user_id=admin_user.id, role_id=roles_map[r_name].id))
+
+            # 3. Backfill IRT parameters for questions that haven't been initialized
+            from app.models.question import Question
+            from app.services.analytics_service import compute_irt_params
+            uncalibrated_q_stmt = select(Question).where(Question.irt_a.is_(None))
+            uncalibrated_q_res = await session.execute(uncalibrated_q_stmt)
+            uncalibrated_qs = uncalibrated_q_res.scalars().all()
+            for uq in uncalibrated_qs:
+                a, b, c = compute_irt_params(uq)
+                uq.irt_a = a
+                uq.irt_b = b
+                uq.irt_c = c
 
             await session.commit()
         except Exception as e:
