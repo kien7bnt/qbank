@@ -572,9 +572,6 @@ export function QuestionTable({
                               Chưa định cỡ
                             </span>
                           )}
-                          <span className="text-[10px] text-gray-500 font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">
-                            a:{q.irt_a !== undefined && q.irt_a !== null ? Number(q.irt_a).toFixed(2) : '1.05'} b:{q.irt_b !== undefined && q.irt_b !== null ? Number(q.irt_b).toFixed(2) : '0.05'} c:{q.irt_c !== undefined && q.irt_c !== null ? Number(q.irt_c).toFixed(2) : '0.25'}
-                          </span>
                           {q.in_exercise_bank && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold border border-indigo-200">
                               Kho bài tập
@@ -674,8 +671,7 @@ export function QuestionTable({
                   <th className="px-4 py-3">Nội dung</th>
                   <th className="px-4 py-3 w-32">Loại</th>
                   <th className="px-4 py-3 w-28">Bloom</th>
-                  <th className="px-4 py-3 w-28">Mức độ</th>
-                  <th className="px-4 py-3 w-40">Định cỡ (a, b, c)</th>
+                  <th className="px-4 py-3 w-32">Mức độ</th>
                   <th className="px-4 py-3 w-28 text-center">Sử dụng</th>
                   <th className="px-4 py-3 w-44">Lĩnh vực · Chủ đề</th>
                   <th className="w-12 px-3 py-3 text-center"></th>
@@ -728,32 +724,6 @@ export function QuestionTable({
                       {/* Mức độ */}
                       <td className="px-4 py-3.5 shrink-0 whitespace-nowrap">
                         {renderDifficulty(q)}
-                      </td>
-
-                      {/* Định cỡ (IRT) */}
-                      <td className="px-4 py-3.5 shrink-0 whitespace-nowrap">
-                        <div className="space-y-1">
-                          <div>
-                            {q.is_calibrated ? (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">
-                                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                                Đã định cỡ ({q.response_count || 0} lượt)
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                                <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
-                                Chưa định cỡ
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[10px] text-gray-500 font-mono flex items-center gap-1" title="Mô hình IRT: a (Độ phân biệt), b (Độ khó), c (Đoán mò)">
-                            <span>a:<strong className="text-gray-700 font-semibold">{q.irt_a !== undefined && q.irt_a !== null ? Number(q.irt_a).toFixed(2) : (q.bloom_level === 'remember' ? '0.85' : q.bloom_level === 'understand' ? '1.05' : q.bloom_level === 'apply' ? '1.35' : q.bloom_level === 'analyze' ? '1.65' : '1.05')}</strong></span>
-                            <span>•</span>
-                            <span>b:<strong className="text-gray-700 font-semibold">{q.irt_b !== undefined && q.irt_b !== null ? Number(q.irt_b).toFixed(2) : (q.expected_difficulty === 'easy' ? '-1.20' : q.expected_difficulty === 'hard' ? '1.25' : '0.05')}</strong></span>
-                            <span>•</span>
-                            <span>c:<strong className="text-gray-700 font-semibold">{q.irt_c !== undefined && q.irt_c !== null ? Number(q.irt_c).toFixed(2) : (q.type === 'mcq' ? '0.25' : '0.00')}</strong></span>
-                          </div>
-                        </div>
                       </td>
 
                       {/* Sử dụng */}
