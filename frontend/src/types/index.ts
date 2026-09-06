@@ -162,6 +162,7 @@ export interface Question {
   irt_b?: number;
   irt_c?: number;
   usage_count?: number;
+  response_count?: number;
   options: QuestionOption[];
   essay_data?: EssayData;
   coding_data?: CodingData;
@@ -186,6 +187,7 @@ export interface QuestionListItem {
   irt_b?: number;
   irt_c?: number;
   is_calibrated?: boolean;
+  response_count?: number;
   usage_count?: number;
   in_exercise_bank?: boolean;
   subject_id?: string;

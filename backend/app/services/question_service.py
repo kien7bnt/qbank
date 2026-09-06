@@ -44,19 +44,32 @@ async def create_question(
 ) -> Question:
     item_id = await _next_item_id(db)
 
+    subject_id = data.subject_id
+    if not subject_id and data.chapter_id:
+        chap = await db.get(Chapter, data.chapter_id)
+        if chap and chap.subject_id:
+            subject_id = chap.subject_id
+    if not subject_id:
+        from app.services.curriculum_service import get_default_subject
+        def_sub = await get_default_subject(db)
+        subject_id = def_sub.id
+
     question = Question(
         item_id=item_id,
         type=data.type,
         status="draft",
         stem=data.stem,
         rationale=data.rationale,
-        subject_id=data.subject_id,
+        subject_id=subject_id,
         chapter_id=data.chapter_id,
         topic_id=data.topic_id,
         lesson_id=data.lesson_id,
         learning_objective_id=data.learning_objective_id,
         bloom_level=data.bloom_level or "understand",
         expected_difficulty=data.expected_difficulty or "medium",
+        in_exercise_bank=bool(getattr(data, "in_exercise_bank", False)),
+        is_calibrated=False,
+        response_count=0,
         created_by=user_id,
         version=1,
     )
@@ -284,12 +297,10 @@ async def list_questions(
             Question.stem.ilike(f"%{search}%") | Question.item_id.ilike(f"%{search}%")
         )
     if psychometric_status == "scaled":
-        query = query.where(
-            Question.irt_b.isnot(None) | Question.actual_difficulty.isnot(None)
-        )
+        query = query.where(Question.is_calibrated.is_(True))
     elif psychometric_status == "unscaled":
         query = query.where(
-            Question.irt_b.is_(None) & Question.actual_difficulty.is_(None)
+            (Question.is_calibrated.is_(False)) | (Question.is_calibrated.is_(None))
         )
 
     count_query = select(func.count()).select_from(query.subquery())

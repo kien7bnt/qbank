@@ -651,6 +651,19 @@ async def submit_and_grade_attempt(db: AsyncSession, attempt_id: uuid.UUID, user
     attempt.status = "graded"
     attempt.submitted_at = datetime.utcnow()
 
+    # 3. Update response_count and calibration status for questions
+    for q_item in (attempt.question_snapshot or []):
+        qid_str = q_item.get("id")
+        if qid_str:
+            qid = uuid.UUID(qid_str)
+            q_obj = await db.get(Question, qid)
+            if q_obj:
+                r_count_stmt = select(func.count(StudentResponse.id)).where(StudentResponse.question_id == qid)
+                cnt = (await db.execute(r_count_stmt)).scalar() or 0
+                q_obj.response_count = cnt
+                if cnt >= 10:
+                    q_obj.is_calibrated = True
+
     await db.commit()
 
     return await get_attempt_result(db, attempt_id, user_id)

@@ -116,7 +116,7 @@ async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = No
         resp_counts[q_id] = count
 
     calibrated_count = sum(
-        1 for q in questions if (resp_counts.get(q.id, 0) >= 3 or q.irt_b is not None or q.actual_difficulty is not None)
+        1 for q in questions if (resp_counts.get(q.id, 0) >= 10 or (getattr(q, "is_calibrated", False) and getattr(q, "response_count", 0) >= 10))
     )
 
     # 2. Exams stats
@@ -167,16 +167,16 @@ async def get_question_psychometrics(db: AsyncSession, question_id: uuid.UUID) -
         irt_a, irt_b, irt_c = compute_irt_params(q)
         return {
             "question_id": str(question_id),
-            "is_calibrated": q.irt_b is not None or q.actual_difficulty is not None,
+            "is_calibrated": False,
             "sample_size": 0,
-            "facility_index_p": getattr(q, "actual_difficulty", None),
-            "discrimination_index_d": getattr(q, "discrimination_index", None),
+            "facility_index_p": None,
+            "discrimination_index_d": None,
             "irt_a": getattr(q, "irt_a", None) or irt_a,
             "irt_b": getattr(q, "irt_b", None) or irt_b,
             "irt_c": getattr(q, "irt_c", None) or irt_c,
             "real_difficulty": q.expected_difficulty or "medium",
             "distractor_analysis": [],
-            "status_text": "Định cỡ theo mô hình IRT 3PL & ma trận Bloom",
+            "status_text": "Chưa có lượt làm bài nào (cần tối thiểu 10 lượt để định cỡ chuẩn xác)",
         }
 
     # Calculate Facility Index (P = R/N)
@@ -219,9 +219,10 @@ async def get_question_psychometrics(db: AsyncSession, question_id: uuid.UUID) -
     elif p_value < 0.15:
         quality_eval = "Câu hỏi quá khó hoặc phương án có sự nhầm lẫn"
 
+    is_calibrated = n >= 10
     return {
         "question_id": str(question_id),
-        "is_calibrated": n >= 3 or q.irt_b is not None,
+        "is_calibrated": is_calibrated,
         "sample_size": n,
         "facility_index_p": p_value,
         "discrimination_index_d": d_value,
@@ -232,12 +233,16 @@ async def get_question_psychometrics(db: AsyncSession, question_id: uuid.UUID) -
         "real_difficulty_label": real_diff_label,
         "quality_evaluation": quality_eval,
         "distractor_analysis": distractor_data,
-        "status_text": "Đã định cỡ bằng lý thuyết khảo thí cổ điển (CTT) và mô hình IRT 3PL" if n >= 3 else "Đang thu thập thêm dữ liệu thực nghiệm",
+        "status_text": (
+            "Đã định cỡ bằng lý thuyết khảo thí cổ điển (CTT) và mô hình IRT 3PL"
+            if is_calibrated
+            else f"Đang thu thập dữ liệu ({n}/10 lượt làm, cần tối thiểu 10 lượt để định cỡ)"
+        ),
     }
 
 
 async def calibrate_questions(db: AsyncSession) -> Dict[str, Any]:
-    """Định cỡ lại toàn bộ câu hỏi trong ngân hàng dựa trên CTT và mô hình IRT 3PL"""
+    """Định cỡ lại toàn bộ câu hỏi trong ngân hàng dựa trên CTT và mô hình IRT 3PL (Yêu cầu N >= 10)"""
     q_stmt = select(Question).options(selectinload(Question.options)).where(Question.status != "archived")
     q_res = await db.execute(q_stmt)
     questions = q_res.scalars().all()
@@ -250,8 +255,10 @@ async def calibrate_questions(db: AsyncSession) -> Dict[str, Any]:
         resp_stmt = select(StudentResponse).where(StudentResponse.question_id == q.id)
         responses = (await db.execute(resp_stmt)).scalars().all()
         n = len(responses)
+        q.response_count = n
 
-        if n >= 3:
+        if n >= 10:
+            q.is_calibrated = True
             calibrated_count += 1
             correct_count = sum(1 for r in responses if r.is_correct)
             p_value = round(correct_count / n, 3)
@@ -285,7 +292,11 @@ async def calibrate_questions(db: AsyncSession) -> Dict[str, Any]:
                     "p_value": p_value,
                 })
         else:
-            # Calibrate prior IRT parameters for questions without sufficient empirical data
+            # Under 10 attempts: strictly NOT calibrated
+            q.is_calibrated = False
+            q.actual_difficulty = None
+            q.discrimination_index = None
+            # Maintain or calculate prior IRT parameters for reference
             irt_a, irt_b, irt_c = compute_irt_params(q)
             q.irt_a = irt_a
             q.irt_b = irt_b
@@ -296,7 +307,7 @@ async def calibrate_questions(db: AsyncSession) -> Dict[str, Any]:
 
     return {
         "total_scanned": len(questions),
-        "total_calibrated": calibrated_count or len(questions),
+        "total_calibrated": calibrated_count,
         "total_updated": updated_count,
         "changes": changes,
     }

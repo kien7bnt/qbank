@@ -55,6 +55,10 @@ class Question(Base):
 
     # Usage tracking
     usage_count: Mapped[int] = mapped_column(Integer, default=0)
+    response_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Empirical psychometrics calibration
+    is_calibrated: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
 
     # Exercise Bank membership
     in_exercise_bank: Mapped[bool] = mapped_column(Boolean, default=False, index=True)

@@ -219,9 +219,13 @@ export function QuestionDetailDrawer({ questionId, onClose }: QuestionDetailDraw
                     <BarChart2 className="h-4 w-4 text-primary-600" />
                     <p className="text-sm font-semibold text-gray-900">Chỉ số Khảo thí (Psychometrics)</p>
                   </div>
-                  {psycho?.is_calibrated && (
+                  {psycho?.is_calibrated ? (
                     <span className="text-xs bg-green-50 text-green-700 font-bold px-2 py-0.5 rounded-full border border-green-200">
-                      Đã định cỡ ({psycho.sample_size} lượt thi)
+                      Đã định cỡ ({psycho.sample_size} lượt làm)
+                    </span>
+                  ) : (
+                    <span className="text-xs bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-full border border-amber-200">
+                      Chưa định cỡ ({psycho?.sample_size || 0}/10 lượt làm)
                     </span>
                   )}
                 </div>
@@ -244,9 +248,9 @@ export function QuestionDetailDrawer({ questionId, onClose }: QuestionDetailDraw
                   </div>
                 ) : (
                   <div className="rounded-lg bg-gray-50 border border-dashed border-gray-300 p-4 text-center">
-                    <p className="text-sm font-medium text-gray-600">Chưa định cỡ</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {psycho?.status_text || 'Câu hỏi chưa có đủ dữ liệu thi thực tế.'}
+                    <p className="text-sm font-medium text-gray-700">Chưa định cỡ (Cần tối thiểu 10 lượt làm bài)</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {psycho?.status_text || 'Câu hỏi cần có ít nhất 10 học sinh làm bài để kích hoạt tính toán trắc lượng thực nghiệm.'}
                     </p>
                   </div>
                 )}
@@ -343,8 +347,10 @@ export function QuestionDetailDrawer({ questionId, onClose }: QuestionDetailDraw
                           Mô hình Trắc lượng IRT (Item Response Theory)
                         </span>
                       </div>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-                        {psycho?.is_calibrated || q.actual_difficulty !== null ? 'Đã định cỡ' : 'Định cỡ tiên nghiệm'}
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                        psycho?.is_calibrated ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {psycho?.is_calibrated ? 'Đã định cỡ thực nghiệm (N ≥ 10)' : 'Tham số ước lượng tiên nghiệm'}
                       </span>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center">

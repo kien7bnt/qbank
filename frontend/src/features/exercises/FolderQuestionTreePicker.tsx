@@ -596,6 +596,18 @@ function QuestionTreeItem({
               {diffInfo.label}
             </span>
           )}
+          {question.is_calibrated ? (
+            <span className="px-1 py-0.2 rounded font-bold bg-green-50 text-green-700 border border-green-200">
+              Đã định cỡ
+            </span>
+          ) : (
+            <span className="px-1 py-0.2 rounded font-medium bg-gray-100 text-gray-500 border border-gray-200">
+              Chưa định cỡ
+            </span>
+          )}
+          <span className="text-[9px] text-gray-500 font-mono">
+            a:{question.irt_a !== undefined && question.irt_a !== null ? Number(question.irt_a).toFixed(2) : (question.bloom_level === 'remember' ? '0.85' : question.bloom_level === 'understand' ? '1.05' : question.bloom_level === 'apply' ? '1.35' : question.bloom_level === 'analyze' ? '1.65' : '1.05')} b:{question.irt_b !== undefined && question.irt_b !== null ? Number(question.irt_b).toFixed(2) : (question.expected_difficulty === 'easy' ? '-1.20' : question.expected_difficulty === 'hard' ? '1.25' : '0.05')} c:{question.irt_c !== undefined && question.irt_c !== null ? Number(question.irt_c).toFixed(2) : (question.type === 'mcq' ? '0.25' : '0.00')}
+          </span>
         </div>
 
         <p className="text-[11px] text-gray-800 line-clamp-2 leading-relaxed">

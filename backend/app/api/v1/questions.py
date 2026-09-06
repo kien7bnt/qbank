@@ -67,7 +67,16 @@ def _question_to_list_item(q) -> QuestionListItem:
     irt_a = getattr(q, "irt_a", None)
     irt_b = getattr(q, "irt_b", None)
     irt_c = getattr(q, "irt_c", None)
-    is_calibrated = (irt_b is not None) or (getattr(q, "actual_difficulty", None) is not None)
+    if irt_a is None or irt_b is None or irt_c is None:
+        from app.services.analytics_service import compute_irt_params
+        calc_a, calc_b, calc_c = compute_irt_params(q)
+        irt_a = irt_a if irt_a is not None else calc_a
+        irt_b = irt_b if irt_b is not None else calc_b
+        irt_c = irt_c if irt_c is not None else calc_c
+
+    # Strictly calibrated ONLY if flagged is_calibrated is True (which requires >= 10 responses)
+    is_calibrated = bool(getattr(q, "is_calibrated", False))
+    response_count = getattr(q, "response_count", 0) or 0
 
     return QuestionListItem(
         id=q.id,
@@ -84,6 +93,7 @@ def _question_to_list_item(q) -> QuestionListItem:
         irt_b=irt_b,
         irt_c=irt_c,
         is_calibrated=is_calibrated,
+        response_count=response_count,
         usage_count=getattr(q, "usage_count", 0) or 0,
         in_exercise_bank=bool(getattr(q, "in_exercise_bank", False)),
         subject_id=getattr(q, "subject_id", None),

@@ -63,6 +63,8 @@ async def init_db() -> None:
                 ("questions", "irt_b", "DOUBLE PRECISION", "FLOAT"),
                 ("questions", "irt_c", "DOUBLE PRECISION", "FLOAT"),
                 ("questions", "usage_count", "INTEGER DEFAULT 0", "INTEGER DEFAULT 0"),
+                ("questions", "response_count", "INTEGER DEFAULT 0", "INTEGER DEFAULT 0"),
+                ("questions", "is_calibrated", "BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT 0"),
                 ("questions", "in_exercise_bank", "BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT 0"),
                 # question_essays
                 ("question_essays", "rubric_id", "UUID", "CHAR(32)"),
@@ -172,17 +174,29 @@ async def init_db() -> None:
                     if r_name in roles_map:
                         session.add(UserRole(user_id=admin_user.id, role_id=roles_map[r_name].id))
 
-            # 3. Backfill IRT parameters for questions that haven't been initialized
+            # 3. Backfill IRT parameters and sync empirical calibration status
             from app.models.question import Question
+            from app.models.assignment import StudentResponse
             from app.services.analytics_service import compute_irt_params
-            uncalibrated_q_stmt = select(Question).where(Question.irt_a.is_(None))
-            uncalibrated_q_res = await session.execute(uncalibrated_q_stmt)
-            uncalibrated_qs = uncalibrated_q_res.scalars().all()
-            for uq in uncalibrated_qs:
-                a, b, c = compute_irt_params(uq)
-                uq.irt_a = a
-                uq.irt_b = b
-                uq.irt_c = c
+
+            all_q_stmt = select(Question)
+            all_q_res = await session.execute(all_q_stmt)
+            all_qs = all_q_res.scalars().all()
+
+            resp_counts_stmt = select(StudentResponse.question_id, func.count(StudentResponse.id)).group_by(StudentResponse.question_id)
+            resp_counts_res = await session.execute(resp_counts_stmt)
+            resp_counts = dict(resp_counts_res.all())
+
+            for q in all_qs:
+                if q.irt_a is None or q.irt_b is None or q.irt_c is None:
+                    a, b, c = compute_irt_params(q)
+                    q.irt_a = a
+                    q.irt_b = b
+                    q.irt_c = c
+                count = resp_counts.get(q.id, 0)
+                q.response_count = count
+                # Strictly calibrated ONLY if answered at least 10 times!
+                q.is_calibrated = (count >= 10)
 
             await session.commit()
         except Exception as e:

@@ -60,6 +60,8 @@ class QuestionCreate(BaseModel):
     learning_objective_id: Optional[uuid.UUID] = None
     bloom_level: Optional[str] = None
     expected_difficulty: Optional[str] = None
+    # Exercise bank
+    in_exercise_bank: Optional[bool] = False
     # MCQ
     options: Optional[List[QuestionOptionIn]] = None
     # Essay
@@ -180,6 +182,7 @@ class QuestionListItem(BaseModel):
     irt_b: Optional[float] = None
     irt_c: Optional[float] = None
     is_calibrated: bool = False
+    response_count: int = 0
     usage_count: int = 0
     in_exercise_bank: bool = False
     subject_id: Optional[uuid.UUID] = None
