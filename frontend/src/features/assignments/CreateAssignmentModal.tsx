@@ -1,12 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ClipboardList, GraduationCap, FileText, CheckCircle2, Clock, BookOpen, Layers, CheckSquare, Sparkles } from 'lucide-react';
+import {
+  ClipboardList,
+  Clock,
+  BookOpen,
+  CheckCircle2,
+  AlertCircle,
+  Calendar,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { assignmentApi, examApi, exerciseApi, classApi, sessionApi, getErrorMessage } from '@/services/api';
-import { QuestionPicker } from '@/features/question-bank/QuestionPicker';
+import {
+  assignmentApi,
+  examApi,
+  exerciseApi,
+  classApi,
+  sessionApi,
+  getErrorMessage,
+} from '@/services/api';
 
 interface CreateAssignmentModalProps {
   open: boolean;
@@ -15,6 +28,7 @@ interface CreateAssignmentModalProps {
   initialSessionId?: string;
   initialType?: 'exam' | 'homework';
   initialExamId?: string;
+  initialExamName?: string;
   initialQuestionIds?: string[];
 }
 
@@ -25,6 +39,7 @@ export function CreateAssignmentModal({
   initialSessionId,
   initialType,
   initialExamId,
+  initialExamName,
   initialQuestionIds,
 }: CreateAssignmentModalProps) {
   const qc = useQueryClient();
@@ -40,38 +55,30 @@ export function CreateAssignmentModal({
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [shuffleOptions, setShuffleOptions] = useState(false);
 
-  // For Homework / Bài tập: picked questions
-  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>(initialQuestionIds || []);
-
-  useEffect(() => {
-    if (open) {
-      if (initialClassId) setClassId(initialClassId);
-      if (initialSessionId) setSessionId(initialSessionId);
-      if (initialType) setAssignmentType(initialType);
-      if (initialExamId) setExamId(initialExamId);
-      if (initialQuestionIds && initialQuestionIds.length > 0) {
-        setSelectedQuestionIds(initialQuestionIds);
-        setAssignmentType('homework');
-      }
-    }
-  }, [open, initialClassId, initialSessionId, initialType, initialExamId, initialQuestionIds]);
-
   // Fetch Exams (Kho Kiểm Tra)
   const { data: examsData } = useQuery({
     queryKey: ['exams'],
     queryFn: () => examApi.list(),
     enabled: open,
   });
-
-  // Filter exams (exclude exercises)
   const examList = (examsData?.data || []).filter((e: any) => e.type !== 'exercise');
 
+  // Fetch Exercises (Kho Bài Tập)
+  const { data: exercisesData } = useQuery({
+    queryKey: ['exercises'],
+    queryFn: () => exerciseApi.list(),
+    enabled: open,
+  });
+  const exerciseList = exercisesData?.data || [];
+
+  // Fetch Classes
   const { data: classes } = useQuery({
     queryKey: ['classes'],
     queryFn: () => classApi.list(),
     enabled: open,
   });
 
+  // Fetch Sessions for selected Class
   const { data: sessionsData } = useQuery({
     queryKey: ['class-sessions', classId],
     queryFn: () => sessionApi.list(classId),
@@ -79,49 +86,54 @@ export function CreateAssignmentModal({
   });
   const sessions = sessionsData?.data ?? [];
 
+  useEffect(() => {
+    if (open) {
+      if (initialClassId) setClassId(initialClassId);
+      if (initialSessionId) setSessionId(initialSessionId);
+      if (initialType) setAssignmentType(initialType);
+      if (initialExamId) {
+        setExamId(initialExamId);
+      }
+      if (initialExamName && !name) {
+        setName(initialType === 'homework' ? initialExamName : `Kiểm tra: ${initialExamName}`);
+      }
+    }
+  }, [open, initialClassId, initialSessionId, initialType, initialExamId, initialExamName]);
+
+  // Find selected exercise metadata if any
+  const selectedExercise = exerciseList.find((ex: any) => ex.id === examId);
+
   const createMutation = useMutation({
     mutationFn: async () => {
-      let finalExamId = examId;
-
-      // If assigning homework directly from Kho Bài Tập
-      if (assignmentType === 'homework') {
-        if (selectedQuestionIds.length === 0) {
-          throw new Error('Vui lòng chọn ít nhất 1 câu hỏi từ Kho bài tập');
-        }
-        // Auto-create exercise first in Kho Bài Tập
-        const createdExercise = await exerciseApi.create({
-          name: name.trim(),
-          question_ids: selectedQuestionIds,
-          class_id: classId || undefined,
-          duration_minutes: Number(durationMinutes) || 45,
-          practice_mode: 'free',
-          allow_retry: true,
-          show_hints: true,
-        });
-        finalExamId = createdExercise.data.id;
-      }
+      const finalExamId = examId;
 
       if (!finalExamId) {
         throw new Error(
           assignmentType === 'homework'
-            ? 'Vui lòng chọn câu hỏi từ Kho bài tập'
-            : 'Vui lòng chọn đề thi'
+            ? 'Vui lòng chọn một bộ bài tập từ Kho bài tập'
+            : 'Vui lòng chọn đề thi từ Kho Kiểm Tra'
         );
       }
+
+      const isHomework = assignmentType === 'homework';
 
       return assignmentApi.create({
         name: name.trim(),
         assignment_type: assignmentType,
-        max_attempts: assignmentType === 'homework' ? 999 : 1,
+        max_attempts: isHomework ? 999 : 1,
         exam_id: finalExamId,
         class_id: classId,
         session_id: sessionId || undefined,
-        start_time: startTime ? new Date(startTime).toISOString() : undefined,
+        // For homework: NO start_time requirement, only end_time
+        start_time: !isHomework && startTime ? new Date(startTime).toISOString() : undefined,
         end_time: endTime ? new Date(endTime).toISOString() : undefined,
-        duration_minutes: Number(durationMinutes),
-        pass_score: assignmentType === 'homework' ? 0.0 : Number(passScore),
-        shuffle_questions: shuffleQuestions,
-        shuffle_options: shuffleOptions,
+        // For homework: no duration constraint (default 1440 mins to satisfy schema)
+        duration_minutes: isHomework ? 1440 : Number(durationMinutes) || 45,
+        // For homework: no pass score required (0.0)
+        pass_score: isHomework ? 0.0 : Number(passScore),
+        // For homework: no shuffling
+        shuffle_questions: isHomework ? false : shuffleQuestions,
+        shuffle_options: isHomework ? false : shuffleOptions,
         show_results: 'immediately',
       });
     },
@@ -129,7 +141,6 @@ export function CreateAssignmentModal({
       qc.invalidateQueries({ queryKey: ['assignments'] });
       qc.invalidateQueries({ queryKey: ['class-sessions'] });
       qc.invalidateQueries({ queryKey: ['exercises'] });
-      qc.invalidateQueries({ queryKey: ['questions'] });
       toast.success(
         assignmentType === 'homework'
           ? '✨ Đã giao bài tập cho lớp thành công!'
@@ -151,13 +162,6 @@ export function CreateAssignmentModal({
     setEndTime('');
     setDurationMinutes(45);
     setPassScore(5.0);
-    setSelectedQuestionIds([]);
-  };
-
-  const handleToggleQuestion = (id: string) => {
-    setSelectedQuestionIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -174,13 +178,15 @@ export function CreateAssignmentModal({
       toast.error('Vui lòng chọn đề thi từ Kho Kiểm Tra');
       return;
     }
-    if (assignmentType === 'homework' && selectedQuestionIds.length === 0) {
-      toast.error('Vui lòng tích chọn ít nhất 1 câu hỏi từ Kho bài tập');
+    if (assignmentType === 'homework' && !examId) {
+      toast.error('Vui lòng chọn bộ bài tập từ Kho Bài Tập');
       return;
     }
 
     createMutation.mutate();
   };
+
+  const isHomeworkMode = assignmentType === 'homework';
 
   return (
     <Modal
@@ -188,8 +194,8 @@ export function CreateAssignmentModal({
       onOpenChange={onOpenChange}
       title={
         <div className="flex items-center gap-2">
-          {assignmentType === 'homework' ? (
-            <div className="p-1.5 bg-indigo-100 text-indigo-700 rounded-lg">
+          {isHomeworkMode ? (
+            <div className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg">
               <BookOpen className="h-5 w-5" />
             </div>
           ) : (
@@ -199,17 +205,17 @@ export function CreateAssignmentModal({
           )}
           <div>
             <span className="font-bold text-gray-900">
-              {assignmentType === 'homework' ? 'Giao Bài Tập Cho Lớp' : 'Giao Bài Kiểm Tra Cho Lớp'}
+              {isHomeworkMode ? 'Giao Bài Tập Cho Lớp' : 'Giao Bài Kiểm Tra Cho Lớp'}
             </span>
             <p className="text-xs text-gray-500 font-normal">
-              {assignmentType === 'homework'
+              {isHomeworkMode
                 ? 'Luyện tập tự do củng cố kiến thức • Không giới hạn lượt làm • Không tính điểm đạt/trượt'
                 : 'Khảo thí chính thức • Có tính giờ đếm lui • Đánh giá điểm chuẩn'}
             </p>
           </div>
         </div>
       }
-      size="xl"
+      size="lg"
       footer={
         <>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
@@ -218,83 +224,85 @@ export function CreateAssignmentModal({
           <Button
             onClick={handleSubmit}
             loading={createMutation.isPending}
-            className={assignmentType === 'homework' ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : ''}
+            className={isHomeworkMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}
           >
-            {assignmentType === 'homework' ? 'Giao bài tập cho lớp' : 'Giao bài kiểm tra cho lớp'}
+            {isHomeworkMode ? 'Giao bài tập cho lớp' : 'Giao bài kiểm tra cho lớp'}
           </Button>
         </>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Hình thức giao bài */}
-        <div>
-          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-            1. Hình thức giao bài *
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setAssignmentType('exam');
-                if (name.startsWith('Bài tập:')) {
-                  setName(name.replace(/^Bài tập:\s*/, 'Kiểm tra: '));
-                }
-              }}
-              className={`p-3 rounded-xl border-2 text-left transition-all flex flex-col gap-1 cursor-pointer ${
-                assignmentType === 'exam'
-                  ? 'border-primary-600 bg-primary-50/50 shadow-xs ring-1 ring-primary-600/20'
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-sm text-gray-900 flex items-center gap-1.5">
-                  <Clock className="h-4 w-4 text-primary-600" />
-                  Bài kiểm tra
-                </span>
-                {assignmentType === 'exam' && (
-                  <span className="h-2 w-2 rounded-full bg-primary-600" />
-                )}
-              </div>
-              <p className="text-xs text-gray-500 leading-snug">
-                Thời gian đếm lui, có điểm đạt (pass score), chốt điểm đánh giá năng lực.
-              </p>
-            </button>
+        {/* Hình thức giao bài: Ẩn nếu đã chỉ định initialType === 'homework' */}
+        {initialType !== 'homework' && (
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+              1. Hình thức giao bài *
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setAssignmentType('exam');
+                  if (name.startsWith('Bài tập:')) {
+                    setName(name.replace(/^Bài tập:\s*/, 'Kiểm tra: '));
+                  }
+                }}
+                className={`p-3 rounded-xl border-2 text-left transition-all flex flex-col gap-1 cursor-pointer ${
+                  assignmentType === 'exam'
+                    ? 'border-primary-600 bg-primary-50/50 shadow-xs ring-1 ring-primary-600/20'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-sm text-gray-900 flex items-center gap-1.5">
+                    <Clock className="h-4 w-4 text-primary-600" />
+                    Bài kiểm tra
+                  </span>
+                  {assignmentType === 'exam' && (
+                    <span className="h-2 w-2 rounded-full bg-primary-600" />
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 leading-snug">
+                  Thời gian đếm lui, có điểm đạt (pass score), chốt điểm đánh giá năng lực.
+                </p>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setAssignmentType('homework');
-                if (name.startsWith('Kiểm tra:')) {
-                  setName(name.replace(/^Kiểm tra:\s*/, 'Bài tập: '));
-                }
-              }}
-              className={`p-3 rounded-xl border-2 text-left transition-all flex flex-col gap-1 cursor-pointer ${
-                assignmentType === 'homework'
-                  ? 'border-indigo-600 bg-indigo-50/50 shadow-xs ring-1 ring-indigo-600/20'
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-sm text-gray-900 flex items-center gap-1.5">
-                  <BookOpen className="h-4 w-4 text-indigo-600" />
-                  Bài tập (Tự luyện)
-                </span>
-                {assignmentType === 'homework' && (
-                  <span className="h-2 w-2 rounded-full bg-indigo-600" />
-                )}
-              </div>
-              <p className="text-xs text-gray-500 leading-snug">
-                Sổ câu hỏi chọn ngay. Làm nhiều lần để củng cố kiến thức, <strong>không có điểm đạt</strong>.
-              </p>
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAssignmentType('homework');
+                  if (name.startsWith('Kiểm tra:')) {
+                    setName(name.replace(/^Kiểm tra:\s*/, 'Bài tập: '));
+                  }
+                }}
+                className={`p-3 rounded-xl border-2 text-left transition-all flex flex-col gap-1 cursor-pointer ${
+                  assignmentType === 'homework'
+                    ? 'border-emerald-600 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-600/20'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-sm text-gray-900 flex items-center gap-1.5">
+                    <BookOpen className="h-4 w-4 text-emerald-600" />
+                    Bài tập (Tự luyện)
+                  </span>
+                  {assignmentType === 'homework' && (
+                    <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 leading-snug">
+                  Làm nhiều lần để củng cố kiến thức, <strong>không tính giờ làm bài & không có điểm đạt</strong>.
+                </p>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Tên bài */}
         <Input
-          label={assignmentType === 'homework' ? 'Tên bài tập *' : 'Tên bài kiểm tra *'}
+          label={isHomeworkMode ? 'Tên bài tập *' : 'Tên bài kiểm tra *'}
           placeholder={
-            assignmentType === 'homework'
+            isHomeworkMode
               ? 'Ví dụ: Bài tập ôn luyện tuần 3 - Hàm số'
               : 'Ví dụ: Kiểm tra 45 phút - Đại số 12'
           }
@@ -303,7 +311,7 @@ export function CreateAssignmentModal({
           required
         />
 
-        {/* PHẦN CHỌN NỘI DUNG CÂU HỎI / ĐỀ THI */}
+        {/* CHỌN NỘI DUNG */}
         {assignmentType === 'exam' ? (
           // CHO BÀI KIỂM TRA: Chọn đề thi từ Kho Kiểm Tra
           <div>
@@ -315,14 +323,10 @@ export function CreateAssignmentModal({
               onChange={(e) => {
                 const selectedId = e.target.value;
                 setExamId(selectedId);
-                const selectedExam = examList.find((x: any) => x.id === selectedId);
-                if (selectedExam) {
-                  if (selectedExam.duration_minutes) {
-                    setDurationMinutes(selectedExam.duration_minutes);
-                  }
-                  if (!name) {
-                    setName(`Kiểm tra: ${selectedExam.name}`);
-                  }
+                const ex = examList.find((x: any) => x.id === selectedId);
+                if (ex) {
+                  if (ex.duration_minutes) setDurationMinutes(ex.duration_minutes);
+                  if (!name) setName(`Kiểm tra: ${ex.name}`);
                 }
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -337,27 +341,63 @@ export function CreateAssignmentModal({
             </select>
           </div>
         ) : (
-          // CHO BÀI TẬP: Chọn câu hỏi trực tiếp từ Kho Bài Tập
-          <div className="space-y-2 pt-1">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                2. Chọn câu hỏi cho bài tập (từ Kho bài tập) *
-              </label>
-              <span className="text-xs text-gray-500">
-                Chỉ hiển thị câu hỏi thuộc Kho bài tập
-              </span>
-            </div>
+          // CHO BÀI TẬP: Chọn bộ bài tập từ Kho Bài Tập
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Chọn bộ bài tập từ Kho bài tập *
+            </label>
+            {initialExamId && selectedExercise ? (
+              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg">
+                    <CheckCircle2 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-emerald-900">
+                      {selectedExercise.name}
+                    </p>
+                    <p className="text-xs text-emerald-700">
+                      {selectedExercise.total_questions || selectedExercise.question_count || 0} câu hỏi trong bộ bài tập
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setExamId('')}
+                  className="text-xs text-emerald-700 hover:text-emerald-900 underline font-medium"
+                >
+                  Đổi bài khác
+                </button>
+              </div>
+            ) : (
+              <select
+                value={examId}
+                onChange={(e) => {
+                  const selectedId = e.target.value;
+                  setExamId(selectedId);
+                  const found = exerciseList.find((x: any) => x.id === selectedId);
+                  if (found && !name) {
+                    setName(`Bài tập: ${found.name}`);
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                required
+              >
+                <option value="">— Chọn bộ bài tập từ Kho bài tập —</option>
+                {exerciseList.map((ex: any) => (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.name} ({ex.total_questions || ex.question_count || 0} câu hỏi)
+                  </option>
+                ))}
+              </select>
+            )}
 
-            <div className="space-y-1">
-              <QuestionPicker
-                selectedIds={selectedQuestionIds}
-                onToggleSelect={handleToggleQuestion}
-                onSelectAll={(ids) => setSelectedQuestionIds(ids)}
-                onClearAll={() => setSelectedQuestionIds([])}
-                maxHeightClass="max-h-64"
-                inExerciseBankOnly={true}
-              />
-            </div>
+            {exerciseList.length === 0 && !initialExamId && (
+              <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                Chưa có bộ bài tập nào. Vui lòng tạo bài tập trong Kho Bài Tập trước.
+              </p>
+            )}
           </div>
         )}
 
@@ -405,88 +445,108 @@ export function CreateAssignmentModal({
           </div>
         </div>
 
-        {/* Start and End Date Time Picker */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 bg-gray-50/80 rounded-xl border border-gray-200">
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Thời gian mở bài (Bắt đầu)
+        {/* THỜI GIAN VÀ CẤU HÌNH: PHÂN BIỆT RÕ RÀNG BÀI TẬP VÀ BÀI KIỂM TRA */}
+        {isHomeworkMode ? (
+          // CHO BÀI TẬP: CHỈ CẦN THỜI GIAN KẾT THÚC, KHÔNG CÓ THỜI GIAN LÀM BÀI, KHÔNG CÓ XÁO TRỘN ĐỀ, KHÔNG CÓ ĐIỂM ĐẠT
+          <div className="p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200 space-y-1.5">
+            <label className="block text-xs font-bold text-gray-800 uppercase tracking-wider">
+              Thời hạn nộp bài (Thời gian kết thúc)
             </label>
-            <input
-              type="datetime-local"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-            <p className="text-[11px] text-gray-400 mt-1">Học sinh chỉ có thể làm bài sau mốc này.</p>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Thời hạn nộp bài (Kết thúc)
-            </label>
-            <input
-              type="datetime-local"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
-            <p className="text-[11px] text-gray-400 mt-1">Hệ thống sẽ khóa bài khi quá thời hạn này.</p>
-          </div>
-        </div>
-
-        {/* Thời gian làm bài & Điểm đạt (Pass score) */}
-        <div className={assignmentType === 'exam' ? 'grid grid-cols-2 gap-4' : ''}>
-          <Input
-            label="Thời gian làm bài (Phút) *"
-            type="number"
-            min={5}
-            max={300}
-            value={durationMinutes}
-            onChange={(e) => setDurationMinutes(Number(e.target.value))}
-            required
-          />
-
-          {/* CHỈ HIỆN ĐIỂM ĐẠT CHO BÀI KIỂM TRA - BÀI TẬP HOÀN TOÀN KHÔNG CÓ ĐIỂM ĐẠT */}
-          {assignmentType === 'exam' && (
-            <Input
-              label="Điểm đạt (Pass score) *"
-              type="number"
-              step="0.5"
-              min={0}
-              max={10}
-              value={passScore}
-              onChange={(e) => setPassScore(Number(e.target.value))}
-              required
-            />
-          )}
-        </div>
-
-        {/* Anti-cheat & Randomization */}
-        <div className="pt-2 border-t border-gray-100 space-y-2">
-          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
-            Tùy chọn xáo trộn đề
-          </p>
-          <div className="flex items-center gap-6">
-            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-emerald-600 shrink-0" />
               <input
-                type="checkbox"
-                checked={shuffleQuestions}
-                onChange={(e) => setShuffleQuestions(e.target.checked)}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
+                type="datetime-local"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
-              <span>Xáo trộn thứ tự câu hỏi</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={shuffleOptions}
-                onChange={(e) => setShuffleOptions(e.target.checked)}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
-              />
-              <span>Xáo trộn thứ tự đáp án (A, B, C, D)</span>
-            </label>
+            </div>
+            <p className="text-[11px] text-gray-500 leading-snug">
+              Học sinh có thể vào làm và nộp bài bất cứ lúc nào cho đến thời hạn này. Để trống nếu không giới hạn hạn nộp.
+            </p>
           </div>
-        </div>
+        ) : (
+          // CHO BÀI KIỂM TRA: ĐẦY ĐỦ THỜI GIAN BẮT ĐẦU, KẾT THÚC, THỜI GIAN LÀM BÀI, ĐIỂM ĐẠT VÀ XÁO TRỘN ĐỀ
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 bg-gray-50/80 rounded-xl border border-gray-200">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Thời gian mở bài (Bắt đầu)
+                </label>
+                <input
+                  type="datetime-local"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                <p className="text-[11px] text-gray-400 mt-1">Học sinh chỉ có thể làm bài sau mốc này.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Thời hạn nộp bài (Kết thúc)
+                </label>
+                <input
+                  type="datetime-local"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                <p className="text-[11px] text-gray-400 mt-1">Hệ thống sẽ khóa bài khi quá thời hạn này.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Thời gian làm bài (Phút) *"
+                type="number"
+                min={5}
+                max={300}
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                required
+              />
+
+              <Input
+                label="Điểm đạt (Pass score) *"
+                type="number"
+                step="0.5"
+                min={0}
+                max={10}
+                value={passScore}
+                onChange={(e) => setPassScore(Number(e.target.value))}
+                required
+              />
+            </div>
+
+            {/* Anti-cheat & Randomization */}
+            <div className="pt-2 border-t border-gray-100 space-y-2">
+              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                Tùy chọn xáo trộn đề
+              </p>
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={shuffleQuestions}
+                    onChange={(e) => setShuffleQuestions(e.target.checked)}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
+                  />
+                  <span>Xáo trộn thứ tự câu hỏi</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={shuffleOptions}
+                    onChange={(e) => setShuffleOptions(e.target.checked)}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
+                  />
+                  <span>Xáo trộn thứ tự đáp án (A, B, C, D)</span>
+                </label>
+              </div>
+            </div>
+          </>
+        )}
       </form>
     </Modal>
   );

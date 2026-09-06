@@ -83,6 +83,7 @@ class ExamTakingStateOut(BaseModel):
     start_time: datetime
     remaining_seconds: int
     status: str
+    end_time: Optional[datetime] = None
     questions: List[QuestionTakingOut] = Field(default_factory=list)
 
 

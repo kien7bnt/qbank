@@ -14,7 +14,9 @@ import {
   FileText,
   X,
   Code2,
+  BookOpen,
 } from 'lucide-react';
+import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { PageSpinner } from '@/components/ui/Spinner';
@@ -79,6 +81,20 @@ export function ExamTakingPage() {
 
   // Live Timer Countdown
   useEffect(() => {
+    // Homework does not have duration countdown; only check if end_time passed
+    if (examState?.assignment_type === 'homework') {
+      if (!examState.end_time) return;
+      const interval = setInterval(() => {
+        const now = new Date().getTime();
+        const due = new Date(examState.end_time!).getTime();
+        if (due - now <= 0) {
+          clearInterval(interval);
+          handleAutoSubmit();
+        }
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+
     if (timeLeft === null || timeLeft <= 0) return;
 
     const interval = setInterval(() => {
@@ -93,7 +109,7 @@ export function ExamTakingPage() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timeLeft]);
+  }, [timeLeft, examState]);
 
   // Save Response Mutation (Live Draft)
   const saveMutation = useMutation({
@@ -290,24 +306,32 @@ export function ExamTakingPage() {
 
           {/* Right Timer & Actions */}
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-            {/* Countdown timer badge */}
-            <div
-              title={
-                examState.assignment_type === 'homework'
-                  ? 'Thời gian bài tập - Bạn có thể nộp và làm lại nhiều lần'
-                  : 'Thời gian đếm lui chính thức - Tự động nộp bài khi hết giờ'
-              }
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full font-mono text-xs sm:text-sm font-bold border transition-colors ${
-                isTimerCritical
-                  ? 'bg-red-50 text-red-600 border-red-200 animate-pulse'
-                  : examState.assignment_type === 'homework'
-                  ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                  : 'bg-rose-50 text-rose-700 border-rose-200'
-              }`}
-            >
-              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-              <span>{formatTimer(timeLeft || 0)}</span>
-            </div>
+            {/* Countdown / Due date badge */}
+            {examState.assignment_type === 'homework' ? (
+              <div
+                title="Bài tập tự luyện - Không giới hạn thời gian làm bài"
+                className="flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200"
+              >
+                <BookOpen className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                <span>
+                  {examState.end_time
+                    ? `Hạn nộp: ${format(new Date(examState.end_time), 'HH:mm dd/MM/yyyy')}`
+                    : 'Tự luyện (Không giới hạn giờ)'}
+                </span>
+              </div>
+            ) : (
+              <div
+                title="Thời gian đếm lui chính thức - Tự động nộp bài khi hết giờ"
+                className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full font-mono text-xs sm:text-sm font-bold border transition-colors ${
+                  isTimerCritical
+                    ? 'bg-red-50 text-red-600 border-red-200 animate-pulse'
+                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                }`}
+              >
+                <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                <span>{formatTimer(timeLeft || 0)}</span>
+              </div>
+            )}
 
             {/* Mobile Question Palette Toggle Button */}
             <button

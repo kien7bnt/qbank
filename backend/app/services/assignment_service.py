@@ -350,11 +350,18 @@ async def start_or_resume_attempt(
 
     # 3. Calculate remaining seconds
     now = datetime.utcnow()
-    # Normalize start_time to naive utc for difference
-    st = attempt.start_time.replace(tzinfo=None) if attempt.start_time.tzinfo else attempt.start_time
-    elapsed = (now - st).total_seconds()
-    total_allowed = assignment.duration_minutes * 60
-    remaining = max(0, int(total_allowed - elapsed))
+    is_homework = getattr(assignment, "assignment_type", "exam") == "homework"
+    if is_homework:
+        if assignment.end_time:
+            et = assignment.end_time.replace(tzinfo=None) if assignment.end_time.tzinfo else assignment.end_time
+            remaining = max(0, int((et - now).total_seconds()))
+        else:
+            remaining = 8640000  # Effectively unlimited
+    else:
+        st = attempt.start_time.replace(tzinfo=None) if attempt.start_time.tzinfo else attempt.start_time
+        elapsed = (now - st).total_seconds()
+        total_allowed = (assignment.duration_minutes or 45) * 60
+        remaining = max(0, int(total_allowed - elapsed))
 
     # Auto submit if expired
     if remaining <= 0 and attempt.status == "in_progress":
@@ -395,27 +402,37 @@ async def start_or_resume_attempt(
         start_time=attempt.start_time,
         remaining_seconds=remaining,
         status=attempt.status,
+        end_time=assignment.end_time,
         questions=questions_out,
     )
 
 
 async def get_attempt_state(db: AsyncSession, attempt_id: uuid.UUID, user_id: uuid.UUID) -> ExamTakingStateOut:
-    stmt = (
-        select(ExamAttempt)
-        .options(selectinload(ExamAttempt.assignment), selectinload(ExamAttempt.responses))
-        .where(ExamAttempt.id == attempt_id, ExamAttempt.user_id == user_id)
+    attempt = await db.get(
+        ExamAttempt,
+        attempt_id,
+        options=[
+            selectinload(ExamAttempt.assignment),
+            selectinload(ExamAttempt.responses),
+        ],
     )
-    res = await db.execute(stmt)
-    attempt = res.scalar_one_or_none()
     if not attempt:
         raise ValueError("Không tìm thấy lượt làm bài")
 
     assignment = attempt.assignment
     now = datetime.utcnow()
-    st = attempt.start_time.replace(tzinfo=None) if attempt.start_time.tzinfo else attempt.start_time
-    elapsed = (now - st).total_seconds()
-    total_allowed = (assignment.duration_minutes or 45) * 60
-    remaining = max(0, int(total_allowed - elapsed))
+    is_homework = getattr(assignment, "assignment_type", "exam") == "homework"
+    if is_homework:
+        if assignment.end_time:
+            et = assignment.end_time.replace(tzinfo=None) if assignment.end_time.tzinfo else assignment.end_time
+            remaining = max(0, int((et - now).total_seconds()))
+        else:
+            remaining = 8640000
+    else:
+        st = attempt.start_time.replace(tzinfo=None) if attempt.start_time.tzinfo else attempt.start_time
+        elapsed = (now - st).total_seconds()
+        total_allowed = (assignment.duration_minutes or 45) * 60
+        remaining = max(0, int(total_allowed - elapsed))
 
     resp_map = {r.question_id: r for r in (attempt.responses or [])}
 
@@ -451,6 +468,7 @@ async def get_attempt_state(db: AsyncSession, attempt_id: uuid.UUID, user_id: uu
         start_time=attempt.start_time,
         remaining_seconds=remaining,
         status=attempt.status,
+        end_time=assignment.end_time,
         questions=questions_out,
     )
 

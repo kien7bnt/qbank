@@ -183,6 +183,9 @@ export interface QuestionListItem {
   actual_difficulty?: number;
   usage_count?: number;
   in_exercise_bank?: boolean;
+  subject_id?: string;
+  chapter_id?: string;
+  topic_id?: string;
   subject_name?: string;
   chapter_name?: string;
   topic_name?: string;
@@ -306,6 +309,8 @@ export interface Exam {
   duration_minutes: number;
   start_time?: string;
   end_time?: string;
+  total_questions?: number;
+  question_count?: number;
   shuffle_questions: boolean;
   shuffle_options: boolean;
   show_results: string;
@@ -451,6 +456,7 @@ export interface ExamTakingState {
   start_time: string;
   remaining_seconds: number;
   status: string;
+  end_time?: string;
   questions: QuestionTaking[];
 }
 

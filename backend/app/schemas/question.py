@@ -177,6 +177,9 @@ class QuestionListItem(BaseModel):
     actual_difficulty: Optional[float] = None
     usage_count: int = 0
     in_exercise_bank: bool = False
+    subject_id: Optional[uuid.UUID] = None
+    chapter_id: Optional[uuid.UUID] = None
+    topic_id: Optional[uuid.UUID] = None
     subject_name: Optional[str] = None
     chapter_name: Optional[str] = None
     topic_name: Optional[str] = None
