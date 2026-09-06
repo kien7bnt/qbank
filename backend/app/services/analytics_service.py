@@ -130,7 +130,7 @@ async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = No
     # 3. Classes stats
     c_stmt = select(Class)
     if user_id:
-        c_stmt = c_stmt.where(Class.created_by == user_id)
+        c_stmt = c_stmt.where(Class.teacher_id == user_id)
     c_res = await db.execute(c_stmt)
     classes = c_res.scalars().all()
     total_classes = len(classes)
