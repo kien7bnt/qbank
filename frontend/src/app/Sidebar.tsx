@@ -116,7 +116,7 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
 
 const STUDENT_NAV_ITEMS: NavItem[] = [
   {
-    label: 'Quản lý lớp học',
+    label: 'Lớp học của tôi',
     icon: <GraduationCap className="h-5 w-5 text-primary-700" />,
     to: '/classes',
     isPrimary: true,

@@ -54,7 +54,9 @@ export function ClassesPage() {
       {/* Header */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Lớp học</h1>
+          <h1 className="text-xl font-bold text-gray-900">
+            {isTeacher ? 'Quản lý lớp học' : 'Lớp học của tôi'}
+          </h1>
           <p className="text-sm text-gray-500 mt-0.5">
             {isTeacher ? 'Lớp bạn đang giảng dạy' : 'Lớp bạn đang tham gia'}
             {total > 0 && ` · ${total} lớp`}
