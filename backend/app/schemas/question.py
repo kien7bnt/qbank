@@ -22,12 +22,14 @@ class QuestionOptionOut(QuestionOptionIn):
 
 
 class EssayDataIn(BaseModel):
+    rubric_id: Optional[uuid.UUID] = None
     sample_answer: Optional[str] = None
     rubric: Optional[Any] = None
     max_points: float = 10.0
 
 
 class EssayDataOut(EssayDataIn):
+    rubric_name: Optional[str] = None
     model_config = {"from_attributes": True}
 
 

@@ -245,6 +245,15 @@ export const rubricApi = {
 
   delete: (id: string) => apiClient.delete(`/rubrics/${id}`),
 
+  applyQuestions: (rubricId: string, questionIds: string[]) =>
+    apiClient.post<{ applied_count: number; rubric_id: string; rubric_name: string; message: string }>(
+      `/rubrics/${rubricId}/apply-questions`,
+      { question_ids: questionIds }
+    ),
+
+  getAppliedQuestions: (rubricId: string) =>
+    apiClient.get<string[]>(`/rubrics/${rubricId}/applied-questions`),
+
   gradeEssay: (responseId: string, rubricId?: string) =>
     apiClient.post<EssayGrading>(`/essay-grading/${responseId}/grade`, { rubric_id: rubricId }),
 

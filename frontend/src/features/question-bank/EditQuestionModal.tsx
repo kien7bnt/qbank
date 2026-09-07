@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Edit3, CheckCircle, Plus, Trash2 } from 'lucide-react';
+import { Edit3, CheckCircle, Plus, Trash2, Award } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea } from '@/components/ui/Input';
-import { questionApi, curriculumApi, getErrorMessage } from '@/services/api';
+import { questionApi, curriculumApi, rubricApi, getErrorMessage } from '@/services/api';
 import type { Question } from '@/types';
 
 interface EditQuestionModalProps {
@@ -45,6 +45,20 @@ export function EditQuestionModal({ question, open, onOpenChange }: EditQuestion
   const [bloom, setBloom] = useState('understand');
   const [difficulty, setDifficulty] = useState('medium');
   const [options, setOptions] = useState<OptionForm[]>([]);
+  // Essay
+  const [sampleAnswer, setSampleAnswer] = useState('');
+  const [maxPoints, setMaxPoints] = useState('10');
+  const [rubricId, setRubricId] = useState('');
+
+  // Fetch rubrics
+  const { data: rubricsList } = useQuery({
+    queryKey: ['rubrics'],
+    queryFn: async () => {
+      const res = await rubricApi.list();
+      return res.data;
+    },
+    enabled: open && question?.type === 'essay',
+  });
 
   useEffect(() => {
     if (question) {
@@ -61,6 +75,15 @@ export function EditQuestionModal({ question, open, onOpenChange }: EditQuestion
           distractor_reason: o.distractor_reason || '',
         })) || []
       );
+      if (question.essay_data) {
+        setSampleAnswer(question.essay_data.sample_answer || '');
+        setMaxPoints(String(question.essay_data.max_points || 10));
+        setRubricId(question.essay_data.rubric_id || '');
+      } else {
+        setSampleAnswer('');
+        setMaxPoints('10');
+        setRubricId('');
+      }
     }
   }, [question, open]);
 
@@ -81,6 +104,14 @@ export function EditQuestionModal({ question, open, onOpenChange }: EditQuestion
           distractor_reason: o.distractor_reason || undefined,
           order_index: i,
         }));
+      }
+
+      if (question?.type === 'essay') {
+        payload.essay_data = {
+          sample_answer: sampleAnswer || undefined,
+          max_points: Number(maxPoints) || 10,
+          rubric_id: rubricId || undefined,
+        };
       }
 
       return questionApi.update(question!.id, payload);
@@ -172,6 +203,62 @@ export function EditQuestionModal({ question, open, onOpenChange }: EditQuestion
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Essay Fields */}
+        {question.type === 'essay' && (
+          <div className="space-y-3 bg-amber-50/40 border border-amber-200/80 rounded-xl p-3.5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Rubric chấm tự luận bằng AI
+              </label>
+              <select
+                value={rubricId}
+                onChange={(e) => {
+                  const selId = e.target.value;
+                  setRubricId(selId);
+                  if (selId && rubricsList) {
+                    const found = rubricsList.find((r) => r.id === selId);
+                    if (found) {
+                      const total = found.criteria.reduce((sum, c) => sum + (c.max_score || 0), 0);
+                      if (total > 0) setMaxPoints(String(total));
+                    }
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">— Tự động (Áp dụng Rubric mặc định) —</option>
+                {rubricsList?.map((r) => {
+                  const total = r.criteria?.reduce((sum, c) => sum + (c.max_score || 0), 0) || 10;
+                  return (
+                    <option key={r.id} value={r.id}>
+                      {r.name} ({r.criteria?.length || 0} tiêu chí - {total}đ)
+                    </option>
+                  );
+                })}
+              </select>
+              <p className="text-[11px] text-gray-500 mt-1">
+                Bộ tiêu chí Rubric này sẽ được AI áp dụng riêng khi tự động chấm câu hỏi này.
+              </p>
+            </div>
+
+            <Textarea
+              label="Đáp án mẫu / Gợi ý trả lời"
+              value={sampleAnswer}
+              onChange={(e) => setSampleAnswer(e.target.value)}
+              rows={3}
+              placeholder="Đáp án mẫu hoặc hướng dẫn chấm chi tiết..."
+            />
+
+            <Input
+              label="Điểm tối đa"
+              type="number"
+              value={maxPoints}
+              onChange={(e) => setMaxPoints(e.target.value)}
+              min={1}
+              max={100}
+            />
           </div>
         )}
 

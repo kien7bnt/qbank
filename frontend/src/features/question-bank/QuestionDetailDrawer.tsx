@@ -150,12 +150,24 @@ export function QuestionDetailDrawer({ questionId, onClose }: QuestionDetailDraw
 
               {/* Essay */}
               {q.type === 'essay' && q.essay_data && (
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-1">Đáp án mẫu</p>
+                <div className="min-w-0 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs sm:text-sm font-semibold text-gray-500">Đáp án mẫu / Gợi ý</p>
+                    {q.essay_data.rubric_name ? (
+                      <span className="text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Sparkles className="h-3 w-3" />
+                        Rubric: {q.essay_data.rubric_name}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-gray-400">
+                        Rubric: Mặc định hệ thống
+                      </span>
+                    )}
+                  </div>
                   <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 text-xs sm:text-sm text-gray-700 whitespace-pre-wrap break-words">
                     {q.essay_data.sample_answer ?? 'Chưa có đáp án mẫu'}
                   </div>
-                  <p className="mt-1 text-xs text-gray-400">Điểm tối đa: {q.essay_data.max_points}</p>
+                  <p className="text-xs text-gray-400">Điểm tối đa: {q.essay_data.max_points}đ</p>
                 </div>
               )}
 

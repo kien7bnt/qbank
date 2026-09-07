@@ -14,6 +14,7 @@ export interface QuestionPickerProps {
   showFilters?: boolean;
   subjectId?: string;
   inExerciseBankOnly?: boolean;
+  allowedTypes?: ('mcq' | 'essay' | 'coding')[];
 }
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
@@ -44,6 +45,7 @@ export function QuestionPicker({
   showFilters = true,
   subjectId,
   inExerciseBankOnly = false,
+  allowedTypes,
 }: QuestionPickerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('');
@@ -73,12 +75,15 @@ export function QuestionPicker({
         const topicMatch = (q.topic_name || '').toLowerCase().includes(term);
         if (!stemMatch && !codeMatch && !topicMatch) return false;
       }
+      if (allowedTypes && allowedTypes.length > 0 && !allowedTypes.includes(q.type as any)) {
+        return false;
+      }
       if (typeFilter && q.type !== typeFilter) return false;
       if (bloomFilter && q.bloom_level !== bloomFilter) return false;
       if (difficultyFilter && q.expected_difficulty !== difficultyFilter) return false;
       return true;
     });
-  }, [allQuestions, searchTerm, typeFilter, bloomFilter, difficultyFilter]);
+  }, [allQuestions, searchTerm, typeFilter, bloomFilter, difficultyFilter, allowedTypes]);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 

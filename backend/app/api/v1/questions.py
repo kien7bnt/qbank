@@ -126,7 +126,12 @@ def _question_to_out(q) -> QuestionOut:
         )
 
     raw_essay = _safe_attr(q, "essay_data")
-    essay_data = EssayDataOut.model_validate(raw_essay) if raw_essay else None
+    essay_data = None
+    if raw_essay:
+        essay_data = EssayDataOut.model_validate(raw_essay)
+        rubric_entity = _safe_attr(raw_essay, "rubric_entity")
+        if rubric_entity:
+            essay_data.rubric_name = getattr(rubric_entity, "name", None)
 
     raw_coding = _safe_attr(q, "coding_data")
     coding_data = CodingDataOut.model_validate(raw_coding) if raw_coding else None

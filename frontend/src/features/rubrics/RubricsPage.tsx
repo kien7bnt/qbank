@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   AlertCircle,
   BookOpen,
+  CheckSquare,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { rubricApi, getErrorMessage } from '@/services/api';
@@ -24,6 +25,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { QuestionPicker } from '@/features/question-bank/QuestionPicker';
 import type { Rubric, RubricCreate } from '@/types';
 
 const TEMPLATE_ESSAY_GENERAL: RubricCreate = {
@@ -94,6 +96,10 @@ export function RubricsPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingRubric, setEditingRubric] = useState<Rubric | null>(null);
 
+  // Apply Rubric to Questions Modal State
+  const [applyingRubric, setApplyingRubric] = useState<Rubric | null>(null);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+
   // Form State
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -120,6 +126,30 @@ export function RubricsPage() {
       return res.data || [];
     },
   });
+
+  // Apply Rubric to Questions Mutation
+  const applyMutation = useMutation({
+    mutationFn: ({ rubricId, questionIds }: { rubricId: string; questionIds: string[] }) =>
+      rubricApi.applyQuestions(rubricId, questionIds),
+    onSuccess: (res) => {
+      toast.success(res.data.message || 'Đã áp dụng Rubric cho các câu hỏi thành công!');
+      qc.invalidateQueries({ queryKey: ['questions'] });
+      qc.invalidateQueries({ queryKey: ['rubrics'] });
+      setApplyingRubric(null);
+      setSelectedQuestionIds([]);
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  const handleOpenApplyModal = async (rubric: Rubric) => {
+    setApplyingRubric(rubric);
+    try {
+      const res = await rubricApi.getAppliedQuestions(rubric.id);
+      setSelectedQuestionIds(res.data || []);
+    } catch {
+      setSelectedQuestionIds([]);
+    }
+  };
 
   // Create Mutation
   const createMutation = useMutation({
@@ -444,7 +474,18 @@ export function RubricsPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 border-l border-gray-200 pl-3">
+                    <div className="flex items-center gap-1.5 border-l border-gray-200 pl-3">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleOpenApplyModal(rubric)}
+                        className="text-purple-700 bg-purple-50 hover:bg-purple-100 border-purple-200 text-xs font-semibold"
+                        title="Áp dụng Rubric này cho các câu hỏi tự luận"
+                      >
+                        <CheckSquare className="w-3.5 h-3.5 mr-1 text-purple-600" />
+                        Áp dụng câu hỏi
+                      </Button>
+
                       <Button
                         variant="ghost"
                         size="sm"
@@ -792,6 +833,91 @@ export function RubricsPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Modal Áp dụng Rubric cho các câu hỏi tự luận */}
+      {applyingRubric && (
+        <Modal
+          open={!!applyingRubric}
+          onOpenChange={(open) => {
+            if (!open) {
+              setApplyingRubric(null);
+              setSelectedQuestionIds([]);
+            }
+          }}
+          title={
+            <div className="flex items-center gap-2">
+              <CheckSquare className="w-5 h-5 text-purple-600" />
+              <span>Áp dụng Rubric vào câu hỏi: <strong>{applyingRubric.name}</strong></span>
+            </div>
+          }
+          size="lg"
+          footer={
+            <div className="flex items-center justify-between w-full">
+              <span className="text-xs text-gray-500 font-medium">
+                Đã chọn <strong>{selectedQuestionIds.length}</strong> câu hỏi tự luận
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setApplyingRubric(null);
+                    setSelectedQuestionIds([]);
+                  }}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-semibold"
+                  loading={applyMutation.isPending}
+                  disabled={selectedQuestionIds.length === 0}
+                  onClick={() => {
+                    applyMutation.mutate({
+                      rubricId: applyingRubric.id,
+                      questionIds: selectedQuestionIds,
+                    });
+                  }}
+                >
+                  Lưu áp dụng ({selectedQuestionIds.length})
+                </Button>
+              </div>
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            <div className="bg-purple-50/80 border border-purple-200 rounded-xl p-3.5 text-xs text-purple-900 space-y-1">
+              <p className="font-bold flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-purple-600" />
+                Cơ chế tự động chấm điểm theo Rubric
+              </p>
+              <p className="text-purple-800 leading-relaxed">
+                Tất cả câu hỏi tự luận được chọn dưới đây sẽ được AI đối chiếu và chấm theo bộ tiêu chí{' '}
+                <strong>{applyingRubric.name}</strong> ({applyingRubric.criteria.length} tiêu chí, tổng điểm {applyingRubric.criteria.reduce((s, c) => s + (c.max_score || 0), 0)}đ) khi học sinh nộp bài.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                Chọn câu hỏi tự luận trong ngân hàng câu hỏi
+              </label>
+              <QuestionPicker
+                selectedIds={selectedQuestionIds}
+                onToggleSelect={(id) => {
+                  setSelectedQuestionIds((prev) =>
+                    prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+                  );
+                }}
+                onSelectAll={(ids) => setSelectedQuestionIds(ids)}
+                onClearAll={() => setSelectedQuestionIds([])}
+                maxHeightClass="max-h-96"
+                allowedTypes={['essay']}
+                showFilters={true}
+              />
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

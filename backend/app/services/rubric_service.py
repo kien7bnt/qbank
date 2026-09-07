@@ -135,3 +135,55 @@ async def delete_rubric(db: AsyncSession, rubric_id: uuid.UUID, user) -> None:
         raise HTTPException(status_code=403, detail="Chỉ người tạo mới có quyền xóa Rubric này")
     await db.delete(rubric)
     await db.commit()
+
+
+async def apply_rubric_to_questions(
+    db: AsyncSession,
+    rubric_id: uuid.UUID,
+    question_ids: List[uuid.UUID],
+    user,
+) -> dict:
+    from app.models.question import Question, QuestionEssay
+
+    rubric = await get_rubric(db, rubric_id)
+
+    # Fetch targeted questions
+    stmt = (
+        select(Question)
+        .options(selectinload(Question.essay_data))
+        .where(Question.id.in_(question_ids), Question.type == "essay")
+    )
+    result = await db.execute(stmt)
+    questions = result.scalars().all()
+
+    applied_count = 0
+    for q in questions:
+        if q.essay_data:
+            q.essay_data.rubric_id = rubric.id
+            if rubric.total_max_score and rubric.total_max_score > 0:
+                q.essay_data.max_points = rubric.total_max_score
+        else:
+            essay = QuestionEssay(
+                question_id=q.id,
+                rubric_id=rubric.id,
+                sample_answer=None,
+                max_points=rubric.total_max_score or 10.0,
+            )
+            db.add(essay)
+        applied_count += 1
+
+    await db.commit()
+    return {
+        "applied_count": applied_count,
+        "rubric_id": str(rubric_id),
+        "rubric_name": rubric.name,
+        "message": f"Đã áp dụng thành công Rubric '{rubric.name}' cho {applied_count} câu hỏi tự luận.",
+    }
+
+
+async def get_rubric_applied_question_ids(db: AsyncSession, rubric_id: uuid.UUID) -> List[uuid.UUID]:
+    from app.models.question import QuestionEssay
+    stmt = select(QuestionEssay.question_id).where(QuestionEssay.rubric_id == rubric_id)
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+

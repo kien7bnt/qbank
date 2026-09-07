@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Minus, CheckCircle } from 'lucide-react';
+import { Plus, Minus, CheckCircle, Award } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea } from '@/components/ui/Input';
-import { questionApi, curriculumApi, getErrorMessage } from '@/services/api';
+import { questionApi, curriculumApi, rubricApi, getErrorMessage } from '@/services/api';
 import type { QuestionType } from '@/types';
 
 interface CreateQuestionModalProps {
@@ -64,6 +64,17 @@ export function CreateQuestionModal({
   // Essay
   const [sampleAnswer, setSampleAnswer] = useState('');
   const [maxPoints, setMaxPoints] = useState('10');
+  const [rubricId, setRubricId] = useState('');
+
+  // Fetch rubrics for essay selection
+  const { data: rubricsList } = useQuery({
+    queryKey: ['rubrics'],
+    queryFn: async () => {
+      const res = await rubricApi.list();
+      return res.data;
+    },
+    enabled: open && type === 'essay',
+  });
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -91,6 +102,7 @@ export function CreateQuestionModal({
         payload.essay_data = {
           sample_answer: sampleAnswer || undefined,
           max_points: Number(maxPoints) || 10,
+          rubric_id: rubricId || undefined,
         };
       }
 
@@ -218,9 +230,43 @@ export function CreateQuestionModal({
           {/* Essay */}
           {type === 'essay' && (
             <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Rubric chấm tự luận bằng AI
+                </label>
+                <select
+                  value={rubricId}
+                  onChange={(e) => {
+                    const selId = e.target.value;
+                    setRubricId(selId);
+                    if (selId && rubricsList) {
+                      const found = rubricsList.find((r) => r.id === selId);
+                      if (found) {
+                        const total = found.criteria.reduce((sum, c) => sum + (c.max_score || 0), 0);
+                        if (total > 0) setMaxPoints(String(total));
+                      }
+                    }
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                >
+                  <option value="">— Tự động (Áp dụng Rubric mặc định) —</option>
+                  {rubricsList?.map((r) => {
+                    const total = r.criteria?.reduce((sum, c) => sum + (c.max_score || 0), 0) || 10;
+                    return (
+                      <option key={r.id} value={r.id}>
+                        {r.name} ({r.criteria?.length || 0} tiêu chí - {total}đ)
+                      </option>
+                    );
+                  })}
+                </select>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Chọn bảng tiêu chí Rubric riêng cho câu hỏi này để AI đối chiếu và chấm điểm.
+                </p>
+              </div>
+
               <Textarea
-                label="Đáp án mẫu"
-                placeholder="Đáp án mẫu hoặc hướng dẫn chấm..."
+                label="Đáp án mẫu hoặc gợi ý trả lời"
+                placeholder="Nội dung đáp án mẫu chi tiết để AI đối chiếu bài làm học sinh..."
                 value={sampleAnswer}
                 onChange={(e) => setSampleAnswer(e.target.value)}
                 rows={3}

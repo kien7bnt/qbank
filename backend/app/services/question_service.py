@@ -99,6 +99,7 @@ async def create_question(
     if data.type == "essay" and data.essay_data:
         essay = QuestionEssay(
             question_id=question.id,
+            rubric_id=data.essay_data.rubric_id,
             sample_answer=data.essay_data.sample_answer,
             rubric=data.essay_data.rubric,
             max_points=data.essay_data.max_points,
@@ -198,6 +199,7 @@ async def create_questions_batch(
         if q_data.type == "essay" and q_data.essay_data:
             essay = QuestionEssay(
                 question_id=question.id,
+                rubric_id=q_data.essay_data.rubric_id,
                 sample_answer=q_data.essay_data.sample_answer,
                 rubric=q_data.essay_data.rubric,
                 max_points=q_data.essay_data.max_points,
@@ -350,6 +352,27 @@ async def update_question(
                 order_index=idx,
             )
             db.add(option)
+
+    # Update Essay Data
+    if data.essay_data is not None:
+        if question.essay_data:
+            if data.essay_data.rubric_id is not None:
+                question.essay_data.rubric_id = data.essay_data.rubric_id
+            if data.essay_data.sample_answer is not None:
+                question.essay_data.sample_answer = data.essay_data.sample_answer
+            if data.essay_data.max_points is not None:
+                question.essay_data.max_points = data.essay_data.max_points
+            if data.essay_data.rubric is not None:
+                question.essay_data.rubric = data.essay_data.rubric
+        else:
+            essay = QuestionEssay(
+                question_id=question.id,
+                rubric_id=data.essay_data.rubric_id,
+                sample_answer=data.essay_data.sample_answer,
+                rubric=data.essay_data.rubric,
+                max_points=data.essay_data.max_points or 10.0,
+            )
+            db.add(essay)
 
     # Increment version and save snapshot
     question.version += 1

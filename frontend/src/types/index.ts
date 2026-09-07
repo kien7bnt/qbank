@@ -124,6 +124,8 @@ export interface QuestionOption {
 }
 
 export interface EssayData {
+  rubric_id?: string;
+  rubric_name?: string;
   sample_answer?: string;
   rubric?: object;
   max_points: number;

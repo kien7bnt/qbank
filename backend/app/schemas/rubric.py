@@ -132,3 +132,14 @@ class EssayGradingOut(BaseModel):
     graded_at: datetime
     updated_at: datetime
     reviews: List[EssayGradingReviewOut] = []
+
+
+class RubricApplyRequest(BaseModel):
+    question_ids: List[uuid.UUID]
+
+
+class RubricApplyResponse(BaseModel):
+    applied_count: int
+    rubric_id: str
+    rubric_name: str
+    message: str

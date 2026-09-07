@@ -12,6 +12,8 @@ from app.schemas.rubric import (
     RubricCreate,
     RubricUpdate,
     RubricOut,
+    RubricApplyRequest,
+    RubricApplyResponse,
     EssayGradeRequest,
     EssayGradingOut,
     EssayGradingReviewCreate,
@@ -74,6 +76,31 @@ async def delete_rubric(
 ):
     """Xóa Rubric"""
     await rubric_service.delete_rubric(db, rubric_id, current_user)
+
+
+@router.post("/rubrics/{rubric_id}/apply-questions", response_model=RubricApplyResponse)
+async def apply_rubric_to_questions(
+    rubric_id: uuid.UUID,
+    data: RubricApplyRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Áp dụng Rubric này cho danh sách các câu hỏi tự luận được chọn"""
+    if not current_user.has_role("admin", "teacher"):
+        raise HTTPException(status_code=403, detail="Chỉ giáo viên hoặc admin mới có quyền thực hiện thao tác này")
+    return await rubric_service.apply_rubric_to_questions(
+        db, rubric_id, data.question_ids, current_user
+    )
+
+
+@router.get("/rubrics/{rubric_id}/applied-questions", response_model=List[uuid.UUID])
+async def get_rubric_applied_questions(
+    rubric_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Lấy danh sách ID các câu hỏi tự luận đang áp dụng Rubric này"""
+    return await rubric_service.get_rubric_applied_question_ids(db, rubric_id)
 
 
 # ─── AI Essay Grading Endpoints ──────────────────────────────────────────────
