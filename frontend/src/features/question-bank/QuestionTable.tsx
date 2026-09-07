@@ -512,7 +512,7 @@ export function QuestionTable({
             />
           </div>
         ) : (
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto pb-12">
             {/* 1. Mobile Cards View (< md) */}
             <div className="md:hidden divide-y divide-gray-100">
               {/* Select All on Mobile */}
@@ -524,14 +524,15 @@ export function QuestionTable({
                     onChange={toggleAll}
                     className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer h-4 w-4"
                   />
-                  <span>Chọn tất cả ({items.length})</span>
+              <span>Chọn tất cả ({items.length})</span>
                 </label>
                 <span className="text-[11px] text-gray-400">Tổng {total} câu</span>
               </div>
 
-              {items.map((q) => {
+              {items.map((q, idx) => {
                 const isChecked = selected.has(q.id);
                 const isMenuOpen = activeRowMenuId === q.id;
+                const isNearBottom = idx >= Math.max(1, items.length - 2);
 
                 return (
                   <div
@@ -614,7 +615,12 @@ export function QuestionTable({
                               className="fixed inset-0 z-20"
                               onClick={() => setActiveRowMenuId(null)}
                             />
-                            <div className="absolute right-0 top-full mt-1 z-30 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 text-xs text-gray-700 text-left animate-in fade-in zoom-in-95">
+                            <div
+                              className={clsx(
+                                "absolute right-0 z-30 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 text-xs text-gray-700 text-left animate-in fade-in zoom-in-95",
+                                isNearBottom ? "bottom-full mb-1" : "top-full mt-1"
+                              )}
+                            >
                               <button
                                 type="button"
                                 onClick={() => {
@@ -678,9 +684,10 @@ export function QuestionTable({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white text-xs">
-                {items.map((q) => {
+                {items.map((q, idx) => {
                   const isChecked = selected.has(q.id);
                   const isMenuOpen = activeRowMenuId === q.id;
+                  const isNearBottom = idx >= Math.max(1, items.length - 3);
 
                   return (
                     <tr
@@ -783,7 +790,12 @@ export function QuestionTable({
                               className="fixed inset-0 z-20"
                               onClick={() => setActiveRowMenuId(null)}
                             />
-                            <div className="absolute right-3 top-full mt-1 z-30 w-44 bg-white border border-gray-200 rounded-xl shadow-lg py-1 text-xs text-gray-700 text-left animate-in fade-in zoom-in-95">
+                            <div
+                              className={clsx(
+                                "absolute right-3 z-30 w-44 bg-white border border-gray-200 rounded-xl shadow-xl py-1 text-xs text-gray-700 text-left animate-in fade-in zoom-in-95",
+                                isNearBottom ? "bottom-full mb-1" : "top-full mt-1"
+                              )}
+                            >
                               <button
                                 type="button"
                                 onClick={() => {

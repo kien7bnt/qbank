@@ -3,7 +3,7 @@ import { clsx } from 'clsx';
 import {
   LayoutDashboard,
   BookOpen,
-  ClipboardList,
+  ClipboardCheck,
   CheckSquare,
   Database,
   BarChart3,
@@ -11,11 +11,11 @@ import {
   GraduationCap,
   FileText,
   History,
-  FolderTree,
   FolderCheck,
   BookMarked,
   Sparkles,
   Award,
+  Scale,
   X,
 } from 'lucide-react';
 import { useUIStore } from '@/stores/ui.store';
@@ -27,15 +27,26 @@ interface NavItem {
   to?: string;
   section?: boolean;
   badge?: string;
+  badgeColor?: string;
   disabled?: boolean;
+  isPrimary?: boolean;
 }
 
 const TEACHER_NAV_ITEMS: NavItem[] = [
+  // 1. "Quản lý lớp học" đầu tiên mà mục chính và cho chữ to, nhấn mạnh luôn
+  {
+    label: 'Quản lý lớp học',
+    icon: <GraduationCap className="h-5 w-5 text-primary-700" />,
+    to: '/classes',
+    isPrimary: true,
+  },
   {
     label: 'Tổng quan',
-    icon: <LayoutDashboard className="h-4 w-4" />,
+    icon: <LayoutDashboard className="h-4 w-4 text-gray-500" />,
     to: '/dashboard',
   },
+
+  // 2. Kho lưu trữ như hiện tại
   { label: 'KHO LƯU TRỮ', section: true, icon: <></> },
   {
     label: 'Kho tài liệu',
@@ -57,49 +68,60 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
     icon: <FileText className="h-4 w-4 text-purple-600" />,
     to: '/exams',
   },
+
+  // 3. Đánh giá
+  { label: 'ĐÁNH GIÁ', section: true, icon: <></> },
   {
-    label: 'Ma trận đề',
-    icon: <CheckSquare className="h-4 w-4 text-indigo-600" />,
+    label: 'A. Rublic/Tiêu chí chấm',
+    icon: <ClipboardCheck className="h-4 w-4 text-purple-600" />,
+    to: '/rubrics',
+  },
+  {
+    label: 'B. Định cỡ câu hỏi',
+    icon: <Scale className="h-4 w-4 text-indigo-600" />,
+    to: '/calibration',
+  },
+  {
+    label: 'C. Ma trận cấu trúc đề thi',
+    icon: <CheckSquare className="h-4 w-4 text-teal-600" />,
     to: '/exam-matrices',
   },
   {
-    label: 'Kho đề thi',
-    icon: <Award className="h-4 w-4 text-gray-400" />,
-    badge: 'Sắp có',
-    disabled: true,
+    label: 'D. Ngân hàng đề thi',
+    icon: <Award className="h-4 w-4 text-blue-600" />,
+    to: '/exams',
   },
-  { label: 'LỚP HỌC CỦA TÔI', section: true, icon: <></> },
-  {
-    label: 'Lớp học của tôi',
-    icon: <GraduationCap className="h-4 w-4 text-primary-600" />,
-    to: '/classes',
-  },
+
+  // 4. Trí tuệ nhân tạo
   { label: 'TRÍ TUỆ NHÂN TẠO', section: true, icon: <></> },
   {
     label: 'Quy tắc AI',
     icon: <Sparkles className="h-4 w-4 text-amber-500" />,
     to: '/ai-rules',
   },
+
+  // 5. Báo cáo & Khảo thí
   { label: 'BÁO CÁO & KHẢO THÍ', section: true, icon: <></> },
   {
     label: 'Phân tích & Khảo thí',
-    icon: <BarChart3 className="h-4 w-4" />,
+    icon: <BarChart3 className="h-4 w-4 text-sky-600" />,
     to: '/analytics',
   },
   {
     label: 'Cài đặt hệ thống',
-    icon: <Settings className="h-4 w-4" />,
+    icon: <Settings className="h-4 w-4 text-gray-500" />,
     to: '/settings',
   },
 ];
 
 const STUDENT_NAV_ITEMS: NavItem[] = [
-  { label: 'GÓC HỌC TẬP', section: true, icon: <></> },
   {
-    label: 'Lớp học của tôi',
-    icon: <GraduationCap className="h-4 w-4 text-primary-600" />,
+    label: 'Quản lý lớp học',
+    icon: <GraduationCap className="h-5 w-5 text-primary-700" />,
     to: '/classes',
+    isPrimary: true,
   },
+  { label: 'GÓC HỌC TẬP', section: true, icon: <></> },
   {
     label: 'Lịch sử làm bài',
     icon: <History className="h-4 w-4 text-gray-600" />,
@@ -166,6 +188,48 @@ export function Sidebar() {
 
         const active = isItemActive(item.to);
 
+        if (item.isPrimary) {
+          return (
+            <div key={item.to || idx} className="mb-2.5">
+              <NavLink
+                to={item.to!}
+                onClick={() => {
+                  if (isMobileView) closeMobile();
+                }}
+                className={clsx(
+                  'flex items-center justify-between rounded-xl px-3.5 py-3 transition-all duration-200 border',
+                  active
+                    ? 'bg-primary-600 border-primary-700 text-white font-bold shadow-sm'
+                    : 'bg-primary-50/80 hover:bg-primary-100 border-primary-200/90 text-primary-950 font-bold shadow-2xs'
+                )}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={clsx('shrink-0', active ? 'text-white' : 'text-primary-700')}>
+                    {item.icon}
+                  </span>
+                  {(isMobileView || !collapsed) && (
+                    <span className="text-[15px] font-bold tracking-tight whitespace-normal">
+                      {item.label}
+                    </span>
+                  )}
+                </div>
+                {(isMobileView || !collapsed) && item.badge && (
+                  <span
+                    className={clsx(
+                      'text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md shrink-0 tracking-wider',
+                      active
+                        ? 'bg-white/20 text-white'
+                        : 'bg-primary-600 text-white shadow-2xs'
+                    )}
+                  >
+                    {item.badge}
+                  </span>
+                )}
+              </NavLink>
+            </div>
+          );
+        }
+
         return (
           <NavLink
             key={item.to || idx}
@@ -182,10 +246,15 @@ export function Sidebar() {
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="shrink-0">{item.icon}</span>
-              <span className="truncate">{(isMobileView || !collapsed) && item.label}</span>
+              <span className="whitespace-normal leading-snug">{(isMobileView || !collapsed) && item.label}</span>
             </div>
             {(isMobileView || !collapsed) && item.badge && (
-              <span className="text-[9px] font-semibold bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded shrink-0">
+              <span
+                className={clsx(
+                  'text-[9px] font-semibold px-1.5 py-0.5 rounded shrink-0',
+                  item.badgeColor || 'bg-primary-100 text-primary-700'
+                )}
+              >
                 {item.badge}
               </span>
             )}
@@ -243,7 +312,7 @@ export function Sidebar() {
       <aside
         className={clsx(
           'hidden md:flex h-screen flex-col border-r border-gray-200 bg-white transition-all duration-200 shrink-0',
-          collapsed ? 'w-16' : 'w-60'
+          collapsed ? 'w-16' : 'w-64'
         )}
       >
         {/* Desktop Header */}

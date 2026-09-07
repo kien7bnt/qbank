@@ -14,12 +14,17 @@ import {
   FileText,
   Terminal,
   Cpu,
+  Paperclip,
+  ExternalLink,
+  FileSpreadsheet,
+  FileImage,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { assignmentApi, getErrorMessage } from '@/services/api';
 import type { AttemptResult, ResponseDetail } from '@/types';
+import { parseEssayResponse } from './ExamTakingPage';
 
 export function ExamResultPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
@@ -263,14 +268,54 @@ export function ExamResultPage() {
                   )}
 
                   {/* Essay Response Display */}
-                  {isEssay && (
-                    <div className="space-y-2 pt-1">
-                      <div className="text-xs font-semibold text-gray-700">Bài làm tự luận:</div>
-                      <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 whitespace-pre-wrap leading-relaxed">
-                        {resp.text_response || '(Không có nội dung tự luận)'}
+                  {isEssay && (() => {
+                    const essay = parseEssayResponse(resp.text_response);
+                    return (
+                      <div className="space-y-2 pt-1">
+                        <div className="text-xs font-semibold text-gray-700">Bài làm tự luận:</div>
+                        {essay.text && (
+                          <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 whitespace-pre-wrap leading-relaxed">
+                            {essay.text}
+                          </div>
+                        )}
+                        {essay.attachment && (
+                          <div className="flex items-center justify-between bg-blue-50/60 border border-blue-200 rounded-xl p-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {['xls', 'xlsx'].includes(essay.attachment.type) ? (
+                                <FileSpreadsheet className="h-5 w-5 text-emerald-600 shrink-0" />
+                              ) : ['jpg', 'jpeg', 'png'].includes(essay.attachment.type) ? (
+                                <FileImage className="h-5 w-5 text-amber-600 shrink-0" />
+                              ) : (
+                                <FileText className="h-5 w-5 text-blue-600 shrink-0" />
+                              )}
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-gray-900 truncate">
+                                  Tệp đính kèm: {essay.attachment.name}
+                                </p>
+                                <p className="text-[10px] text-gray-500">
+                                  {(essay.attachment.size / 1024).toFixed(1)} KB
+                                </p>
+                              </div>
+                            </div>
+                            <a
+                              href={essay.attachment.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-700 bg-white border border-primary-200 rounded-lg hover:bg-primary-50 transition shrink-0 ml-2"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              Mở tệp đính kèm
+                            </a>
+                          </div>
+                        )}
+                        {!essay.text && !essay.attachment && (
+                          <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-400 italic">
+                            (Không có nội dung tự luận)
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Rationale / Explanation */}
                   {resp.rationale && (

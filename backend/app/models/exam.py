@@ -93,6 +93,26 @@ class Exam(Base):
     sections = relationship("ExamSection", back_populates="exam", cascade="all, delete-orphan", lazy="selectin")
     variants = relationship("ExamVariant", back_populates="exam", cascade="all, delete-orphan", lazy="selectin")
 
+    @property
+    def total_questions(self) -> int:
+        if not hasattr(self, "sections") or not self.sections:
+            return 0
+        return sum(len(s.questions) for s in self.sections if hasattr(s, "questions") and s.questions)
+
+    @property
+    def question_count(self) -> int:
+        return self.total_questions
+
+    @property
+    def total_points(self) -> float:
+        if not hasattr(self, "sections") or not self.sections:
+            return 0.0
+        total = 0.0
+        for s in self.sections:
+            if hasattr(s, "questions") and s.questions:
+                total += sum(getattr(q, "points", 1.0) for q in s.questions)
+        return total
+
 
 class ExamMatrixRule(Base):
     """Quy tắc ô ma trận 2D (Chương/Chủ đề x Bloom x Độ khó)"""
@@ -150,6 +170,12 @@ class ExamSection(Base):
     
     exam = relationship("Exam", back_populates="sections")
     questions = relationship("ExamQuestion", back_populates="section", cascade="all, delete-orphan", lazy="selectin")
+
+    @property
+    def question_count(self) -> int:
+        if not hasattr(self, "questions") or not self.questions:
+            return 0
+        return len(self.questions)
 
 
 class ExamQuestion(Base):

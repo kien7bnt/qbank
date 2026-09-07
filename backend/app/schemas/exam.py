@@ -65,6 +65,7 @@ class ExamSectionBase(BaseModel):
 class ExamSectionOut(ExamSectionBase):
     id: uuid.UUID
     exam_id: uuid.UUID
+    question_count: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -126,6 +127,9 @@ class ExamOut(ExamBase):
     created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime
+    total_questions: int = 0
+    question_count: int = 0
+    total_points: float = 0.0
     sections: list[ExamSectionOut] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}

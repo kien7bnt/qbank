@@ -50,6 +50,8 @@ const DomainsPage = safeLazy(() => import('@/features/domains/DomainsPage'), 'Do
 const SettingsPage = safeLazy(() => import('@/features/settings/SettingsPage'), 'SettingsPage', 'Cài đặt hệ thống');
 const DocumentLibraryPage = safeLazy(() => import('@/features/document-library'), 'DocumentLibraryPage', 'Kho tài liệu');
 const AIRulesPage = safeLazy(() => import('@/features/ai'), 'AIRulesPage', 'Trợ lý AI');
+const RubricsPage = safeLazy(() => import('@/features/rubrics/RubricsPage'), 'RubricsPage', 'Tiêu chí chấm Rubric');
+const QuestionCalibrationPage = safeLazy(() => import('@/features/analytics/QuestionCalibrationPage'), 'QuestionCalibrationPage', 'Định cỡ câu hỏi');
 
 const withSuspense = (Component: React.ComponentType) => (
   <Suspense fallback={<PageSpinner />}>
@@ -85,6 +87,8 @@ export const router = createBrowserRouter([
       { path: 'exams', element: withSuspense(ExamsListPage) },
       { path: 'exercises', element: withSuspense(ExercisesListPage) },
       { path: 'assignments', element: withSuspense(AssignmentsPage) },
+      { path: 'rubrics', element: withSuspense(RubricsPage) },
+      { path: 'calibration', element: withSuspense(QuestionCalibrationPage) },
       { path: 'ai-rules', element: withSuspense(AIRulesPage) },
       { path: 'student-history', element: withSuspense(StudentHistoryPage) },
       { path: 'analytics', element: withSuspense(AnalyticsPage) },

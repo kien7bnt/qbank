@@ -21,19 +21,19 @@ export function AutoGenerateModal({ open, onClose, onSuccess }: AutoGenerateModa
   const [targetType, setTargetType] = useState<'exercise' | 'exam'>('exercise');
   const [name, setName] = useState('');
   const [chapterId, setChapterId] = useState('');
-  const [totalQuestions, setTotalQuestions] = useState(10);
-  const [durationMinutes, setDurationMinutes] = useState(45);
+  const [totalQuestions, setTotalQuestions] = useState<number | string>(10);
+  const [durationMinutes, setDurationMinutes] = useState<number | string>(45);
 
   // Bloom mix counts
-  const [bloomRemember, setBloomRemember] = useState(3);
-  const [bloomUnderstand, setBloomUnderstand] = useState(4);
-  const [bloomApply, setBloomApply] = useState(2);
-  const [bloomAnalyze, setBloomAnalyze] = useState(1);
+  const [bloomRemember, setBloomRemember] = useState<number | string>(3);
+  const [bloomUnderstand, setBloomUnderstand] = useState<number | string>(4);
+  const [bloomApply, setBloomApply] = useState<number | string>(2);
+  const [bloomAnalyze, setBloomAnalyze] = useState<number | string>(1);
 
   // Difficulty mix counts
-  const [diffEasy, setDiffEasy] = useState(4);
-  const [diffMedium, setDiffMedium] = useState(4);
-  const [diffHard, setDiffHard] = useState(2);
+  const [diffEasy, setDiffEasy] = useState<number | string>(4);
+  const [diffMedium, setDiffMedium] = useState<number | string>(4);
+  const [diffHard, setDiffHard] = useState<number | string>(2);
 
   // Fetch chapters for scope selection
   const { data: domainsData } = useQuery({
@@ -193,7 +193,8 @@ export function AutoGenerateModal({ open, onClose, onSuccess }: AutoGenerateModa
               min={1}
               max={100}
               value={totalQuestions}
-              onChange={(e) => setTotalQuestions(Number(e.target.value))}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => setTotalQuestions(e.target.value === '' ? '' : Number(e.target.value))}
               className="text-sm font-semibold"
             />
           </div>
@@ -237,7 +238,8 @@ export function AutoGenerateModal({ open, onClose, onSuccess }: AutoGenerateModa
                 type="number"
                 min={0}
                 value={bloomRemember}
-                onChange={(e) => setBloomRemember(Number(e.target.value))}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setBloomRemember(e.target.value === '' ? '' : Number(e.target.value))}
                 className="h-8 text-xs"
               />
             </div>
@@ -247,7 +249,8 @@ export function AutoGenerateModal({ open, onClose, onSuccess }: AutoGenerateModa
                 type="number"
                 min={0}
                 value={bloomUnderstand}
-                onChange={(e) => setBloomUnderstand(Number(e.target.value))}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setBloomUnderstand(e.target.value === '' ? '' : Number(e.target.value))}
                 className="h-8 text-xs"
               />
             </div>
@@ -257,7 +260,8 @@ export function AutoGenerateModal({ open, onClose, onSuccess }: AutoGenerateModa
                 type="number"
                 min={0}
                 value={bloomApply}
-                onChange={(e) => setBloomApply(Number(e.target.value))}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setBloomApply(e.target.value === '' ? '' : Number(e.target.value))}
                 className="h-8 text-xs"
               />
             </div>
@@ -267,7 +271,8 @@ export function AutoGenerateModal({ open, onClose, onSuccess }: AutoGenerateModa
                 type="number"
                 min={0}
                 value={bloomAnalyze}
-                onChange={(e) => setBloomAnalyze(Number(e.target.value))}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setBloomAnalyze(e.target.value === '' ? '' : Number(e.target.value))}
                 className="h-8 text-xs"
               />
             </div>
@@ -293,7 +298,8 @@ export function AutoGenerateModal({ open, onClose, onSuccess }: AutoGenerateModa
                 type="number"
                 min={0}
                 value={diffEasy}
-                onChange={(e) => setDiffEasy(Number(e.target.value))}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setDiffEasy(e.target.value === '' ? '' : Number(e.target.value))}
                 className="h-8 text-xs"
               />
             </div>
@@ -303,7 +309,8 @@ export function AutoGenerateModal({ open, onClose, onSuccess }: AutoGenerateModa
                 type="number"
                 min={0}
                 value={diffMedium}
-                onChange={(e) => setDiffMedium(Number(e.target.value))}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setDiffMedium(e.target.value === '' ? '' : Number(e.target.value))}
                 className="h-8 text-xs"
               />
             </div>
@@ -313,7 +320,8 @@ export function AutoGenerateModal({ open, onClose, onSuccess }: AutoGenerateModa
                 type="number"
                 min={0}
                 value={diffHard}
-                onChange={(e) => setDiffHard(Number(e.target.value))}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setDiffHard(e.target.value === '' ? '' : Number(e.target.value))}
                 className="h-8 text-xs"
               />
             </div>

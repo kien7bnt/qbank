@@ -343,62 +343,65 @@ export function AIGenerationModal({ open, onClose, onSuccess }: AIGenerationModa
         closeOnOutsideClick={false}
         closeOnEscape={false}
         title={
-          <div className="flex items-center justify-between w-full pr-6">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-purple-100 text-purple-700 rounded-lg">
-                <Sparkles className="h-5 w-5" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="p-1.5 bg-purple-100 text-purple-700 rounded-lg shrink-0">
+                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
-              <div>
-                <div className="font-bold text-gray-900 flex items-center gap-2">
-                  Multi-Agent AI Question Studio
-                  <span className="text-[10px] bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-mono font-semibold uppercase">
-                    5 Agents Co-Pilot
+              <div className="min-w-0">
+                <div className="font-bold text-gray-900 text-sm sm:text-base flex flex-wrap items-center gap-1.5 leading-tight">
+                  <span>AI Question Studio</span>
+                  <span className="text-[10px] bg-purple-100 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded-full font-mono font-semibold uppercase">
+                    Co-Pilot
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 font-normal">
-                  Sinh câu hỏi từ Prompt hoặc Kho tài liệu cá nhân · Tuân thủ quy tắc sư phạm
+                <p className="text-[11px] sm:text-xs text-gray-500 font-normal truncate max-w-[240px] sm:max-w-none">
+                  Sinh câu hỏi từ Prompt hoặc Kho tài liệu
                 </p>
               </div>
             </div>
 
             {/* Rule.md Trigger Button */}
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setShowRuleModal(true)}
-              className="gap-1.5 border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 text-xs shrink-0"
-              title="Xem và chỉnh sửa các quy tắc sư phạm AI bắt buộc tuân theo"
-            >
-              <FileCode2 className="h-3.5 w-3.5 text-amber-700" />
-              Quy tắc AI (rule.md)
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowRuleModal(true)}
+                className="gap-1.5 border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 text-[11px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3 shrink-0"
+                title="Xem và chỉnh sửa các quy tắc sư phạm AI bắt buộc tuân theo"
+              >
+                <FileCode2 className="h-3.5 w-3.5 text-amber-700" />
+                <span>Quy tắc AI (rule.md)</span>
+              </Button>
+            </div>
           </div>
         }
         size="xl"
         footer={
           result || multipleResults.length > 0 ? (
-            <>
+            <div className="flex flex-col-reverse sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-2">
               <Button
                 variant="secondary"
                 onClick={() => {
                   setResult(null);
                   setMultipleResults([]);
                 }}
+                className="w-full sm:w-auto justify-center"
               >
                 Tùy chỉnh & Tạo lại
               </Button>
               <Button
                 loading={saveMutation.isPending}
                 onClick={() => saveMutation.mutate()}
-                className="bg-purple-600 hover:bg-purple-700 text-white"
+                className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto justify-center"
               >
                 <CheckCircle2 className="h-4 w-4 mr-1.5" />
                 Lưu vào Ngân hàng câu hỏi {multipleResults.length > 0 ? `(${multipleResults.length} câu)` : ''}
               </Button>
-            </>
+            </div>
           ) : (
-            <>
-              <Button variant="secondary" onClick={handleClose}>
+            <div className="flex flex-col-reverse sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-2">
+              <Button variant="secondary" onClick={handleClose} className="w-full sm:w-auto justify-center">
                 Hủy
               </Button>
               <Button
@@ -419,12 +422,12 @@ export function AIGenerationModal({ open, onClose, onSuccess }: AIGenerationModa
                   pipelineMutation.mutate();
                 }}
                 disabled={!isFormValid() && !uploadFile}
-                className="bg-purple-600 hover:bg-purple-700 text-white"
+                className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto justify-center"
               >
                 <Zap className="h-4 w-4 mr-1.5" />
                 Kích hoạt Multi-Agent AI
               </Button>
-            </>
+            </div>
           )
         }
       >
@@ -870,17 +873,17 @@ export function AIGenerationModal({ open, onClose, onSuccess }: AIGenerationModa
               <>
                 {/* Agent Execution Traces Bar */}
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      Tiến trình thực thi Multi-Agent (5 Agents hoàn tất)
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5 flex-wrap">
+                      <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                      <span>Tiến trình thực thi Multi-Agent (5 Agents)</span>
                       {result.improvement_applied && (
-                        <span className="ml-2 text-[10px] font-normal text-purple-600 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full">
+                        <span className="text-[10px] font-normal text-purple-600 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full">
                           ✨ Đã cải thiện
                         </span>
                       )}
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                         Chất lượng: {result.quality_score}%
                       </span>

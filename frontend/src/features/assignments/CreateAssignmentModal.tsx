@@ -50,8 +50,8 @@ export function CreateAssignmentModal({
   const [sessionId, setSessionId] = useState(initialSessionId || '');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  const [durationMinutes, setDurationMinutes] = useState(45);
-  const [passScore, setPassScore] = useState(5.0);
+  const [durationMinutes, setDurationMinutes] = useState<number | string>(45);
+  const [passScore, setPassScore] = useState<number | string>(5.0);
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [shuffleOptions, setShuffleOptions] = useState(false);
 
@@ -503,7 +503,8 @@ export function CreateAssignmentModal({
                 min={5}
                 max={300}
                 value={durationMinutes}
-                onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setDurationMinutes(e.target.value === '' ? '' : Number(e.target.value))}
                 required
               />
 
@@ -514,7 +515,8 @@ export function CreateAssignmentModal({
                 min={0}
                 max={10}
                 value={passScore}
-                onChange={(e) => setPassScore(Number(e.target.value))}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setPassScore(e.target.value === '' ? '' : Number(e.target.value))}
                 required
               />
             </div>

@@ -16,6 +16,13 @@ import {
   Code2,
   BookOpen,
   ArrowLeft,
+  Paperclip,
+  Upload,
+  Trash2,
+  ExternalLink,
+  FileSpreadsheet,
+  FileImage,
+  Loader2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -26,14 +33,43 @@ import { assignmentApi, getErrorMessage } from '@/services/api';
 import type { ExamTakingState, QuestionTaking } from '@/types';
 import { CodingQuestionEditor } from './CodingQuestionEditor';
 
+export interface EssayAttachment {
+  url: string;
+  name: string;
+  size: number;
+  type: string;
+}
+
+export function parseEssayResponse(raw: string | undefined | null): { text: string; attachment: EssayAttachment | null } {
+  if (!raw) return { text: '', attachment: null };
+  try {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      const parsed = JSON.parse(trimmed);
+      if (parsed.attachment || parsed.text !== undefined) {
+        return { text: parsed.text || '', attachment: parsed.attachment || null };
+      }
+    }
+  } catch {}
+  return { text: raw, attachment: null };
+}
+
+export function serializeEssayResponse(text: string, attachment: EssayAttachment | null): string {
+  if (!attachment) return text;
+  return JSON.stringify({ text, attachment });
+}
+
 export function ExamTakingPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({}); // question_id -> selected_option_id
   const [codeAnswers, setCodeAnswers] = useState<Record<string, string>>({}); // question_id -> code_response
   const [textAnswers, setTextAnswers] = useState<Record<string, string>>({}); // question_id -> text_response
+  const [essayAttachments, setEssayAttachments] = useState<Record<string, EssayAttachment | null>>({});
+  const [uploadingAttachment, setUploadingAttachment] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
   const [mobilePaletteOpen, setMobilePaletteOpen] = useState(false);
@@ -60,6 +96,7 @@ export function ExamTakingPage() {
       const initialOptions: Record<string, string> = {};
       const initialCodes: Record<string, string> = {};
       const initialTexts: Record<string, string> = {};
+      const initialAttachments: Record<string, EssayAttachment | null> = {};
 
       examState.questions.forEach((q) => {
         if (q.selected_option_id) {
@@ -69,13 +106,18 @@ export function ExamTakingPage() {
           initialCodes[q.id] = q.code_response;
         }
         if (q.text_response) {
-          initialTexts[q.id] = q.text_response;
+          const parsed = parseEssayResponse(q.text_response);
+          initialTexts[q.id] = parsed.text;
+          if (parsed.attachment) {
+            initialAttachments[q.id] = parsed.attachment;
+          }
         }
       });
 
       setAnswers(initialOptions);
       setCodeAnswers(initialCodes);
       setTextAnswers(initialTexts);
+      setEssayAttachments(initialAttachments);
       setTimeLeft(examState.remaining_seconds);
     }
   }, [examState]);
@@ -143,8 +185,46 @@ export function ExamTakingPage() {
     setTextAnswers((prev) => ({ ...prev, [questionId]: newText }));
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
-      saveMutation.mutate({ question_id: questionId, text_response: newText });
+      const serialized = serializeEssayResponse(newText, essayAttachments[questionId]);
+      saveMutation.mutate({ question_id: questionId, text_response: serialized });
     }, 1000);
+  };
+
+  // Handle Essay file attachment upload
+  const handleFileUpload = async (questionId: string, file: File) => {
+    if (!examState) return;
+    try {
+      setUploadingAttachment(questionId);
+      const res = await assignmentApi.uploadAttachment(examState.attempt_id, questionId, file);
+      const att: EssayAttachment = {
+        url: res.data.file_url,
+        name: res.data.file_name,
+        size: res.data.file_size,
+        type: res.data.file_type,
+      };
+      setEssayAttachments((prev) => ({ ...prev, [questionId]: att }));
+      const currentText = textAnswers[questionId] || '';
+      const serialized = serializeEssayResponse(currentText, att);
+      saveMutation.mutate({ question_id: questionId, text_response: serialized });
+      toast.success(`Đã đính kèm tệp "${res.data.file_name}" thành công!`);
+    } catch (err) {
+      toast.error(getErrorMessage(err) || 'Lỗi khi tải tệp đính kèm');
+    } finally {
+      setUploadingAttachment(null);
+    }
+  };
+
+  // Handle Remove Essay file attachment
+  const handleRemoveAttachment = (questionId: string) => {
+    setEssayAttachments((prev) => {
+      const next = { ...prev };
+      delete next[questionId];
+      return next;
+    });
+    const currentText = textAnswers[questionId] || '';
+    const serialized = serializeEssayResponse(currentText, null);
+    saveMutation.mutate({ question_id: questionId, text_response: serialized });
+    toast.success('Đã gỡ tệp đính kèm');
   };
 
   // Submit Attempt Mutation
@@ -171,14 +251,14 @@ export function ExamTakingPage() {
       return !!codeAnswers[q.id]?.trim();
     }
     if (q.type === 'essay') {
-      return !!textAnswers[q.id]?.trim();
+      return !!textAnswers[q.id]?.trim() || !!essayAttachments[q.id];
     }
     return !!answers[q.id];
   };
 
   const answeredCount = useMemo(() => {
     return questions.filter(isQuestionAnswered).length;
-  }, [questions, answers, codeAnswers, textAnswers]);
+  }, [questions, answers, codeAnswers, textAnswers, essayAttachments]);
 
   if (isLoading) {
     return <PageSpinner />;
@@ -471,20 +551,103 @@ export function ExamTakingPage() {
 
                 {/* Question Type 3: Essay Question */}
                 {currentQuestion.type === 'essay' && (
-                  <div className="space-y-3 pt-2">
-                    <label className="block text-xs font-semibold text-gray-700">
-                      Nội dung câu trả lời tự luận:
-                    </label>
-                    <textarea
-                      rows={8}
-                      value={textAnswers[currentQuestion.id] || ''}
-                      onChange={(e) => handleTextChange(currentQuestion.id, e.target.value)}
-                      placeholder="Nhập câu trả lời hoặc lời giải chi tiết của bạn tại đây..."
-                      className="w-full p-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm leading-relaxed"
-                    />
-                    <div className="flex justify-between text-xs text-gray-400">
-                      <span>Hệ thống tự động lưu sau khi nhập</span>
-                      <span>{(textAnswers[currentQuestion.id] || '').length} ký tự</span>
+                  <div className="space-y-4 pt-2">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-semibold text-gray-700">
+                          Nội dung câu trả lời tự luận (Nhập văn bản):
+                        </label>
+                        <span className="text-[11px] text-gray-400">
+                          {(textAnswers[currentQuestion.id] || '').length} ký tự · Tự động lưu
+                        </span>
+                      </div>
+                      <textarea
+                        rows={6}
+                        value={textAnswers[currentQuestion.id] || ''}
+                        onChange={(e) => handleTextChange(currentQuestion.id, e.target.value)}
+                        placeholder="Nhập câu trả lời hoặc lời giải chi tiết của bạn tại đây (hoặc đính kèm file bên dưới)..."
+                        className="w-full p-3.5 sm:p-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm leading-relaxed"
+                      />
+                    </div>
+
+                    {/* File Attachment Section for Essay */}
+                    <div className="border border-dashed border-gray-300 rounded-xl p-3.5 bg-gray-50/60 space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                        <span className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                          <Paperclip className="h-3.5 w-3.5 text-primary-600 shrink-0" />
+                          Đính kèm tệp bài làm (Word, Excel, Ảnh, PDF):
+                        </span>
+                        <span className="text-[10px] text-gray-400">DOC, DOCX, XLS, XLSX, JPG, PNG, PDF (≤25MB)</span>
+                      </div>
+
+                      {essayAttachments[currentQuestion.id] ? (
+                        <div className="flex items-center justify-between bg-white border border-emerald-200 rounded-xl p-3 shadow-2xs">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {['xls', 'xlsx'].includes(essayAttachments[currentQuestion.id]?.type || '') ? (
+                              <FileSpreadsheet className="h-6 w-6 text-emerald-600 shrink-0" />
+                            ) : ['jpg', 'jpeg', 'png'].includes(essayAttachments[currentQuestion.id]?.type || '') ? (
+                              <FileImage className="h-6 w-6 text-amber-600 shrink-0" />
+                            ) : (
+                              <FileText className="h-6 w-6 text-blue-600 shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-gray-900 truncate">
+                                {essayAttachments[currentQuestion.id]?.name}
+                              </p>
+                              <p className="text-[10px] text-gray-400">
+                                {((essayAttachments[currentQuestion.id]?.size || 0) / 1024).toFixed(1)} KB · Đã tải lên
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <a
+                              href={essayAttachments[currentQuestion.id]?.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-lg transition"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Xem tệp
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAttachment(currentQuestion.id)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                              title="Gỡ bỏ tệp đính kèm này"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.pdf"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) {
+                                handleFileUpload(currentQuestion.id, f);
+                              }
+                              e.target.value = '';
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            loading={uploadingAttachment === currentQuestion.id}
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-full border-gray-300 bg-white hover:bg-gray-50 text-xs py-2.5 gap-1.5 font-medium text-gray-700 justify-center"
+                          >
+                            <Upload className="h-3.5 w-3.5 text-gray-500" />
+                            Chọn tệp bài làm từ máy tính / điện thoại
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

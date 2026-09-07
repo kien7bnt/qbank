@@ -360,7 +360,8 @@ export function ExamMatrixBuilderModal({ open, onOpenChange }: ExamMatrixBuilder
                             type="number"
                             min={0}
                             value={row.remember}
-                            onChange={(e) => handleUpdateGridRow(idx, 'remember', Number(e.target.value))}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => handleUpdateGridRow(idx, 'remember', e.target.value === '' ? '' : Number(e.target.value))}
                             className="w-12 text-center px-1 py-1 border border-gray-200 rounded text-xs font-mono"
                           />
                         </td>
@@ -369,7 +370,8 @@ export function ExamMatrixBuilderModal({ open, onOpenChange }: ExamMatrixBuilder
                             type="number"
                             min={0}
                             value={row.understand}
-                            onChange={(e) => handleUpdateGridRow(idx, 'understand', Number(e.target.value))}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => handleUpdateGridRow(idx, 'understand', e.target.value === '' ? '' : Number(e.target.value))}
                             className="w-12 text-center px-1 py-1 border border-gray-200 rounded text-xs font-mono"
                           />
                         </td>
@@ -378,7 +380,8 @@ export function ExamMatrixBuilderModal({ open, onOpenChange }: ExamMatrixBuilder
                             type="number"
                             min={0}
                             value={row.apply}
-                            onChange={(e) => handleUpdateGridRow(idx, 'apply', Number(e.target.value))}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => handleUpdateGridRow(idx, 'apply', e.target.value === '' ? '' : Number(e.target.value))}
                             className="w-12 text-center px-1 py-1 border border-gray-200 rounded text-xs font-mono"
                           />
                         </td>
@@ -387,7 +390,8 @@ export function ExamMatrixBuilderModal({ open, onOpenChange }: ExamMatrixBuilder
                             type="number"
                             min={0}
                             value={row.analyze}
-                            onChange={(e) => handleUpdateGridRow(idx, 'analyze', Number(e.target.value))}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => handleUpdateGridRow(idx, 'analyze', e.target.value === '' ? '' : Number(e.target.value))}
                             className="w-12 text-center px-1 py-1 border border-gray-200 rounded text-xs font-mono"
                           />
                         </td>
@@ -397,7 +401,8 @@ export function ExamMatrixBuilderModal({ open, onOpenChange }: ExamMatrixBuilder
                             step="0.05"
                             min={0.1}
                             value={row.points_per_q}
-                            onChange={(e) => handleUpdateGridRow(idx, 'points_per_q', Number(e.target.value))}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => handleUpdateGridRow(idx, 'points_per_q', e.target.value === '' ? '' : Number(e.target.value))}
                             className="w-14 text-center px-1 py-1 border border-gray-200 rounded text-xs font-mono"
                           />
                         </td>
@@ -475,8 +480,9 @@ export function ExamMatrixBuilderModal({ open, onOpenChange }: ExamMatrixBuilder
                         type="number"
                         min={1}
                         value={sec.question_count}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) =>
-                          setSections(sections.map((s, i) => (i === idx ? { ...s, question_count: Number(e.target.value) } : s)))
+                          setSections(sections.map((s, i) => (i === idx ? { ...s, question_count: e.target.value === '' ? ('' as any) : Number(e.target.value) } : s)))
                         }
                       />
                     </div>
@@ -487,8 +493,9 @@ export function ExamMatrixBuilderModal({ open, onOpenChange }: ExamMatrixBuilder
                         step="0.05"
                         min={0.1}
                         value={sec.points_per_question}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) =>
-                          setSections(sections.map((s, i) => (i === idx ? { ...s, points_per_question: Number(e.target.value) } : s)))
+                          setSections(sections.map((s, i) => (i === idx ? { ...s, points_per_question: e.target.value === '' ? ('' as any) : Number(e.target.value) } : s)))
                         }
                       />
                     </div>

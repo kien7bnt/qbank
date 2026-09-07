@@ -186,9 +186,9 @@ export function AnalyticsPage() {
               <Users className="h-4 w-4" />
             </div>
           </div>
-          <p className="text-3xl font-black text-gray-900">{stats.total_attempts}</p>
+          <p className="text-3xl font-black text-gray-900">{stats.total_attempts ?? 0}</p>
           <div className="text-xs text-gray-500">
-            Trong <strong>{stats.total_assignments}</strong> đợt kiểm tra đã giao
+            Trong <strong>{stats.total_assignments ?? 0}</strong> đợt kiểm tra đã giao
           </div>
         </div>
 
@@ -199,9 +199,9 @@ export function AnalyticsPage() {
               <Award className="h-4 w-4" />
             </div>
           </div>
-          <p className="text-3xl font-black text-green-700">{stats.pass_rate}%</p>
+          <p className="text-3xl font-black text-green-700">{stats.pass_rate ?? 0}%</p>
           <div className="text-xs text-gray-500">
-            Điểm trung bình toàn khóa: <strong>{stats.average_score} / 10đ</strong>
+            Điểm trung bình toàn khóa: <strong>{stats.average_score ?? 0} / 10đ</strong>
           </div>
         </div>
       </div>
@@ -285,7 +285,11 @@ export function AnalyticsPage() {
           </h3>
 
           <div className="space-y-3 pt-2">
-            {Object.entries(stats.bloom_distribution || {}).map(([key, count]: any) => {
+            {Object.entries(
+              stats.bloom_distribution && Object.keys(stats.bloom_distribution).length > 0
+                ? stats.bloom_distribution
+                : { remember: 0, understand: 0, apply: 0, analyze: 0, evaluate: 0, create: 0 }
+            ).map(([key, count]: any) => {
               const info = BLOOM_LABELS[key] || { label: key, color: 'bg-gray-400' };
               const pct = stats.total_questions > 0
                 ? Math.round((count / stats.total_questions) * 100)
@@ -319,7 +323,11 @@ export function AnalyticsPage() {
           </h3>
 
           <div className="space-y-4 pt-2">
-            {Object.entries(stats.difficulty_distribution || {}).map(([key, count]: any) => {
+            {Object.entries(
+              stats.difficulty_distribution && Object.keys(stats.difficulty_distribution).length > 0
+                ? stats.difficulty_distribution
+                : { easy: 0, medium: 0, hard: 0 }
+            ).map(([key, count]: any) => {
               const info = DIFFICULTY_LABELS[key] || { label: key, color: 'bg-gray-400' };
               const pct = stats.total_questions > 0
                 ? Math.round((count / stats.total_questions) * 100)

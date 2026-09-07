@@ -27,6 +27,15 @@ import { ExercisePreviewModal } from './ExercisePreviewModal';
 import { CreateAssignmentModal } from '@/features/assignments/CreateAssignmentModal';
 import type { Exam } from '@/types';
 
+export const getExerciseQuestionCount = (ex: Exam) => {
+  if (typeof ex.total_questions === 'number' && ex.total_questions > 0) return ex.total_questions;
+  if (typeof ex.question_count === 'number' && ex.question_count > 0) return ex.question_count;
+  if (ex.sections && ex.sections.length > 0) {
+    return ex.sections.reduce((acc, s: any) => acc + (s.questions?.length || s.question_count || 0), 0);
+  }
+  return 0;
+};
+
 export function ExercisesListPage() {
   const qc = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,7 +63,7 @@ export function ExercisesListPage() {
 
   // Total questions across all exercises
   const totalQuestionsSum = useMemo(() => {
-    return exercises.reduce((acc, curr) => acc + (curr.total_questions || curr.question_count || 0), 0);
+    return exercises.reduce((acc, curr) => acc + getExerciseQuestionCount(curr), 0);
   }, [exercises]);
 
   // Delete exercise mutation
@@ -180,7 +189,7 @@ export function ExercisesListPage() {
               ? new Date(exercise.created_at).toLocaleDateString('vi-VN')
               : 'Mới tạo';
 
-            const count = exercise.total_questions || exercise.question_count || 0;
+            const count = getExerciseQuestionCount(exercise);
 
             return (
               <div

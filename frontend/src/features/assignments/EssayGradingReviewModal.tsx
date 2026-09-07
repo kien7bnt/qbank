@@ -1,6 +1,19 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Sparkles, CheckCircle2, Award, Edit3, MessageSquare, AlertCircle, Quote } from 'lucide-react';
+import {
+  Sparkles,
+  CheckCircle2,
+  Award,
+  Edit3,
+  MessageSquare,
+  AlertCircle,
+  Quote,
+  Paperclip,
+  ExternalLink,
+  FileSpreadsheet,
+  FileImage,
+  FileText,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { rubricApi, getErrorMessage } from '@/services/api';
 import { Modal } from '@/components/ui/Modal';
@@ -8,6 +21,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { PageSpinner } from '@/components/ui/Spinner';
 import type { EssayGrading } from '@/types';
+import { parseEssayResponse } from '@/features/exam-taking/ExamTakingPage';
 
 interface EssayGradingReviewModalProps {
   open: boolean;
@@ -89,14 +103,25 @@ export function EssayGradingReviewModal({
     onError: (err) => toast.error(getErrorMessage(err)),
   });
 
+  const parsedAnswer = parseEssayResponse(studentAnswer);
+
+  const renderFileIcon = (fileType: string) => {
+    if (fileType.includes('pdf') || fileType.includes('doc')) return <FileText className="w-5 h-5 text-blue-600" />;
+    if (fileType.includes('xls') || fileType.includes('sheet')) return <FileSpreadsheet className="w-5 h-5 text-emerald-600" />;
+    if (fileType.includes('image') || fileType.includes('png') || fileType.includes('jpg') || fileType.includes('jpeg')) return <FileImage className="w-5 h-5 text-amber-600" />;
+    return <Paperclip className="w-5 h-5 text-gray-600" />;
+  };
+
   return (
     <Modal
       open={open}
       onOpenChange={onOpenChange}
       title={
         <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-purple-600" />
-          <span>Chấm & Đánh giá Bài Tự Luận {studentName ? `— ${studentName}` : ''}</span>
+          <Award className="h-5 w-5 text-purple-600" />
+          <span className="font-bold text-gray-900">
+            Chấm tự luận theo Rubric {studentName ? `— ${studentName}` : ''}
+          </span>
         </div>
       }
       size="xl"
@@ -159,9 +184,35 @@ export function EssayGradingReviewModal({
               <h4 className="text-xs font-bold uppercase tracking-wider text-blue-800">Bài làm của học sinh</h4>
               <span className="text-xs text-blue-600 font-medium">Thang điểm: {maxPoints}đ</span>
             </div>
-            <div className="text-sm text-gray-800 leading-relaxed bg-white p-3 rounded-lg border border-blue-100 min-h-[120px] whitespace-pre-line">
-              {studentAnswer ? studentAnswer : <em className="text-gray-400">Học sinh không nhập câu trả lời.</em>}
+            
+            <div className="text-sm text-gray-800 leading-relaxed bg-white p-3 rounded-lg border border-blue-100 min-h-[80px] whitespace-pre-line">
+              {parsedAnswer.text ? parsedAnswer.text : <em className="text-gray-400">Không có văn bản trả lời trực tiếp.</em>}
             </div>
+
+            {parsedAnswer.attachment && (
+              <div className="p-3 bg-white rounded-lg border border-blue-200 shadow-2xs flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {renderFileIcon(parsedAnswer.attachment.type)}
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-gray-900 truncate">
+                      {parsedAnswer.attachment.name}
+                    </p>
+                    <p className="text-[11px] text-gray-500">
+                      {(parsedAnswer.attachment.size / 1024).toFixed(1)} KB
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href={parsedAnswer.attachment.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium transition-colors shrink-0"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Mở tệp đính kèm
+                </a>
+              </div>
+            )}
           </div>
         </div>
 

@@ -1,7 +1,8 @@
 import uuid
 from typing import List, Optional, Dict, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from pathlib import Path
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db, get_current_user
@@ -196,6 +197,51 @@ async def save_attempt_response(
     if not success:
         raise HTTPException(status_code=400, detail="Không thể lưu câu trả lời hoặc bài thi đã kết thúc")
     return {"status": "saved"}
+
+
+ALLOWED_SUBMISSION_EXTENSIONS = {"doc", "docx", "xls", "xlsx", "jpg", "jpeg", "png", "pdf"}
+MAX_SUBMISSION_FILE_SIZE = 25 * 1024 * 1024  # 25 MB
+
+
+@router.post("/attempts/{attempt_id}/questions/{question_id}/upload")
+async def upload_essay_attachment(
+    attempt_id: uuid.UUID,
+    question_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Tải lên file đính kèm bài làm tự luận (DOC, DOCX, XLS, XLSX, JPG, PNG, PDF)"""
+    filename = file.filename or "attachment"
+    ext = filename.split(".")[-1].lower() if "." in filename else ""
+    if ext not in ALLOWED_SUBMISSION_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Định dạng .{ext} không được hỗ trợ. Vui lòng chọn tệp DOC, DOCX, XLS, XLSX, JPG, PNG hoặc PDF.",
+        )
+
+    content = await file.read()
+    if len(content) > MAX_SUBMISSION_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="Dung lượng tệp vượt quá 25MB.")
+
+    # Storage path: uploads/submissions/<attempt_id>/
+    upload_dir = Path(__file__).parent.parent.parent.parent / "uploads" / "submissions" / str(attempt_id)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    safe_name = f"{question_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    target_path = upload_dir / safe_name
+    with open(target_path, "wb") as f:
+        f.write(content)
+
+    file_url = f"/uploads/submissions/{attempt_id}/{safe_name}"
+
+    return {
+        "file_url": file_url,
+        "file_name": filename,
+        "file_size": len(content),
+        "file_type": ext,
+    }
+
 
 
 @router.post("/attempts/{attempt_id}/submit", response_model=AttemptResultOut)

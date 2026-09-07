@@ -81,12 +81,15 @@ async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = No
     type_dist = {"mcq": 0, "essay": 0, "coding": 0}
 
     for q in questions:
-        if q.bloom_level in bloom_dist:
-            bloom_dist[q.bloom_level] += 1
-        if q.expected_difficulty in diff_dist:
-            diff_dist[q.expected_difficulty] += 1
-        if q.type in type_dist:
-            type_dist[q.type] += 1
+        b_key = (q.bloom_level or "").lower().strip()
+        if b_key in bloom_dist:
+            bloom_dist[b_key] += 1
+        d_key = (q.expected_difficulty or "").lower().strip()
+        if d_key in diff_dist:
+            diff_dist[d_key] += 1
+        t_key = (q.type or "").lower().strip()
+        if t_key in type_dist:
+            type_dist[t_key] += 1
 
     # 2. Exams & Assignments
     ex_stmt = select(Exam)
@@ -106,9 +109,13 @@ async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = No
     total_attempts = len(attempts)
 
     avg_score = 0.0
-    pass_count = 0
+    pass_rate = 0
     if total_attempts > 0:
         total_score_sum = sum(a.score or 0.0 for a in attempts)
+        avg_score = round(total_score_sum / total_attempts, 1)
+        pass_count = sum(1 for a in attempts if (a.score or 0.0) >= 5.0)
+        pass_rate = round((pass_count / total_attempts) * 100)
+
     resp_counts = {}
     r_stmt = select(StudentResponse.question_id, func.count(StudentResponse.id)).group_by(StudentResponse.question_id)
     r_res = await db.execute(r_stmt)
@@ -119,7 +126,7 @@ async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = No
         1 for q in questions if (resp_counts.get(q.id, 0) >= 10 or (getattr(q, "is_calibrated", False) and getattr(q, "response_count", 0) >= 10))
     )
 
-    # 2. Exams stats
+    # 4. Exams stats
     e_stmt = select(Exam).where(Exam.status != "archived")
     if user_id:
         e_stmt = e_stmt.where(Exam.created_by == user_id)
@@ -127,7 +134,7 @@ async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = No
     exams = e_res.scalars().all()
     total_exams = len(exams)
 
-    # 3. Classes stats
+    # 5. Classes stats
     c_stmt = select(Class)
     if user_id:
         c_stmt = c_stmt.where(Class.teacher_id == user_id)
@@ -135,7 +142,7 @@ async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = No
     classes = c_res.scalars().all()
     total_classes = len(classes)
 
-    # 4. Total students across classes
+    # 6. Total students across classes
     m_stmt = select(func.count(func.distinct(ClassMember.user_id)))
     if user_id and classes:
         m_stmt = m_stmt.where(ClassMember.class_id.in_([c.id for c in classes]))
@@ -148,8 +155,15 @@ async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = No
         "calibrated_questions": calibrated_count,
         "uncalibrated_questions": max(0, total_questions - calibrated_count),
         "total_exams": total_exams,
+        "total_assignments": assign_count,
+        "total_attempts": total_attempts,
         "total_classes": total_classes,
         "total_students": total_students,
+        "average_score": avg_score,
+        "pass_rate": pass_rate,
+        "bloom_distribution": bloom_dist,
+        "difficulty_distribution": diff_dist,
+        "type_distribution": type_dist,
     }
 
 

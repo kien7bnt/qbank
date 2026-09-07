@@ -18,6 +18,7 @@ import type {
   RubricCreate,
   EssayGrading,
   EssayGradingReview,
+  ExamTakingState,
   MatrixGridValidateRequest,
   MatrixGridValidateResult,
   ExamVariant,
@@ -247,11 +248,20 @@ export const rubricApi = {
   gradeEssay: (responseId: string, rubricId?: string) =>
     apiClient.post<EssayGrading>(`/essay-grading/${responseId}/grade`, { rubric_id: rubricId }),
 
+  autoGradeEssay: (data: { response_id: string; rubric_id?: string }) =>
+    apiClient.post<EssayGrading>('/ai/essay-grade', data),
+
   getEssayGrading: (responseId: string) =>
     apiClient.get<EssayGrading>(`/essay-grading/${responseId}`),
 
   reviewEssay: (gradingId: string, data: { new_score: number; comment?: string; action?: 'override' | 'confirm' }) =>
     apiClient.post<EssayGradingReview>(`/essay-grading/${gradingId}/review`, data),
+
+  reviewEssayGrading: (
+    responseId: string,
+    data: { final_score: number; final_feedback?: string }
+  ) =>
+    apiClient.post<EssayGrading>(`/essay-grading/${responseId}/review`, data),
 };
 
 // ─── Exam Matrix API ─────────────────────────────────────────────────────────
@@ -374,6 +384,8 @@ export const assignmentApi = {
 
   retry: (assignmentId: string) => apiClient.post(`/assignments/${assignmentId}/retry`),
 
+  getState: (attemptId: string) => apiClient.get<ExamTakingState>(`/attempts/${attemptId}/state`),
+
   saveResponse: (attemptId: string, data: { question_id: string; selected_option_id?: string; text_response?: string; code_response?: string }) =>
     apiClient.post(`/attempts/${attemptId}/responses`, data),
 
@@ -381,7 +393,15 @@ export const assignmentApi = {
 
   result: (attemptId: string) => apiClient.get(`/attempts/${attemptId}/result`),
 
-  getState: (attemptId: string) => apiClient.get(`/attempts/${attemptId}/state`),
+  uploadAttachment: (attemptId: string, questionId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post<{ file_url: string; file_name: string; file_size: number; file_type: string }>(
+      `/attempts/${attemptId}/questions/${questionId}/upload`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+  },
 
   history: () => apiClient.get('/student/history'),
 };

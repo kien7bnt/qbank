@@ -35,6 +35,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount uploads directory for static access (attachments, document previews)
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
+UPLOAD_DIR = Path(__file__).parent / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
 # Routers
 PREFIX = "/api/v1"
 app.include_router(auth.router, prefix=PREFIX)
