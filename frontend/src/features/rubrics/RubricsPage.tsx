@@ -37,10 +37,10 @@ const TEMPLATE_ESSAY_GENERAL: RubricCreate = {
       weight: 40,
       max_score: 4,
       levels: [
-        { score: 4, level_name: 'Xuất sắc', description: 'Đáp ứng đầy đủ, chính xác mọi yêu cầu cốt lõi; có hiểu biết sâu sắc và mở rộng liên hệ thực tế.' },
-        { score: 3, level_name: 'Tốt', description: 'Nắm vững các luận điểm chính, lập luận đúng hướng nhưng đôi chỗ chưa đào sâu.' },
-        { score: 2, level_name: 'Đạt yêu cầu', description: 'Nêu được một số ý cơ bản nhưng còn thiếu sót hoặc có một vài nhầm lẫn nhỏ.' },
-        { score: 1, level_name: 'Chưa đạt', description: 'Nội dung sơ sài, sai lệch trọng tâm hoặc không trả lời đúng câu hỏi.' },
+        { score: 4, level_name: '4', description: 'Đáp ứng đầy đủ, chính xác mọi yêu cầu cốt lõi; có hiểu biết sâu sắc và mở rộng liên hệ thực tế.' },
+        { score: 3, level_name: '3', description: 'Nắm vững các luận điểm chính, lập luận đúng hướng nhưng đôi chỗ chưa đào sâu.' },
+        { score: 2, level_name: '2', description: 'Nêu được một số ý cơ bản nhưng còn thiếu sót hoặc có một vài nhầm lẫn nhỏ.' },
+        { score: 1, level_name: '1', description: 'Nội dung sơ sài, sai lệch trọng tâm hoặc không trả lời đúng câu hỏi.' },
       ],
     },
     {
@@ -49,10 +49,10 @@ const TEMPLATE_ESSAY_GENERAL: RubricCreate = {
       weight: 35,
       max_score: 3.5,
       levels: [
-        { score: 3.5, level_name: 'Xuất sắc', description: 'Lập luận logic chặt chẽ, dẫn chứng cụ thể, phân tích sắc sảo và rõ ràng.' },
-        { score: 2.5, level_name: 'Tốt', description: 'Có dẫn chứng và lập luận tương đối rõ ràng, tính thuyết phục tốt.' },
-        { score: 1.5, level_name: 'Đạt yêu cầu', description: 'Có dẫn chứng nhưng còn chung chung, lập luận đôi lúc rời rạc.' },
-        { score: 0.5, level_name: 'Chưa đạt', description: 'Không có dẫn chứng hoặc lập luận cảm tính, thiếu căn cứ logic.' },
+        { score: 3.5, level_name: '4', description: 'Lập luận logic chặt chẽ, dẫn chứng cụ thể, phân tích sắc sảo và rõ ràng.' },
+        { score: 2.5, level_name: '3', description: 'Có dẫn chứng và lập luận tương đối rõ ràng, tính thuyết phục tốt.' },
+        { score: 1.5, level_name: '2', description: 'Có dẫn chứng nhưng còn chung chung, lập luận đôi lúc rời rạc.' },
+        { score: 0.5, level_name: '1', description: 'Không có dẫn chứng hoặc lập luận cảm tính, thiếu căn cứ logic.' },
       ],
     },
     {
@@ -61,10 +61,10 @@ const TEMPLATE_ESSAY_GENERAL: RubricCreate = {
       weight: 25,
       max_score: 2.5,
       levels: [
-        { score: 2.5, level_name: 'Xuất sắc', description: 'Văn phong mạch lạc, cấu trúc rõ ràng, dùng từ chuẩn xác, không lỗi chính tả.' },
-        { score: 2.0, level_name: 'Tốt', description: 'Trình bày tốt, cấu trúc đoạn rõ ràng, có thể có 1-2 lỗi ngữ pháp nhỏ.' },
-        { score: 1.0, level_name: 'Đạt yêu cầu', description: 'Diễn đạt tạm ổn nhưng câu văn đôi chỗ rườm rà hoặc mắc lỗi chính tả.' },
-        { score: 0.5, level_name: 'Chưa đạt', description: 'Trình bày cẩu thả, nhiều lỗi chính tả, câu văn khó hiểu.' },
+        { score: 2.5, level_name: '4', description: 'Văn phong mạch lạc, cấu trúc rõ ràng, dùng từ chuẩn xác, không lỗi chính tả.' },
+        { score: 2.0, level_name: '3', description: 'Trình bày tốt, cấu trúc đoạn rõ ràng, có thể có 1-2 lỗi ngữ pháp nhỏ.' },
+        { score: 1.0, level_name: '2', description: 'Diễn đạt tạm ổn nhưng câu văn đôi chỗ rườm rà hoặc mắc lỗi chính tả.' },
+        { score: 0.5, level_name: '1', description: 'Trình bày cẩu thả, nhiều lỗi chính tả, câu văn khó hiểu.' },
       ],
     },
   ],
@@ -104,10 +104,10 @@ export function RubricsPage() {
       weight: 30,
       max_score: 3.0,
       levels: [
-        { score: 3.0, level_name: 'Mức 4', description: 'Trình bày chính xác, đầy đủ và sâu sắc...' },
-        { score: 2.0, level_name: 'Mức 3', description: 'Đủ ý chính, lập luận đúng hướng...' },
-        { score: 1.0, level_name: 'Mức 2', description: 'Thiếu một vài ý cơ bản...' },
-        { score: 0.5, level_name: 'Mức 1', description: 'Nội dung sơ sài, sai lệch...' },
+        { score: 3.0, level_name: '4', description: 'Trình bày chính xác, đầy đủ và sâu sắc...' },
+        { score: 2.0, level_name: '3', description: 'Đủ ý chính, lập luận đúng hướng...' },
+        { score: 1.0, level_name: '2', description: 'Thiếu một vài ý cơ bản...' },
+        { score: 0.5, level_name: '1', description: 'Nội dung sơ sài, sai lệch...' },
       ],
     },
   ]);
@@ -167,10 +167,10 @@ export function RubricsPage() {
         weight: 30,
         max_score: 3.0,
         levels: [
-          { score: 3.0, level_name: 'Mức 4', description: 'Trình bày chính xác, đầy đủ và sâu sắc...' },
-          { score: 2.0, level_name: 'Mức 3', description: 'Đủ ý chính, lập luận đúng hướng...' },
-          { score: 1.0, level_name: 'Mức 2', description: 'Thiếu một vài ý cơ bản...' },
-          { score: 0.5, level_name: 'Mức 1', description: 'Nội dung sơ sài, sai lệch...' },
+          { score: 3.0, level_name: '4', description: 'Trình bày chính xác, đầy đủ và sâu sắc...' },
+          { score: 2.0, level_name: '3', description: 'Đủ ý chính, lập luận đúng hướng...' },
+          { score: 1.0, level_name: '2', description: 'Thiếu một vài ý cơ bản...' },
+          { score: 0.5, level_name: '1', description: 'Nội dung sơ sài, sai lệch...' },
         ],
       },
     ]);
@@ -188,7 +188,7 @@ export function RubricsPage() {
         max_score: c.max_score,
         levels: c.levels.map((l) => ({
           score: l.score,
-          level_name: l.level_name,
+          level_name: (l.level_name || '').replace(/^Mức\s*/i, ''),
           description: l.description,
         })),
       }))
@@ -212,10 +212,10 @@ export function RubricsPage() {
         weight: 20,
         max_score: 3.0,
         levels: [
-          { score: 3.0, level_name: 'Mức 4', description: 'Trình bày chính xác, đầy đủ và sâu sắc...' },
-          { score: 2.0, level_name: 'Mức 3', description: 'Đủ ý chính, đúng hướng...' },
-          { score: 1.0, level_name: 'Mức 2', description: 'Thiếu một vài ý cơ bản...' },
-          { score: 0.5, level_name: 'Mức 1', description: 'Nội dung sơ sài...' },
+          { score: 3.0, level_name: '4', description: 'Trình bày chính xác, đầy đủ và sâu sắc...' },
+          { score: 2.0, level_name: '3', description: 'Đủ ý chính, đúng hướng...' },
+          { score: 1.0, level_name: '2', description: 'Thiếu một vài ý cơ bản...' },
+          { score: 0.5, level_name: '1', description: 'Nội dung sơ sài...' },
         ],
       },
     ]);
@@ -239,7 +239,7 @@ export function RubricsPage() {
     const nextLevelNum = lvls.length + 1;
     lvls.push({
       score: 0,
-      level_name: `Mức ${nextLevelNum}`,
+      level_name: `${nextLevelNum}`,
       description: '',
     });
     next[cIdx].levels = lvls;
@@ -706,7 +706,7 @@ export function RubricsPage() {
                       <table className="w-full text-left text-xs">
                         <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-bold uppercase text-[10px]">
                           <tr>
-                            <th className="py-2.5 px-3 w-28 sm:w-36">Mức</th>
+                            <th className="py-2.5 px-3 w-20 sm:w-24 text-center">Mức</th>
                             <th className="py-2.5 px-3 w-24 sm:w-28">Điểm</th>
                             <th className="py-2.5 px-3">Mô tả</th>
                             <th className="py-2.5 px-2 w-8 text-center"></th>
@@ -715,13 +715,13 @@ export function RubricsPage() {
                         <tbody className="divide-y divide-gray-100">
                           {crit.levels.map((lvl, lIdx) => (
                             <tr key={lIdx} className="hover:bg-purple-50/20 transition-colors">
-                              <td className="p-2">
+                              <td className="p-2 w-20 sm:w-24">
                                 <input
                                   type="text"
                                   value={lvl.level_name}
                                   onChange={(e) => handleUpdateLevel(cIdx, lIdx, 'level_name', e.target.value)}
-                                  className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 bg-white"
-                                  placeholder={`Mức ${crit.levels.length - lIdx}`}
+                                  className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs font-bold text-center text-gray-800 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 bg-white"
+                                  placeholder={`${crit.levels.length - lIdx}`}
                                 />
                               </td>
                               <td className="p-2">
