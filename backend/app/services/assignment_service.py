@@ -530,9 +530,9 @@ async def save_response(db: AsyncSession, attempt_id: uuid.UUID, data: SaveRespo
 async def _bg_grade_attempt_essays(attempt_id: uuid.UUID):
     """Chấm điểm tự luận nền qua AI sau khi học sinh nộp bài"""
     try:
-        from app.db.session import async_session_factory
-        from app.services.essay_grading_service import grade_student_essay_response
-        async with async_session_factory() as session:
+        from app.db.session import AsyncSessionLocal
+        from app.services.essay_grading_service import grade_student_essay_response, _recalculate_attempt_total_score
+        async with AsyncSessionLocal() as session:
             stmt = (
                 select(StudentResponse)
                 .where(StudentResponse.attempt_id == attempt_id)
@@ -546,6 +546,17 @@ async def _bg_grade_attempt_essays(attempt_id: uuid.UUID):
                         await grade_student_essay_response(session, r.id)
                     except Exception as q_err:
                         logger.error(f"Error grading essay response {r.id}: {q_err}", exc_info=True)
+                        r.feedback = f"Lỗi trong quá trình AI chấm điểm: {str(q_err)}"
+                        r.points_earned = 0.0
+                        r.is_correct = False
+                        await session.commit()
+
+            # Ensure attempt total score is always recalculated and attempt status is marked as 'graded'
+            try:
+                await _recalculate_attempt_total_score(session, attempt_id)
+                await session.commit()
+            except Exception as rec_err:
+                logger.error(f"Error recalculating attempt score for {attempt_id}: {rec_err}", exc_info=True)
     except Exception as e:
         logger.error(f"Error in background essay grading for attempt {attempt_id}: {e}", exc_info=True)
 
