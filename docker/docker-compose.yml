@@ -43,7 +43,7 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
       REFRESH_TOKEN_EXPIRE_DAYS: 7
       REDIS_URL: redis://redis:6379/0
-      CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000","https://edumate.com.vn"]'
       DEBUG: "true"
     ports:
       - "8000:8000"
