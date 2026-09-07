@@ -15,6 +15,7 @@ import {
   FolderCheck,
   BookMarked,
   Sparkles,
+  Award,
   X,
 } from 'lucide-react';
 import { useUIStore } from '@/stores/ui.store';
@@ -25,6 +26,8 @@ interface NavItem {
   icon: React.ReactNode;
   to?: string;
   section?: boolean;
+  badge?: string;
+  disabled?: boolean;
 }
 
 const TEACHER_NAV_ITEMS: NavItem[] = [
@@ -33,47 +36,43 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
     icon: <LayoutDashboard className="h-4 w-4" />,
     to: '/dashboard',
   },
-  { label: 'QUẢN LÝ ĐÀO TẠO', section: true, icon: <></> },
+  { label: 'A. KHO LƯU TRỮ', section: true, icon: <></> },
   {
-    label: 'Quản lý lớp học',
-    icon: <GraduationCap className="h-4 w-4" />,
-    to: '/classes',
-  },
-  {
-    label: 'Kho tài liệu',
-    icon: <BookMarked className="h-4 w-4" />,
+    label: '1. Kho tài liệu',
+    icon: <BookMarked className="h-4 w-4 text-amber-600" />,
     to: '/document-library',
   },
   {
-    label: 'Bài kiểm tra',
-    icon: <ClipboardList className="h-4 w-4" />,
-    to: '/assignments?type=exam',
-  },
-  {
-    label: 'Bài tập',
-    icon: <BookOpen className="h-4 w-4" />,
-    to: '/assignments?type=homework',
-  },
-  { label: 'NGÂN HÀNG & ĐỀ THI', section: true, icon: <></> },
-  {
-    label: 'Ngân hàng câu hỏi',
-    icon: <Database className="h-4 w-4" />,
+    label: '2. Ngân hàng câu hỏi',
+    icon: <Database className="h-4 w-4 text-blue-600" />,
     to: '/question-bank',
   },
   {
-    label: 'Kho bài tập',
+    label: '3. Kho bài tập',
     icon: <FolderCheck className="h-4 w-4 text-emerald-600" />,
     to: '/exercises',
   },
   {
-    label: 'Kho đề kiểm tra',
+    label: '4. Kho bài kiểm tra',
     icon: <FileText className="h-4 w-4 text-purple-600" />,
     to: '/exams',
   },
   {
     label: 'Ma trận đề',
-    icon: <CheckSquare className="h-4 w-4" />,
+    icon: <CheckSquare className="h-4 w-4 text-indigo-600" />,
     to: '/exam-matrices',
+  },
+  {
+    label: '5. Kho đề thi',
+    icon: <Award className="h-4 w-4 text-gray-400" />,
+    badge: 'Sắp có',
+    disabled: true,
+  },
+  { label: 'B. LỚP HỌC CỦA TÔI', section: true, icon: <></> },
+  {
+    label: 'Lớp học của tôi',
+    icon: <GraduationCap className="h-4 w-4 text-primary-600" />,
+    to: '/classes',
   },
   { label: 'TRÍ TUỆ NHÂN TẠO', section: true, icon: <></> },
   {
@@ -98,22 +97,12 @@ const STUDENT_NAV_ITEMS: NavItem[] = [
   { label: 'GÓC HỌC TẬP', section: true, icon: <></> },
   {
     label: 'Lớp học của tôi',
-    icon: <GraduationCap className="h-4 w-4" />,
+    icon: <GraduationCap className="h-4 w-4 text-primary-600" />,
     to: '/classes',
   },
   {
-    label: 'Bài tập',
-    icon: <BookOpen className="h-4 w-4" />,
-    to: '/assignments?type=homework',
-  },
-  {
-    label: 'Bài kiểm tra',
-    icon: <ClipboardList className="h-4 w-4" />,
-    to: '/assignments?type=exam',
-  },
-  {
     label: 'Lịch sử làm bài',
-    icon: <History className="h-4 w-4" />,
+    icon: <History className="h-4 w-4 text-gray-600" />,
     to: '/student-history',
   },
 ];
@@ -155,24 +144,51 @@ export function Sidebar() {
           );
         }
 
+        if (item.disabled) {
+          return (
+            <div
+              key={idx}
+              className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-gray-400 select-none opacity-60 cursor-not-allowed"
+              title="Tính năng đang được phát triển"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="shrink-0">{item.icon}</span>
+                {(isMobileView || !collapsed) && <span className="truncate">{item.label}</span>}
+              </div>
+              {(isMobileView || !collapsed) && item.badge && (
+                <span className="text-[9px] font-semibold bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded border border-gray-200 shrink-0">
+                  {item.badge}
+                </span>
+              )}
+            </div>
+          );
+        }
+
         const active = isItemActive(item.to);
 
         return (
           <NavLink
-            key={item.to}
+            key={item.to || idx}
             to={item.to!}
             onClick={() => {
               if (isMobileView) closeMobile();
             }}
             className={clsx(
-              'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+              'flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors',
               active
                 ? 'bg-primary-50 text-primary-700 font-semibold'
                 : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
             )}
           >
-            <span className="shrink-0">{item.icon}</span>
-            {(isMobileView || !collapsed) && item.label}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="shrink-0">{item.icon}</span>
+              <span className="truncate">{(isMobileView || !collapsed) && item.label}</span>
+            </div>
+            {(isMobileView || !collapsed) && item.badge && (
+              <span className="text-[9px] font-semibold bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded shrink-0">
+                {item.badge}
+              </span>
+            )}
           </NavLink>
         );
       })}

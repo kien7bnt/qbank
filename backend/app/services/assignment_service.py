@@ -112,7 +112,9 @@ async def delete_assignment(db: AsyncSession, assignment_id: uuid.UUID) -> bool:
     return True
 
 
-async def list_student_assignments(db: AsyncSession, user_id: uuid.UUID) -> List[Dict[str, Any]]:
+async def list_student_assignments(
+    db: AsyncSession, user_id: uuid.UUID, class_id: Optional[uuid.UUID] = None
+) -> List[Dict[str, Any]]:
     """Get all assignments for classes the student is enrolled in"""
     # 1. Find classes student joined
     member_stmt = select(ClassMember.class_id).where(ClassMember.user_id == user_id)
@@ -121,6 +123,13 @@ async def list_student_assignments(db: AsyncSession, user_id: uuid.UUID) -> List
 
     if not class_ids:
         return []
+
+    if class_id:
+        if class_id not in class_ids:
+            return []
+        filter_class_ids = [class_id]
+    else:
+        filter_class_ids = class_ids
 
     stmt = (
         select(Assignment)
@@ -131,7 +140,7 @@ async def list_student_assignments(db: AsyncSession, user_id: uuid.UUID) -> List
         )
         .where(
             and_(
-                Assignment.class_id.in_(class_ids),
+                Assignment.class_id.in_(filter_class_ids),
                 Assignment.status.in_(["published", "closed"])
             )
         )

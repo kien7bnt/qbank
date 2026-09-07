@@ -15,6 +15,7 @@ import {
   FolderKanban,
   FileCheck2,
   Edit,
+  ClipboardCheck,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -27,6 +28,7 @@ import { Modal } from '@/components/ui/Modal';
 import { ClassStatusBadge } from '@/components/ui/Badge';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { ClassSessionsTab } from './ClassSessionsTab';
+import { ClassAssignmentsTab } from './ClassAssignmentsTab';
 import { EditClassModal } from './EditClassModal';
 
 export function ClassDetailPage() {
@@ -36,7 +38,7 @@ export function ClassDetailPage() {
   const { user, activeRole } = useAuthStore();
   const isTeacher = activeRole === 'teacher' && (user?.roles.includes('teacher') || user?.roles.includes('admin'));
 
-  const [activeTab, setActiveTab] = useState<'sessions' | 'members'>('sessions');
+  const [activeTab, setActiveTab] = useState<'sessions' | 'assignments' | 'members'>('sessions');
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -198,6 +200,18 @@ export function ClassDetailPage() {
         </button>
 
         <button
+          onClick={() => setActiveTab('assignments')}
+          className={`flex items-center gap-2 pb-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'assignments'
+              ? 'border-primary-600 text-primary-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          <ClipboardCheck className="h-4 w-4" />
+          <span>Bài tập & Kiểm tra</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('members')}
           className={`flex items-center gap-2 pb-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
             activeTab === 'members'
@@ -213,6 +227,10 @@ export function ClassDetailPage() {
       {/* Tab Contents */}
       {activeTab === 'sessions' && (
         <ClassSessionsTab classId={id!} isTeacher={Boolean(isTeacher)} />
+      )}
+
+      {activeTab === 'assignments' && (
+        <ClassAssignmentsTab classId={id!} isTeacher={Boolean(isTeacher)} />
       )}
 
       {activeTab === 'members' && (

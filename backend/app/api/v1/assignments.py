@@ -72,7 +72,7 @@ async def list_assignments(
         ]
     else:
         # Student view
-        return await assignment_service.list_student_assignments(db, current_user.id)
+        return await assignment_service.list_student_assignments(db, current_user.id, class_id=class_id)
 
 
 @router.get("/assignments/{assignment_id}")
