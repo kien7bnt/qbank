@@ -72,18 +72,18 @@ export function QuestionDetailDrawer({ questionId, onClose }: QuestionDetailDraw
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-30 bg-black/20"
+        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs transition-opacity"
         onClick={onClose}
       />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 bottom-0 z-40 w-[480px] flex flex-col bg-white shadow-2xl animate-fade-in">
+      <div className="fixed right-0 top-0 bottom-0 z-50 w-full sm:w-[480px] max-w-full flex flex-col bg-white shadow-2xl animate-fade-in">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between border-b border-gray-100 px-4 sm:px-5 py-3.5 sm:py-4 bg-white shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
             {q && (
               <>
-                <span className="font-mono text-sm text-gray-500">{q.item_id}</span>
+                <span className="font-mono text-xs sm:text-sm font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded">{q.item_id}</span>
                 <QuestionTypeBadge type={q.type} />
                 <QuestionStatusBadge status={q.status} />
               </>
@@ -91,22 +91,22 @@ export function QuestionDetailDrawer({ questionId, onClose }: QuestionDetailDraw
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition-colors shrink-0 ml-2"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-w-0">
           {isLoading ? (
             <PageSpinner />
           ) : q ? (
-            <div className="p-5 space-y-5">
+            <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
               {/* Stem */}
-              <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">Nội dung câu hỏi</p>
-                <p className="text-gray-900 whitespace-pre-wrap">{q.stem}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-1">Nội dung câu hỏi</p>
+                <p className="text-sm sm:text-base text-gray-900 whitespace-pre-wrap font-medium leading-relaxed break-words">{q.stem}</p>
               </div>
 
               {/* MCQ Options */}
@@ -132,12 +132,12 @@ export function QuestionDetailDrawer({ questionId, onClose }: QuestionDetailDraw
                             </span>
                           )}
                         </div>
-                        <div className="flex-1">
-                          <p className={`text-sm ${opt.is_correct ? 'font-medium text-green-800' : 'text-gray-700'}`}>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs sm:text-sm ${opt.is_correct ? 'font-medium text-green-800' : 'text-gray-700'} break-words leading-relaxed`}>
                             {opt.text}
                           </p>
                           {opt.distractor_reason && (
-                            <p className="mt-0.5 text-xs text-gray-400 italic">
+                            <p className="mt-0.5 text-xs text-gray-400 italic break-words">
                               Lý do nhiễu: {opt.distractor_reason}
                             </p>
                           )}
@@ -150,9 +150,9 @@ export function QuestionDetailDrawer({ questionId, onClose }: QuestionDetailDraw
 
               {/* Essay */}
               {q.type === 'essay' && q.essay_data && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">Đáp án mẫu</p>
-                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm text-gray-700 whitespace-pre-wrap">
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-1">Đáp án mẫu</p>
+                  <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 text-xs sm:text-sm text-gray-700 whitespace-pre-wrap break-words">
                     {q.essay_data.sample_answer ?? 'Chưa có đáp án mẫu'}
                   </div>
                   <p className="mt-1 text-xs text-gray-400">Điểm tối đa: {q.essay_data.max_points}</p>
@@ -161,9 +161,9 @@ export function QuestionDetailDrawer({ questionId, onClose }: QuestionDetailDraw
 
               {/* Rationale */}
               {q.rationale && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">Giải thích</p>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{q.rationale}</p>
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-1">Giải thích</p>
+                  <p className="text-xs sm:text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed">{q.rationale}</p>
                 </div>
               )}
 
@@ -412,11 +412,11 @@ export function QuestionDetailDrawer({ questionId, onClose }: QuestionDetailDraw
 
         {/* Footer */}
         {q && (
-          <div className="border-t border-gray-100 px-5 py-3 flex gap-2 flex-wrap">
+          <div className="border-t border-gray-100 px-4 sm:px-5 py-3 flex gap-2 flex-wrap bg-white shrink-0">
             <Button
               size="sm"
               variant="secondary"
-              className="flex-1"
+              className="flex-1 text-xs sm:text-sm"
               onClick={() => setEditOpen(true)}
             >
               <Edit3 className="h-4 w-4 mr-1" />
@@ -425,7 +425,7 @@ export function QuestionDetailDrawer({ questionId, onClose }: QuestionDetailDraw
             <Button
               size="sm"
               variant="outline"
-              className="text-red-600 hover:bg-red-50 hover:border-red-200"
+              className="text-red-600 hover:bg-red-50 hover:border-red-200 text-xs sm:text-sm"
               loading={deleteMutation.isPending}
               onClick={() => {
                 if (confirm(`Bạn có chắc muốn xóa câu hỏi ${q.item_id}?`)) {
@@ -438,7 +438,7 @@ export function QuestionDetailDrawer({ questionId, onClose }: QuestionDetailDraw
             </Button>
             <Button 
               size="sm" 
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white mt-2"
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white mt-1 text-xs sm:text-sm"
               loading={reviewMutation.isPending}
               onClick={() => reviewMutation.mutate()}
             >
