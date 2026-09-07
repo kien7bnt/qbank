@@ -62,8 +62,8 @@ async def grade_student_essay_response(
     sample_answer = ""
     if essay_data and essay_data.sample_answer:
         sample_answer = essay_data.sample_answer.strip()
-    elif question.explanation:
-        sample_answer = question.explanation.strip()
+    elif getattr(question, "rationale", None):
+        sample_answer = question.rationale.strip()
 
     max_points = essay_data.max_points if (essay_data and essay_data.max_points) else None
     if not max_points and student_response.attempt and student_response.attempt.question_snapshot:
