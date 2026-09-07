@@ -53,12 +53,21 @@ export function ExamResultPage() {
       <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6">
         {/* Top Actions */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link to="/assignments">
-            <Button variant="ghost" size="sm" className="text-xs sm:text-sm">
-              <ArrowLeft className="h-4 w-4 mr-1.5" />
-              Quay lại danh sách
-            </Button>
-          </Link>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs sm:text-sm"
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/exercises');
+              }
+            }}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1.5" />
+            Quay lại
+          </Button>
 
           {result.can_retry && result.assignment_id && (
             <Button

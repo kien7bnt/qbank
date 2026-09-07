@@ -15,6 +15,7 @@ import {
   X,
   Code2,
   BookOpen,
+  ArrowLeft,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -193,8 +194,16 @@ export function ExamTakingPage() {
         <p className="text-sm text-gray-500 max-w-md">
           {getErrorMessage(error) || 'Lượt làm bài không tồn tại hoặc đã được nộp chấm điểm.'}
         </p>
-        <Button onClick={() => navigate('/assignments')}>
-          Quay lại danh sách bài kiểm tra
+        <Button
+          onClick={() => {
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else {
+              navigate('/exercises');
+            }
+          }}
+        >
+          Quay lại
         </Button>
       </div>
     );
@@ -279,7 +288,23 @@ export function ExamTakingPage() {
       <header className="bg-white border-b border-gray-200 px-3 sm:px-6 py-2.5 sm:py-3 sticky top-0 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
           {/* Left Info */}
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm('Bạn có muốn tạm dừng và quay lại không? Tiến độ làm bài của bạn đã được tự động lưu.')) {
+                  if (window.history.length > 1) {
+                    navigate(-1);
+                  } else {
+                    navigate('/exercises');
+                  }
+                }
+              }}
+              title="Quay lại"
+              className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors shrink-0"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
             <div className="p-1.5 sm:p-2 bg-primary-50 rounded-lg text-primary-600 font-bold text-xs sm:text-sm shrink-0">
               Edumate
             </div>

@@ -258,58 +258,48 @@ export function CreateExerciseModal({
       }
     >
       <div className="space-y-4 py-1">
-        {/* A. Tên bài tập */}
-        <div>
-          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-            A. Tên bài tập <span className="text-rose-500">*</span>
-          </label>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ví dụ: Bài tập tuần 3 - Phương trình lượng giác và đồ thị hàm số..."
-            className="text-sm font-medium"
-            autoFocus
-          />
+        {/* 2 Tab chính: Chọn từ ngân hàng câu hỏi & Soạn câu hỏi mới */}
+        <div className="flex items-center border-b border-gray-200">
+          <button
+            type="button"
+            onClick={() => setActiveTab('picker')}
+            className={clsx(
+              'flex-1 py-2.5 px-4 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center justify-center gap-2 cursor-pointer',
+              activeTab === 'picker'
+                ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            )}
+          >
+            <FolderTree className="h-4 w-4 text-emerald-600" />
+            <span>Chọn từ ngân hàng câu hỏi</span>
+            <span
+              className={clsx(
+                'px-2 py-0.5 rounded-full text-xs font-bold',
+                questionIds.length > 0 ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'
+              )}
+            >
+              {questionIds.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('create')}
+            className={clsx(
+              'flex-1 py-2.5 px-4 text-xs sm:text-sm font-semibold border-b-2 transition-all flex items-center justify-center gap-2 cursor-pointer',
+              activeTab === 'create'
+                ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            )}
+          >
+            <PlusCircle className="h-4 w-4 text-emerald-600" />
+            <span>Soạn câu hỏi mới</span>
+          </button>
         </div>
 
-        {/* B. Hai Tab chọn câu hỏi */}
+        {/* Nội dung câu hỏi theo tab */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between border-b border-gray-200 pb-2">
-            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-              B. Nội dung câu hỏi trong bài tập *
-            </label>
-
-            <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl text-xs">
-              <button
-                type="button"
-                onClick={() => setActiveTab('picker')}
-                className={clsx(
-                  'px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5',
-                  activeTab === 'picker'
-                    ? 'bg-white text-emerald-800 shadow-xs font-semibold'
-                    : 'text-gray-600 hover:text-gray-900'
-                )}
-              >
-                <FolderTree className="h-3.5 w-3.5 text-emerald-600" />
-                Chọn từ kho câu hỏi ({questionIds.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('create')}
-                className={clsx(
-                  'px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5',
-                  activeTab === 'create'
-                    ? 'bg-white text-emerald-800 shadow-xs font-semibold'
-                    : 'text-gray-600 hover:text-gray-900'
-                )}
-              >
-                <PlusCircle className="h-3.5 w-3.5 text-emerald-600" />
-                Soạn câu hỏi mới
-              </button>
-            </div>
-          </div>
-
-          {/* TAB A: Sổ ra câu hỏi dạng cây Windows Explorer */}
+          {/* TAB 1: Sổ ra câu hỏi dạng cây */}
           {activeTab === 'picker' && (
             <div className="space-y-2">
               <p className="text-xs text-gray-500">
@@ -569,6 +559,19 @@ export function CreateExerciseModal({
               </div>
             </div>
           )}
+        </div>
+
+        {/* Tên bài tập */}
+        <div className="pt-3 border-t border-gray-200">
+          <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+            Tên bài tập <span className="text-rose-500">*</span>
+          </label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ví dụ: Bài tập tuần 3 - Phương trình lượng giác và đồ thị hàm số..."
+            className="text-sm font-medium"
+          />
         </div>
       </div>
     </Modal>
