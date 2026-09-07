@@ -1,10 +1,14 @@
 import uuid
 import random
+import asyncio
+import logging
 from typing import Sequence, Optional, List, Dict, Any
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
 from sqlalchemy.orm import selectinload
+
+logger = logging.getLogger(__name__)
 
 from app.models.assignment import Assignment, ExamAttempt, StudentResponse
 from app.models.exam import Exam, ExamSection, ExamQuestion
@@ -483,12 +487,15 @@ async def get_attempt_state(db: AsyncSession, attempt_id: uuid.UUID, user_id: uu
 
 
 async def save_response(db: AsyncSession, attempt_id: uuid.UUID, data: SaveResponseRequest, user_id: uuid.UUID) -> bool:
-    # Verify attempt belongs to user and is in_progress
+    # Verify attempt belongs to user
     stmt = select(ExamAttempt).where(and_(ExamAttempt.id == attempt_id, ExamAttempt.user_id == user_id))
     res = await db.execute(stmt)
     attempt = res.scalar_one_or_none()
-    if not attempt or attempt.status != "in_progress":
+    if not attempt:
         return False
+    if attempt.status != "in_progress":
+        # Bài thi đã được nộp hoặc đã chấm xong; cho phép request nền kết thúc êm đẹp không báo lỗi
+        return True
 
     # Check if response already exists
     r_stmt = select(StudentResponse).where(
@@ -508,13 +515,39 @@ async def save_response(db: AsyncSession, attempt_id: uuid.UUID, data: SaveRespo
         )
         db.add(resp)
     else:
-        resp.selected_option_id = data.selected_option_id
-        resp.text_response = data.text_response
-        resp.code_response = data.code_response
+        if data.selected_option_id is not None:
+            resp.selected_option_id = data.selected_option_id
+        if data.text_response is not None:
+            resp.text_response = data.text_response
+        if data.code_response is not None:
+            resp.code_response = data.code_response
         resp.answered_at = datetime.utcnow()
 
     await db.commit()
     return True
+
+
+async def _bg_grade_attempt_essays(attempt_id: uuid.UUID):
+    """Chấm điểm tự luận nền qua AI sau khi học sinh nộp bài"""
+    try:
+        from app.db.session import async_session_factory
+        from app.services.essay_grading_service import grade_student_essay_response
+        async with async_session_factory() as session:
+            stmt = (
+                select(StudentResponse)
+                .where(StudentResponse.attempt_id == attempt_id)
+                .options(selectinload(StudentResponse.question))
+            )
+            res = await session.execute(stmt)
+            responses = res.scalars().all()
+            for r in responses:
+                if r.question and r.question.type == "essay" and r.text_response and r.text_response.strip():
+                    try:
+                        await grade_student_essay_response(session, r.id)
+                    except Exception as q_err:
+                        logger.error(f"Error grading essay response {r.id}: {q_err}", exc_info=True)
+    except Exception as e:
+        logger.error(f"Error in background essay grading for attempt {attempt_id}: {e}", exc_info=True)
 
 
 async def submit_and_grade_attempt(db: AsyncSession, attempt_id: uuid.UUID, user_id: uuid.UUID) -> AttemptResultOut:
@@ -629,12 +662,12 @@ async def submit_and_grade_attempt(db: AsyncSession, attempt_id: uuid.UUID, user
                     db.add(blank_resp)
 
         elif q_type == "essay":
-            if resp and resp.text_response and resp.text_response.strip():
-                resp.points_earned = pts
-                resp.is_correct = True
-                total_score += pts
-                correct_count += 1
-                resp.feedback = "Đã nộp bài tự luận thành công."
+            has_text = bool(resp and resp.text_response and resp.text_response.strip())
+            if has_text:
+                # Không tự động cộng tối đa điểm; chuyển trạng thái chờ AI chấm theo Rubric
+                resp.points_earned = 0.0
+                resp.is_correct = None
+                resp.feedback = "Đã nộp bài tự luận. Đang chờ AI đối chiếu đáp án gợi ý và chấm điểm theo Rubric..."
             else:
                 if resp:
                     resp.is_correct = False
@@ -652,12 +685,23 @@ async def submit_and_grade_attempt(db: AsyncSession, attempt_id: uuid.UUID, user
                     db.add(blank_resp)
 
     # 2. Update Attempt status and score
-    attempt.score = round(total_score, 2)
-    if getattr(assignment, "assignment_type", None) in ["homework", "assignment"] or (assignment.pass_score or 0) <= 0:
-        attempt.is_passed = True
+    has_pending_essay = any(
+        q.get("type") == "essay" and resp_map.get(uuid.UUID(q["id"])) and (resp_map.get(uuid.UUID(q["id"])).text_response or "").strip()
+        for q in (attempt.question_snapshot or [])
+    )
+
+    if has_pending_essay:
+        attempt.score = None
+        attempt.is_passed = None
+        attempt.status = "submitted"  # Trạng thái: Đã nộp bài (chờ AI chấm)
     else:
-        attempt.is_passed = attempt.score >= assignment.pass_score
-    attempt.status = "graded"
+        attempt.score = round(total_score, 2)
+        if getattr(assignment, "assignment_type", None) in ["homework", "assignment"] or (assignment.pass_score or 0) <= 0:
+            attempt.is_passed = True
+        else:
+            attempt.is_passed = attempt.score >= (assignment.pass_score or 5.0)
+        attempt.status = "graded"
+
     attempt.submitted_at = datetime.utcnow()
 
     # 3. Update response_count and calibration status for questions
@@ -674,6 +718,10 @@ async def submit_and_grade_attempt(db: AsyncSession, attempt_id: uuid.UUID, user
                     q_obj.is_calibrated = True
 
     await db.commit()
+
+    # Kích hoạt tác vụ AI chấm tự luận chạy nền
+    if has_pending_essay:
+        asyncio.create_task(_bg_grade_attempt_essays(attempt.id))
 
     return await get_attempt_result(db, attempt_id, user_id)
 
@@ -714,7 +762,7 @@ async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_id: u
                 type=q_item["type"],
                 points=pts,
                 points_earned=resp.points_earned if resp else 0.0,
-                is_correct=resp.is_correct if resp else False,
+                is_correct=resp.is_correct if resp else None,
                 selected_option_id=resp.selected_option_id if resp else None,
                 correct_option_id=correct_opt.id if correct_opt else None,
                 text_response=resp.text_response if resp else None,
@@ -739,6 +787,9 @@ async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_id: u
     assignment_type = getattr(assignment, "assignment_type", "exam") or "exam"
     is_homework = (assignment_type == "homework")
 
+    displayed_score = attempt.score if attempt.status == "graded" else None
+    displayed_passed = attempt.is_passed if attempt.status == "graded" else None
+
     return AttemptResultOut(
         attempt_id=attempt.id,
         assignment_id=attempt.assignment_id,
@@ -749,9 +800,9 @@ async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_id: u
         user_name=attempt.user.full_name,
         start_time=attempt.start_time,
         submitted_at=attempt.submitted_at,
-        score=attempt.score,
+        score=displayed_score,
         max_score=attempt.max_score,
-        is_passed=attempt.is_passed,
+        is_passed=displayed_passed,
         status=attempt.status,
         total_questions=len(attempt.question_snapshot or []),
         correct_answers_count=correct_count,

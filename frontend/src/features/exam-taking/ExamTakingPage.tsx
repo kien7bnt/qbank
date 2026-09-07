@@ -122,6 +122,13 @@ export function ExamTakingPage() {
     }
   }, [examState]);
 
+  // Redirect if attempt is already submitted or graded
+  useEffect(() => {
+    if (examState && (examState.status === 'graded' || examState.status === 'submitted')) {
+      navigate(`/exam-result/${attemptId}`, { replace: true });
+    }
+  }, [examState, attemptId, navigate]);
+
   // Live Timer Countdown
   useEffect(() => {
     // Homework does not have duration countdown; only check if end_time passed
@@ -161,8 +168,17 @@ export function ExamTakingPage() {
       selected_option_id?: string;
       code_response?: string;
       text_response?: string;
-    }) => assignmentApi.saveResponse(examState!.attempt_id, payload),
-    onError: () => toast.error('Lỗi khi tự động lưu bài làm!'),
+    }) => {
+      if (!examState || examState.status !== 'in_progress') {
+        return Promise.resolve({ data: { status: 'ignored' } } as any);
+      }
+      return assignmentApi.saveResponse(examState.attempt_id, payload);
+    },
+    onError: () => {
+      if (examState?.status === 'in_progress') {
+        toast.error('Lỗi khi tự động lưu bài làm!');
+      }
+    },
   });
 
   // Handle MCQ option selection
@@ -229,7 +245,13 @@ export function ExamTakingPage() {
 
   // Submit Attempt Mutation
   const submitMutation = useMutation({
-    mutationFn: () => assignmentApi.submit(examState!.attempt_id),
+    mutationFn: () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      return assignmentApi.submit(examState!.attempt_id);
+    },
     onSuccess: () => {
       toast.success('Đã nộp bài thành công!');
       navigate(`/exam-result/${examState!.attempt_id}`);

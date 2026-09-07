@@ -59,11 +59,30 @@ async def grade_student_essay_response(
         raise HTTPException(status_code=400, detail="Câu hỏi này không phải là câu hỏi tự luận")
 
     essay_data: Optional[QuestionEssay] = question.essay_data
-    sample_answer = essay_data.sample_answer if essay_data else ""
-    max_points = essay_data.max_points if essay_data else 10.0
+    sample_answer = ""
+    if essay_data and essay_data.sample_answer:
+        sample_answer = essay_data.sample_answer.strip()
+    elif question.explanation:
+        sample_answer = question.explanation.strip()
 
-    # 2. Determine Rubric
+    max_points = essay_data.max_points if (essay_data and essay_data.max_points) else None
+    if not max_points and student_response.attempt and student_response.attempt.question_snapshot:
+        for qs in student_response.attempt.question_snapshot:
+            if str(qs.get("id")) == str(question.id):
+                max_points = float(qs.get("points", 10.0))
+                break
+    if not max_points:
+        max_points = 10.0
+
+    # 2. Determine Rubric (Target or latest active in system)
     target_rubric_id = rubric_id or (essay_data.rubric_id if essay_data else None)
+    if not target_rubric_id:
+        r_default_stmt = select(Rubric).order_by(Rubric.created_at.desc()).limit(1)
+        r_default_res = await db.execute(r_default_stmt)
+        default_rubric = r_default_res.scalar_one_or_none()
+        if default_rubric:
+            target_rubric_id = default_rubric.id
+
     rubric_criteria_list = []
     if target_rubric_id:
         r_stmt = (
@@ -86,13 +105,29 @@ async def grade_student_essay_response(
                     ]
                 })
 
-    # 3. Execute AI Essay Grading Agent
+    # 3. Clean student text (extract text & attachment if JSON)
+    raw_text = student_response.text_response or ""
+    clean_student_answer = raw_text
+    try:
+        trimmed = raw_text.strip()
+        if trimmed.startswith("{") and trimmed.endswith("}"):
+            import json
+            parsed = json.loads(trimmed)
+            if "text" in parsed:
+                clean_student_answer = parsed.get("text", "")
+                if parsed.get("attachment"):
+                    att = parsed["attachment"]
+                    clean_student_answer += f"\n[Học sinh đính kèm tệp bài làm: {att.get('name')} ({att.get('type')})]"
+    except Exception:
+        pass
+
+    # 4. Execute AI Essay Grading Agent
     provider = _get_active_provider()
     agent = EssayGradingAgent(provider=provider)
     output = await agent.run(
         stem=question.stem,
         sample_answer=sample_answer,
-        student_answer=student_response.text_response or "",
+        student_answer=clean_student_answer,
         bloom_level=question.bloom_level or "understand",
         max_points=max_points,
         rubric_data=rubric_criteria_list,
