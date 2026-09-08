@@ -10,11 +10,15 @@ import {
   TrendingUp,
   ChevronDown,
   ArrowRight,
+  Plus,
+  Inbox,
+  GraduationCap,
+  Award,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useAuthStore } from '@/stores/auth.store';
-import { questionApi, classApi, assignmentApi, examApi, exerciseApi } from '@/services/api';
+import { questionApi, classApi, assignmentApi, examApi, exerciseApi, analyticsApi } from '@/services/api';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -24,7 +28,12 @@ export function DashboardPage() {
   const [chartMetric, setChartMetric] = useState<'score' | 'completion' | 'pass'>('score');
   const [tableTab, setTableTab] = useState<'exam' | 'homework'>('exam');
 
-  // Live queries
+  // Live queries directly from real backend database
+  const { data: overviewData } = useQuery({
+    queryKey: ['dashboard-overview', activeRole],
+    queryFn: () => analyticsApi.overview(),
+  });
+
   const { data: questionsData } = useQuery({
     queryKey: ['dashboard-questions'],
     queryFn: () => questionApi.list({ page: 1, page_size: 1 }),
@@ -50,7 +59,13 @@ export function DashboardPage() {
     queryFn: () => assignmentApi.list({ role: activeRole }),
   });
 
-  // Current formatted date: e.g. "Thứ Hai, 08/09/2025" or current day
+  const { data: studentHistoryData } = useQuery({
+    queryKey: ['dashboard-student-history'],
+    queryFn: () => assignmentApi.history(),
+    enabled: !isTeacher,
+  });
+
+  // Current formatted date: e.g. "Thứ Ba, 08/09/2026"
   const formattedDate = useMemo(() => {
     try {
       const raw = format(new Date(), "EEEE, dd/MM/yyyy", { locale: vi });
@@ -60,177 +75,126 @@ export function DashboardPage() {
     }
   }, []);
 
-  const totalQuestionsLive = questionsData?.data?.total ?? 0;
+  const stats = overviewData?.data;
+  const totalQuestionsLive = questionsData?.data?.total ?? stats?.total_questions ?? 0;
   const examsList = examsData?.data ?? [];
   const exercisesList = exercisesData?.data ?? [];
   const classesList = classesData?.data?.items ?? [];
   const assignmentsList = assignmentsData?.data ?? [];
+  const studentHistory = studentHistoryData?.data ?? [];
 
-  // 1. KPI Stats
-  const totalQuestionsDisplay = totalQuestionsLive > 0
-    ? totalQuestionsLive.toLocaleString('vi-VN')
-    : '1.248';
+  // 1. Real KPI Stats calculated from SQLite database
+  const totalQuestionsDisplay = totalQuestionsLive.toLocaleString('vi-VN');
 
-  const totalExamsCount = (examsList.length + exercisesList.length) > 0
-    ? examsList.length + exercisesList.length
-    : 24;
+  const totalExamsCount = stats?.total_exams ?? (examsList.length + exercisesList.length);
 
   const totalSubmissionsLive = assignmentsList.reduce(
     (acc: number, a: any) => acc + (a.total_submissions || 0),
     0
   );
-  const totalSubmissionsDisplay = totalSubmissionsLive > 0 ? totalSubmissionsLive : 856;
+  const totalSubmissionsDisplay = (stats?.total_attempts ?? totalSubmissionsLive ?? 0).toLocaleString('vi-VN');
 
-  const pendingGradingCount = 12;
+  const pendingGradingCount = stats?.pending_grading ?? 0;
 
-  // 2. Class Performance Chart Data
+  // Student stats
+  const completedAttempts = studentHistory.length;
+  const passedAttempts = studentHistory.filter((h: any) => h.is_passed).length;
+  const studentAvgScore = completedAttempts > 0
+    ? (studentHistory.reduce((sum: number, h: any) => sum + (h.score || 0), 0) / completedAttempts).toFixed(1)
+    : '0.0';
+
+  // 2. Class Performance Chart Data (Real data from classes in database)
+  const classPerformance: any[] = stats?.class_performance || [];
+
   const chartClasses = useMemo(() => {
-    if (classesList.length >= 2) {
-      return classesList.slice(0, 5).map((c: any, idx: number) => {
-        const cAssignments = assignmentsList.filter((a: any) => a.class_id === c.id);
-        let sum = 0;
-        let count = 0;
-        cAssignments.forEach((a: any) => {
-          (a.attempts || []).forEach((att: any) => {
-            if (att.score != null) {
-              sum += Number(att.score);
-              count++;
-            }
-          });
-        });
-        const fallbackScore = [7.4, 6.8, 7.9, 6.2, 8.0][idx % 5];
-        const score = count > 0 ? +(sum / count).toFixed(1) : fallbackScore;
+    if (classPerformance.length > 0) {
+      return classPerformance.map((c: any) => {
+        let value = 0;
+        let displayValue = '0';
+
+        if (chartMetric === 'score') {
+          value = c.average_score || 0;
+          displayValue = value.toFixed(1);
+        } else if (chartMetric === 'completion') {
+          value = c.completion_rate || 0;
+          displayValue = `${value}%`;
+        } else if (chartMetric === 'pass') {
+          value = c.pass_rate || 0;
+          displayValue = `${value}%`;
+        }
+
         return {
-          name: c.name || c.code || `Lớp ${idx + 1}`,
-          score: score,
+          id: c.id,
+          name: c.name || c.code || 'Lớp',
+          value,
+          displayValue,
         };
       });
     }
-    // Fallback matching mockup image
-    return [
-      { name: '12A1', score: 7.4 },
-      { name: '12A2', score: 6.8 },
-      { name: '12A3', score: 7.9 },
-      { name: '12A4', score: 6.2 },
-    ];
-  }, [classesList, assignmentsList]);
 
-  // 3. Recent Assignments Table Data
+    if (classesList.length > 0) {
+      return classesList.map((c: any) => ({
+        id: c.id,
+        name: c.name || c.code || 'Lớp',
+        value: 0,
+        displayValue: chartMetric === 'score' ? '0.0' : '0%',
+      }));
+    }
+
+    return [];
+  }, [classPerformance, classesList, chartMetric]);
+
+  // 3. Recent Assignments Table Data (Real rows from assignments in database)
   const tableRows = useMemo(() => {
     const isHw = (t?: string) => t === 'homework' || t === 'assignment';
     const liveFiltered = assignmentsList.filter((a: any) => {
       return tableTab === 'homework' ? isHw(a.assignment_type) : !isHw(a.assignment_type);
     });
 
-    if (liveFiltered.length > 0) {
-      return liveFiltered.slice(0, 6).map((a: any) => {
-        const now = new Date();
-        let status = 'Đang diễn ra';
-        let statusType: 'ongoing' | 'closed' | 'upcoming' = 'ongoing';
+    return liveFiltered.map((a: any) => {
+      const now = new Date();
+      let status = 'Đang diễn ra';
+      let statusType: 'ongoing' | 'closed' | 'upcoming' = 'ongoing';
 
-        if (a.status === 'closed') {
-          status = 'Đã kết thúc';
-          statusType = 'closed';
-        } else if (a.start_time && new Date(a.start_time) > now) {
-          status = 'Sắp diễn ra';
-          statusType = 'upcoming';
-        } else if (a.end_time && new Date(a.end_time) < now) {
-          status = 'Đã kết thúc';
-          statusType = 'closed';
-        }
+      if (a.status === 'closed') {
+        status = 'Đã kết thúc';
+        statusType = 'closed';
+      } else if (a.start_time && new Date(a.start_time) > now) {
+        status = 'Sắp diễn ra';
+        statusType = 'upcoming';
+      } else if (a.end_time && new Date(a.end_time) < now) {
+        status = 'Đã kết thúc';
+        statusType = 'closed';
+      }
 
-        let avg = '-';
+      let avg = '-';
+      if (a.average_score != null) {
+        avg = `${a.average_score}`;
+      } else {
         const scored = (a.attempts || []).filter((att: any) => att.score != null);
         if (scored.length > 0) {
           const s = scored.reduce((acc: number, cur: any) => acc + Number(cur.score), 0);
           avg = (s / scored.length).toFixed(1);
         }
+      }
 
-        const cls = classesList.find((c: any) => c.id === a.class_id);
-        const maxStudents = cls?.member_count || 40;
-        const subCount = a.total_submissions ?? (a.attempts ? a.attempts.length : 0);
+      const cls = classesList.find((c: any) => c.id === a.class_id);
+      const memberCount = a.class_member_count ?? cls?.member_count ?? 0;
+      const subCount = a.total_submissions ?? (a.attempts ? a.attempts.length : 0);
 
-        return {
-          id: a.id,
-          name: a.name,
-          class_name: a.class_name || cls?.name || '12A1',
-          time: a.created_at ? format(new Date(a.created_at), 'dd/MM/yyyy') : '08/09/2025',
-          done_ratio: `${subCount}/${maxStudents}`,
-          avg_score: avg,
-          status,
-          statusType,
-        };
-      });
-    }
-
-    // Fallback rows matching mockup image
-    if (tableTab === 'exam') {
-      return [
-        {
-          id: 'mock-1',
-          name: 'Kiểm tra giữa kỳ Toán 12',
-          class_name: '12A1',
-          time: '08/09/2025',
-          done_ratio: '38/40',
-          avg_score: '7.4',
-          status: 'Đang diễn ra',
-          statusType: 'ongoing' as const,
-        },
-        {
-          id: 'mock-2',
-          name: 'Ôn tập chương I',
-          class_name: '12A2',
-          time: '07/09/2025',
-          done_ratio: '42/42',
-          avg_score: '7.8',
-          status: 'Đã kết thúc',
-          statusType: 'closed' as const,
-        },
-        {
-          id: 'mock-3',
-          name: 'Kiểm tra 15 phút',
-          class_name: '12A1',
-          time: '10/09/2025',
-          done_ratio: '0/40',
-          avg_score: '-',
-          status: 'Sắp diễn ra',
-          statusType: 'upcoming' as const,
-        },
-        {
-          id: 'mock-4',
-          name: 'Kiểm tra học kỳ',
-          class_name: '12A3',
-          time: '05/09/2025',
-          done_ratio: '40/40',
-          avg_score: '8.1',
-          status: 'Đã kết thúc',
-          statusType: 'closed' as const,
-        },
-      ];
-    } else {
-      return [
-        {
-          id: 'mock-hw-1',
-          name: 'Bài tập hàm số lũy thừa & mũ',
-          class_name: '12A1',
-          time: '08/09/2025',
-          done_ratio: '35/40',
-          avg_score: '8.0',
-          status: 'Đang diễn ra',
-          statusType: 'ongoing' as const,
-        },
-        {
-          id: 'mock-hw-2',
-          name: 'Luyện tập phương trình logarit',
-          class_name: '12A2',
-          time: '06/09/2025',
-          done_ratio: '41/42',
-          avg_score: '7.5',
-          status: 'Đã kết thúc',
-          statusType: 'closed' as const,
-        },
-      ];
-    }
+      return {
+        id: a.id,
+        name: a.name,
+        class_name: a.class_name || cls?.name || 'Toàn trường',
+        time: a.created_at
+          ? format(new Date(a.created_at), 'dd/MM/yyyy')
+          : (a.start_time ? format(new Date(a.start_time), 'dd/MM/yyyy') : '-'),
+        done_ratio: `${subCount}/${memberCount}`,
+        avg_score: avg,
+        status,
+        statusType,
+      };
+    });
   }, [assignmentsList, tableTab, classesList]);
 
   return (
@@ -363,67 +327,99 @@ export function DashboardPage() {
         </div>
 
         {/* Bar Chart Canvas / SVG Area */}
-        <div className="h-64 sm:h-72 flex flex-col justify-between pt-4 pb-2">
-          <div className="relative flex-1 flex">
-            {/* Y Axis Numbers */}
-            <div className="w-8 flex flex-col justify-between text-right pr-2 text-xs font-medium text-gray-400 select-none pb-6">
-              <span>10</span>
-              <span>8</span>
-              <span>6</span>
-              <span>4</span>
-              <span>2</span>
-              <span>0</span>
+        {chartClasses.length === 0 ? (
+          <div className="h-64 sm:h-72 flex flex-col items-center justify-center text-center p-6 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+            <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+              <GraduationCap className="w-6 h-6" />
             </div>
-
-            {/* Grid & Bars Container */}
-            <div className="relative flex-1 flex flex-col justify-between">
-              {/* Horizontal Grid lines */}
-              <div className="absolute inset-x-0 top-0 border-b border-gray-100" />
-              <div className="absolute inset-x-0 top-[20%] border-b border-gray-100" />
-              <div className="absolute inset-x-0 top-[40%] border-b border-gray-100" />
-              <div className="absolute inset-x-0 top-[60%] border-b border-gray-100" />
-              <div className="absolute inset-x-0 top-[80%] border-b border-gray-100" />
-              <div className="absolute inset-x-0 bottom-6 border-b border-gray-200" />
-
-              {/* Bars Row */}
-              <div className="absolute inset-x-0 top-0 bottom-6 flex items-end justify-around px-2 sm:px-8">
-                {chartClasses.map((item, idx) => {
-                  const heightPct = Math.min(100, Math.max(8, (item.score / 10) * 100));
-
-                  return (
-                    <div
-                      key={idx}
-                      className="flex flex-col items-center justify-end h-full group"
-                    >
-                      {/* Value label on top of bar */}
-                      <span className="text-xs font-bold text-gray-700 mb-1.5 transition-transform group-hover:-translate-y-0.5">
-                        {item.score}
-                      </span>
-
-                      {/* Bar pillar */}
-                      <div
-                        style={{ height: `${heightPct}%` }}
-                        className="w-16 sm:w-24 bg-[#5470F5] hover:bg-[#4361EE] rounded-t-sm transition-all duration-300 shadow-2xs"
-                      />
-                    </div>
-                  );
-                })}
+            <h4 className="text-sm font-semibold text-gray-800 mb-1">Chưa có dữ liệu lớp học</h4>
+            <p className="text-xs text-gray-500 max-w-sm mb-4">Tạo lớp học và giao bài để theo dõi thống kê kết quả học tập tại đây.</p>
+            <button
+              onClick={() => navigate('/classes')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#5470F5] hover:bg-[#4361EE] text-white rounded-xl text-xs font-semibold shadow-xs transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> Thêm lớp học
+            </button>
+          </div>
+        ) : (
+          <div className="h-64 sm:h-72 flex flex-col justify-between pt-4 pb-2">
+            <div className="relative flex-1 flex">
+              {/* Y Axis Numbers */}
+              <div className="w-10 flex flex-col justify-between text-right pr-2.5 text-xs font-medium text-gray-400 select-none pb-6">
+                {chartMetric === 'score' ? (
+                  <>
+                    <span>10</span>
+                    <span>8</span>
+                    <span>6</span>
+                    <span>4</span>
+                    <span>2</span>
+                    <span>0</span>
+                  </>
+                ) : (
+                  <>
+                    <span>100%</span>
+                    <span>80%</span>
+                    <span>60%</span>
+                    <span>40%</span>
+                    <span>20%</span>
+                    <span>0%</span>
+                  </>
+                )}
               </div>
 
-              {/* X Axis Labels */}
-              <div className="absolute inset-x-0 bottom-0 h-6 flex items-center justify-around px-2 sm:px-8">
-                {chartClasses.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="w-16 sm:w-24 text-center text-xs font-semibold text-gray-800 truncate"
-                  >
-                    {item.name}
-                  </div>
-                ))}
+              {/* Grid & Bars Container */}
+              <div className="relative flex-1 flex flex-col justify-between">
+                {/* Horizontal Grid lines */}
+                <div className="absolute inset-x-0 top-0 border-b border-gray-100" />
+                <div className="absolute inset-x-0 top-[20%] border-b border-gray-100" />
+                <div className="absolute inset-x-0 top-[40%] border-b border-gray-100" />
+                <div className="absolute inset-x-0 top-[60%] border-b border-gray-100" />
+                <div className="absolute inset-x-0 top-[80%] border-b border-gray-100" />
+                <div className="absolute inset-x-0 bottom-6 border-b border-gray-200" />
+
+                {/* Bars Row */}
+                <div className="absolute inset-x-0 top-0 bottom-6 flex items-end justify-around px-2 sm:px-8">
+                  {chartClasses.map((item, idx) => {
+                    const heightPct = chartMetric === 'score'
+                      ? Math.min(100, Math.max(item.value > 0 ? 8 : 2, (item.value / 10) * 100))
+                      : Math.min(100, Math.max(item.value > 0 ? 8 : 2, item.value));
+
+                    return (
+                      <div
+                        key={item.id || idx}
+                        className="flex flex-col items-center justify-end h-full group"
+                      >
+                        {/* Value label on top of bar */}
+                        <span className="text-xs font-bold text-gray-700 mb-1.5 transition-transform group-hover:-translate-y-0.5">
+                          {item.displayValue}
+                        </span>
+
+                        {/* Bar pillar */}
+                        <div
+                          style={{ height: `${heightPct}%` }}
+                          className="w-16 sm:w-24 bg-[#5470F5] hover:bg-[#4361EE] rounded-t-sm transition-all duration-300 shadow-2xs"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* X Axis Labels */}
+                <div className="absolute inset-x-0 bottom-0 h-6 flex items-center justify-around px-2 sm:px-8">
+                  {chartClasses.map((item, idx) => (
+                    <div
+                      key={item.id || idx}
+                      className="w-16 sm:w-24 text-center text-xs font-semibold text-gray-800 truncate"
+                      title={item.name}
+                    >
+                      {item.name}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* 4. Bottom Section: Đợt kiểm tra & Bài tập mới nhất */}
@@ -486,52 +482,71 @@ export function DashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {tableRows.map((row: any) => (
-                <tr
-                  key={row.id}
-                  onClick={() => navigate('/assignments')}
-                  className="hover:bg-gray-50/70 transition-colors cursor-pointer group"
-                >
-                  <td className="py-3.5 px-4 font-semibold text-gray-800 text-sm">
-                    {row.name}
-                  </td>
-                  <td className="py-3.5 px-4 font-semibold text-gray-800 text-xs">
-                    {row.class_name}
-                  </td>
-                  <td className="py-3.5 px-4 text-gray-500 text-xs">
-                    {row.time}
-                  </td>
-                  <td className="py-3.5 px-4 font-medium text-gray-700 text-xs">
-                    {row.done_ratio}
-                  </td>
-                  <td className="py-3.5 px-4 font-bold text-gray-800 text-xs">
-                    {row.avg_score}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    {row.statusType === 'ongoing' && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-100">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        {row.status}
-                      </span>
-                    )}
-                    {row.statusType === 'closed' && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                        <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
-                        {row.status}
-                      </span>
-                    )}
-                    {row.statusType === 'upcoming' && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100">
-                        <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                        {row.status}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+              {tableRows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-gray-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Inbox className="w-8 h-8 text-gray-300" />
+                      <p className="text-sm font-medium text-gray-500">
+                        {tableTab === 'exam' ? 'Chưa có đợt kiểm tra nào' : 'Chưa có bài tập nào'}
+                      </p>
+                      <button
+                        onClick={() => navigate('/assignments')}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-semibold mt-1 transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Giao bài mới
+                      </button>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                tableRows.map((row: any) => (
+                  <tr
+                    key={row.id}
+                    onClick={() => navigate('/assignments')}
+                    className="hover:bg-gray-50/70 transition-colors cursor-pointer group"
+                  >
+                    <td className="py-3.5 px-4 font-semibold text-gray-800 text-sm">
+                      {row.name}
+                    </td>
+                    <td className="py-3.5 px-4 font-semibold text-gray-800 text-xs">
+                      {row.class_name}
+                    </td>
+                    <td className="py-3.5 px-4 text-gray-500 text-xs">
+                      {row.time}
+                    </td>
+                    <td className="py-3.5 px-4 font-medium text-gray-700 text-xs">
+                      {row.done_ratio}
+                    </td>
+                    <td className="py-3.5 px-4 font-bold text-gray-800 text-xs">
+                      {row.avg_score}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {row.statusType === 'ongoing' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-100">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          {row.status}
+                        </span>
+                      )}
+                      {row.statusType === 'closed' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+                          {row.status}
+                        </span>
+                      )}
+                      {row.statusType === 'upcoming' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100">
+                          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                          {row.status}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

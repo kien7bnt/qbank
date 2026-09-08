@@ -2,7 +2,7 @@ import math
 import uuid
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import selectinload
 
 from app.models.question import Question, QuestionOption
@@ -148,6 +148,57 @@ async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = No
         m_stmt = m_stmt.where(ClassMember.class_id.in_([c.id for c in classes]))
     total_students = (await db.execute(m_stmt)).scalar() or 0
 
+    # 7. Pending grading attempts
+    pending_stmt = select(func.count(ExamAttempt.id)).where(ExamAttempt.status == "submitted")
+    if user_id:
+        pending_stmt = pending_stmt.join(Assignment, ExamAttempt.assignment_id == Assignment.id).where(
+            or_(Assignment.created_by == user_id, Assignment.class_.has(Class.teacher_id == user_id))
+        )
+    pending_grading = (await db.execute(pending_stmt)).scalar() or 0
+
+    # 8. Class performance
+    class_perf = []
+    for c in classes:
+        cls_att_stmt = (
+            select(ExamAttempt)
+            .join(Assignment, ExamAttempt.assignment_id == Assignment.id)
+            .where(Assignment.class_id == c.id)
+        )
+        cls_attempts = (await db.execute(cls_att_stmt)).scalars().all()
+        scored_cls = [a for a in cls_attempts if a.score is not None and a.status in ("graded", "submitted")]
+
+        avg_cls_score = 0.0
+        if scored_cls:
+            avg_cls_score = round(sum(a.score for a in scored_cls) / len(scored_cls), 1)
+
+        cls_assign_count = (await db.execute(
+            select(func.count(Assignment.id)).where(Assignment.class_id == c.id)
+        )).scalar() or 0
+
+        member_count = c.member_count or 0
+        expected = member_count * cls_assign_count
+        completion_pct = 0.0
+        if expected > 0:
+            completion_pct = round(min(100.0, (len(cls_attempts) / expected) * 100), 1)
+        elif cls_attempts:
+            completion_pct = 100.0
+
+        pass_pct = 0.0
+        if scored_cls:
+            passed = sum(1 for a in scored_cls if (a.score or 0) >= 5.0)
+            pass_pct = round((passed / len(scored_cls)) * 100, 1)
+
+        class_perf.append({
+            "id": str(c.id),
+            "name": c.name,
+            "code": c.code,
+            "average_score": avg_cls_score,
+            "completion_rate": completion_pct,
+            "pass_rate": pass_pct,
+            "total_students": member_count,
+            "total_attempts": len(cls_attempts),
+        })
+
     return {
         "total_questions": total_questions,
         "approved_questions": approved_count,
@@ -161,6 +212,8 @@ async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = No
         "total_students": total_students,
         "average_score": avg_score,
         "pass_rate": pass_rate,
+        "pending_grading": pending_grading,
+        "class_performance": class_perf,
         "bloom_distribution": bloom_dist,
         "difficulty_distribution": diff_dist,
         "type_distribution": type_dist,

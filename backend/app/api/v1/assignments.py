@@ -53,8 +53,13 @@ async def list_assignments(
         )
         if session_id:
             assignments = [a for a in assignments if a.session_id == session_id]
-        return [
-            {
+        res = []
+        for a in assignments:
+            scored_att = [att for att in (a.attempts or []) if att.score is not None]
+            avg_score = round(sum(att.score for att in scored_att) / len(scored_att), 1) if scored_att else None
+            cls_members = getattr(a.class_, "member_count", 0) if a.class_ else 0
+
+            res.append({
                 "id": a.id,
                 "name": a.name,
                 "assignment_type": "homework" if getattr(a, "assignment_type", None) in ["homework", "assignment"] else "exam",
@@ -62,6 +67,8 @@ async def list_assignments(
                 "exam_name": a.exam.name if a.exam else "Đề thi",
                 "class_id": a.class_id,
                 "class_name": a.class_.name if a.class_ else "Lớp học",
+                "class_member_count": cls_members,
+                "average_score": avg_score,
                 "session_id": a.session_id,
                 "session_name": getattr(a.session, "name", getattr(a.session, "title", None)) if a.session else None,
                 "duration_minutes": a.duration_minutes,
@@ -71,9 +78,8 @@ async def list_assignments(
                 "status": a.status,
                 "total_submissions": len(a.attempts or []),
                 "created_at": a.created_at,
-            }
-            for a in assignments
-        ]
+            })
+        return res
     else:
         # Student view
         return await assignment_service.list_student_assignments(db, current_user.id, class_id=class_id)
