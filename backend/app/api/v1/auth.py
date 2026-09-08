@@ -5,7 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db, get_current_user
 from app.core.security import create_access_token, create_refresh_token, decode_token
-from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, UserOut, GoogleLoginRequest
+from app.schemas.auth import (
+    LoginRequest,
+    RefreshRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserOut,
+    GoogleLoginRequest,
+    UserUpdateMe,
+)
 from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -103,4 +111,23 @@ async def me(current_user=Depends(get_current_user)):
         roles=current_user.roles,
         avatar_url=current_user.avatar_url,
         created_at=current_user.created_at,
+    )
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_me(
+    data: UserUpdateMe,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Cập nhật thông tin cá nhân (họ tên, ảnh đại diện, đổi mật khẩu)"""
+    updated_user = await auth_service.update_user_profile(db, current_user.id, data)
+    return UserOut(
+        id=updated_user.id,
+        email=updated_user.email,
+        full_name=updated_user.full_name,
+        status=updated_user.status,
+        roles=updated_user.roles,
+        avatar_url=updated_user.avatar_url,
+        created_at=updated_user.created_at,
     )

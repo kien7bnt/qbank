@@ -172,6 +172,13 @@ export const authApi = {
 
   me: () => apiClient.get<User>('/auth/me'),
 
+  updateMe: (data: {
+    full_name?: string;
+    avatar_url?: string;
+    current_password?: string;
+    new_password?: string;
+  }) => apiClient.patch<User>('/auth/me', data),
+
   refresh: (refresh_token: string) =>
     apiClient.post<TokenResponse>('/auth/refresh', { refresh_token }),
 };
@@ -347,6 +354,13 @@ export const rubricApi = {
 
   autoGradeEssay: (data: { response_id: string; rubric_id?: string }) =>
     apiClient.post<EssayGrading>('/ai/essay-grade', data),
+
+  manualGradeEssay: (data: {
+    response_id: string;
+    score: number;
+    feedback?: string;
+    criteria_breakdown?: any[];
+  }) => apiClient.post<EssayGrading>('/rubrics/essay-grading/manual', data),
 
   getEssayGrading: (responseId: string) =>
     apiClient.get<EssayGrading>(`/essay-grading/${responseId}`),

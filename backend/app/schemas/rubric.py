@@ -98,6 +98,13 @@ class EssayGradeRequest(BaseModel):
     rubric_id: Optional[uuid.UUID] = None
 
 
+class EssayManualGradeRequest(BaseModel):
+    response_id: uuid.UUID
+    score: float
+    feedback: Optional[str] = ""
+    criteria_breakdown: Optional[List[Dict[str, Any]]] = None
+
+
 class EssayGradingReviewCreate(BaseModel):
     new_score: float
     comment: Optional[str] = None
@@ -123,7 +130,7 @@ class EssayGradingOut(BaseModel):
     id: uuid.UUID
     response_id: uuid.UUID
     rubric_id: Optional[uuid.UUID] = None
-    ai_score: float
+    ai_score: Optional[float] = None
     ai_feedback: Optional[str] = None
     criteria_breakdown: List[Dict[str, Any]] = []
     final_score: float

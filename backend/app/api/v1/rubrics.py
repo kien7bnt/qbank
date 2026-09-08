@@ -15,6 +15,7 @@ from app.schemas.rubric import (
     RubricApplyRequest,
     RubricApplyResponse,
     EssayGradeRequest,
+    EssayManualGradeRequest,
     EssayGradingOut,
     EssayGradingReviewCreate,
 )
@@ -149,3 +150,19 @@ async def teacher_review_essay(
     if not current_user.has_role("admin", "teacher"):
         raise HTTPException(status_code=403, detail="Chỉ giáo viên hoặc admin mới có quyền duyệt điểm")
     return await essay_grading_service.review_essay_grading(db, grading_id, data, current_user)
+
+
+@router.post("/essay-grading/manual", response_model=EssayGradingOut)
+async def manual_grade_essay(
+    data: EssayManualGradeRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Giáo viên tự xem bài và chấm điểm thủ công cho bài tự luận của học sinh:
+    - Nhập điểm trực tiếp, nhận xét, hoặc tự đánh giá tiêu chí
+    - Cập nhật điểm bài nộp và tự động tính lại tổng điểm
+    """
+    if not current_user.has_role("admin", "teacher"):
+        raise HTTPException(status_code=403, detail="Chỉ giáo viên hoặc admin mới có quyền chấm điểm")
+    return await essay_grading_service.manual_grade_student_essay_response(db, data, current_user)

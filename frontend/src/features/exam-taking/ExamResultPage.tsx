@@ -20,6 +20,8 @@ import {
   FileImage,
   Loader2,
   Sparkles,
+  Eye,
+  Edit3,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
@@ -27,10 +29,18 @@ import { PageSpinner } from '@/components/ui/Spinner';
 import { assignmentApi, getErrorMessage } from '@/services/api';
 import type { AttemptResult, ResponseDetail } from '@/types';
 import { parseEssayResponse } from './ExamTakingPage';
+import { useAuthStore } from '@/stores/auth.store';
+import { EssayGradingReviewModal } from '@/features/assignments/EssayGradingReviewModal';
+import { DocumentPreviewModal } from '@/components/ui/DocumentPreviewModal';
 
 export function ExamResultPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
+  const { activeRole, hasRole } = useAuthStore();
+  const isTeacherUser = activeRole === 'teacher' || hasRole('teacher', 'admin');
+
+  const [gradingModalData, setGradingModalData] = React.useState<ResponseDetail | null>(null);
+  const [previewDoc, setPreviewDoc] = React.useState<{ url: string; name: string; type: string } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['attempt-result', attemptId],
@@ -357,20 +367,58 @@ export function ExamResultPage() {
                                 </p>
                               </div>
                             </div>
-                            <a
-                              href={essay.attachment.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-700 bg-white border border-primary-200 rounded-lg hover:bg-primary-50 transition shrink-0 ml-2"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                              Mở tệp đính kèm
-                            </a>
+                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewDoc({
+                                    url: essay.attachment!.url,
+                                    name: essay.attachment!.name,
+                                    type: essay.attachment!.type,
+                                  })
+                                }
+                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-primary-700 bg-white border border-primary-200 rounded-lg hover:bg-primary-50 transition shadow-2xs"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                Xem tài liệu
+                              </button>
+                              <a
+                                href={essay.attachment.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition shadow-2xs"
+                                title="Mở trong tab mới"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            </div>
                           </div>
                         )}
                         {!essay.text && !essay.attachment && (
                           <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-400 italic">
                             (Không có nội dung tự luận)
+                          </div>
+                        )}
+
+                        {/* Teacher Grading Action Bar */}
+                        {isTeacherUser && (
+                          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-emerald-50 to-primary-50 rounded-xl border border-emerald-200 shadow-2xs">
+                            <div className="flex items-center gap-2">
+                              <Award className="w-4 h-4 text-emerald-700" />
+                              <span className="text-xs font-bold text-emerald-950">
+                                {resp.points_earned !== null
+                                  ? `Điểm tự luận: ${resp.points_earned}/${resp.points}đ`
+                                  : 'Bài tự luận này chưa được chấm điểm'}
+                              </span>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => setGradingModalData(resp)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs font-semibold text-xs"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 mr-1" />
+                              {resp.points_earned !== null ? 'Sửa điểm tự luận' : 'Chấm bài tự luận'}
+                            </Button>
                           </div>
                         )}
 
@@ -390,7 +438,7 @@ export function ExamResultPage() {
                               ) : (
                                 <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
                               )}
-                              <span>Nhận xét từ hệ thống chấm AI theo Rubric:</span>
+                              <span>Nhận xét bài làm:</span>
                             </div>
                             <p className="whitespace-pre-wrap leading-relaxed">{resp.feedback}</p>
                           </div>
@@ -415,6 +463,33 @@ export function ExamResultPage() {
           </div>
         </div>
       </div>
+
+      {/* Teacher Essay Grading Modal */}
+      {gradingModalData && (
+        <EssayGradingReviewModal
+          open={!!gradingModalData}
+          onOpenChange={(open) => !open && setGradingModalData(null)}
+          responseId={gradingModalData.id || gradingModalData.response_id || gradingModalData.question_id}
+          studentName={result.student_name || result.user_name}
+          questionStem={gradingModalData.stem}
+          sampleAnswer={gradingModalData.rationale}
+          studentAnswer={gradingModalData.text_response || ''}
+          maxPoints={gradingModalData.points}
+          initialScore={gradingModalData.points_earned ?? undefined}
+          initialFeedback={gradingModalData.feedback ?? undefined}
+        />
+      )}
+
+      {/* Document & Media Preview Modal */}
+      {previewDoc && (
+        <DocumentPreviewModal
+          open={!!previewDoc}
+          onOpenChange={(open) => !open && setPreviewDoc(null)}
+          url={previewDoc.url}
+          title={previewDoc.name}
+          fileType={previewDoc.type}
+        />
+      )}
     </div>
   );
 }

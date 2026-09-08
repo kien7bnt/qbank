@@ -10,6 +10,7 @@ interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   setAuth: (user: User, accessToken: string, refreshToken: string) => void;
+  setUser: (user: User) => void;
   setActiveRole: (role: UserActiveRole) => void;
   toggleRole: () => UserActiveRole;
   logout: () => void;
@@ -37,6 +38,11 @@ export const useAuthStore = create<AuthState>()(
         const nextActive = isOnlyStudent ? 'student' : (currentActive || 'teacher');
 
         set({ user: userWithRoles, activeRole: nextActive, accessToken, refreshToken });
+      },
+
+      setUser: (user) => {
+        const roles = Array.isArray(user?.roles) ? user.roles : [];
+        set({ user: { ...user, roles } });
       },
 
       setActiveRole: (role) => {

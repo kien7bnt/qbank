@@ -59,6 +59,7 @@ class Question(Base):
 
     # Empirical psychometrics calibration
     is_calibrated: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    calibrated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Exercise Bank membership
     in_exercise_bank: Mapped[bool] = mapped_column(Boolean, default=False, index=True)

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password, verify_password
 from app.models.user import Role, User, UserRole
-from app.schemas.auth import RegisterRequest
+from app.schemas.auth import RegisterRequest, UserUpdateMe
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
@@ -214,4 +214,38 @@ async def authenticate_google_user(db: AsyncSession, id_token_str: str, role_nam
     db.add(new_oauth)
     await db.commit()
     return await get_user_by_id(db, user.id)
+
+
+async def update_user_profile(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    data: UserUpdateMe,
+) -> User:
+    from fastapi import HTTPException, status
+
+    user = await get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Người dùng không tồn tại")
+
+    if data.full_name is not None and data.full_name.strip():
+        user.full_name = data.full_name.strip()
+
+    if data.avatar_url is not None:
+        user.avatar_url = data.avatar_url.strip() or None
+
+    if data.new_password:
+        if not data.current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Vui lòng cung cấp mật khẩu hiện tại để xác nhận đổi mật khẩu",
+            )
+        if not verify_password(data.current_password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Mật khẩu hiện tại không chính xác",
+            )
+        user.password_hash = hash_password(data.new_password)
+
+    await db.commit()
+    return await get_user_by_id(db, user_id)  # re-fetch with loaded roles
 

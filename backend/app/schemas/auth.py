@@ -52,3 +52,17 @@ class GoogleLoginRequest(BaseModel):
     token: str | None = None
     role: str = "student"  # Default role for new users
 
+
+class UserUpdateMe(BaseModel):
+    full_name: str | None = None
+    avatar_url: str | None = None
+    current_password: str | None = None
+    new_password: str | None = None
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str | None) -> str | None:
+        if v is not None and len(v) < 6:
+            raise ValueError("Mật khẩu mới phải có ít nhất 6 ký tự")
+        return v
+

@@ -156,6 +156,8 @@ class QuestionOut(BaseModel):
     irt_a: Optional[float] = None
     irt_b: Optional[float] = None
     irt_c: Optional[float] = None
+    is_calibrated: bool = False
+    calibrated_at: Optional[datetime] = None
     usage_count: int = 0
     in_exercise_bank: bool = False
     options: List[QuestionOptionOut] = []
@@ -184,6 +186,7 @@ class QuestionListItem(BaseModel):
     irt_b: Optional[float] = None
     irt_c: Optional[float] = None
     is_calibrated: bool = False
+    calibrated_at: Optional[datetime] = None
     response_count: int = 0
     usage_count: int = 0
     in_exercise_bank: bool = False

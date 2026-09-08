@@ -199,12 +199,16 @@ async def get_overview_stats(db: AsyncSession, user_id: Optional[uuid.UUID] = No
             "total_attempts": len(cls_attempts),
         })
 
+    last_calibrated_stmt = select(func.max(Question.calibrated_at)).where(Question.is_calibrated == True)
+    last_calibrated_at = (await db.execute(last_calibrated_stmt)).scalar()
+
     return {
         "total_questions": total_questions,
         "approved_questions": approved_count,
         "draft_questions": draft_count,
         "calibrated_questions": calibrated_count,
         "uncalibrated_questions": max(0, total_questions - calibrated_count),
+        "last_calibrated_at": last_calibrated_at.isoformat() if last_calibrated_at else None,
         "total_exams": total_exams,
         "total_assignments": assign_count,
         "total_attempts": total_attempts,
@@ -310,6 +314,9 @@ async def get_question_psychometrics(db: AsyncSession, question_id: uuid.UUID) -
 
 async def calibrate_questions(db: AsyncSession) -> Dict[str, Any]:
     """Định cỡ lại toàn bộ câu hỏi trong ngân hàng dựa trên CTT và mô hình IRT 3PL (Yêu cầu N >= 10)"""
+    from app.core.security import utcnow
+    now = utcnow()
+
     q_stmt = select(Question).options(selectinload(Question.options)).where(Question.status != "archived")
     q_res = await db.execute(q_stmt)
     questions = q_res.scalars().all()
@@ -326,6 +333,7 @@ async def calibrate_questions(db: AsyncSession) -> Dict[str, Any]:
 
         if n >= 10:
             q.is_calibrated = True
+            q.calibrated_at = now
             calibrated_count += 1
             correct_count = sum(1 for r in responses if r.is_correct)
             p_value = round(correct_count / n, 3)
@@ -376,5 +384,6 @@ async def calibrate_questions(db: AsyncSession) -> Dict[str, Any]:
         "total_scanned": len(questions),
         "total_calibrated": calibrated_count,
         "total_updated": updated_count,
+        "last_calibrated_at": now.isoformat(),
         "changes": changes,
     }

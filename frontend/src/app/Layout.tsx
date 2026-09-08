@@ -1,13 +1,15 @@
 import { Outlet, Navigate, useNavigate } from 'react-router-dom';
-import { Menu, Bell, ChevronDown, LogOut, User, GraduationCap, BookOpen, ArrowLeftRight, Sparkles } from 'lucide-react';
+import { Menu, Bell, ChevronDown, LogOut, User, GraduationCap, BookOpen, ArrowLeftRight, Sparkles, UserCircle } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Sidebar } from './Sidebar';
 import { useUIStore } from '@/stores/ui.store';
 import { useAuthStore } from '@/stores/auth.store';
+import { UserProfileModal } from '@/components/profile/UserProfileModal';
 
 function UserMenu() {
   const [open, setOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const { user, logout, activeRole, toggleRole } = useAuthStore();
   const navigate = useNavigate();
 
@@ -29,9 +31,20 @@ function UserMenu() {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-gray-100 transition-colors"
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-white text-xs font-bold shrink-0 shadow-xs">
-          {activeRole === 'teacher' ? 'GV' : 'HV'}
-        </div>
+        {user?.avatar_url ? (
+          <img
+            src={user.avatar_url}
+            alt=""
+            className="h-8 w-8 rounded-full object-cover border border-purple-200 shrink-0"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+            }}
+          />
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-white text-xs font-bold shrink-0 shadow-xs">
+            {activeRole === 'teacher' ? 'GV' : 'HV'}
+          </div>
+        )}
         <div className="hidden sm:flex flex-col text-left">
           <span className="max-w-[130px] truncate text-gray-900 font-semibold text-xs leading-tight">
             {user?.full_name || 'Nguyễn Văn A'}
@@ -46,7 +59,7 @@ function UserMenu() {
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+          <div className="absolute right-0 top-full z-20 mt-1 w-60 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
             <div className="border-b border-gray-100 px-3 py-2">
               <p className="text-sm font-medium text-gray-900 truncate">{user?.full_name}</p>
               <p className="text-xs text-gray-500 truncate">{user?.email}</p>
@@ -55,6 +68,20 @@ function UserMenu() {
                   {activeRole === 'teacher' ? '👨‍🏫 Đang là: Người dạy' : '🎒 Đang là: Người học'}
                 </span>
               </div>
+            </div>
+
+            {/* Chỉnh sửa thông tin cá nhân */}
+            <div className="p-1 border-b border-gray-100">
+              <button
+                onClick={() => {
+                  setProfileModalOpen(true);
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-2 px-2.5 py-2 text-xs font-semibold rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                <UserCircle className="h-4 w-4 text-primary-600" />
+                <span>Chỉnh sửa thông tin cá nhân</span>
+              </button>
             </div>
 
             {/* Quick Switch in Menu */}
@@ -82,6 +109,9 @@ function UserMenu() {
           </div>
         </>
       )}
+
+      {/* Profile Edit Modal */}
+      <UserProfileModal open={profileModalOpen} onOpenChange={setProfileModalOpen} />
     </div>
   );
 }

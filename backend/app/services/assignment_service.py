@@ -781,6 +781,8 @@ async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_id: u
 
         responses_out.append(
             ResponseDetailOut(
+                id=resp.id if resp else None,
+                response_id=resp.id if resp else None,
                 question_id=qid,
                 stem=q_item["stem"],
                 type=q_item["type"],
@@ -822,6 +824,7 @@ async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_id: u
         attempt_number=attempt.attempt_number or 1,
         can_retry=is_homework,
         user_name=attempt.user.full_name,
+        student_name=attempt.user.full_name,
         start_time=attempt.start_time,
         submitted_at=attempt.submitted_at,
         score=displayed_score,

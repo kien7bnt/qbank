@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.models.assignment import StudentResponse, ExamAttempt
 from app.models.question import Question, QuestionEssay
 from app.models.rubric import Rubric, EssayGrading, EssayGradingReview
-from app.schemas.rubric import EssayGradingReviewCreate
+from app.schemas.rubric import EssayGradingReviewCreate, EssayManualGradeRequest
 from app.ai.agents.essay_grading import EssayGradingAgent
 from app.ai.providers import get_provider
 from app.core.config import settings
@@ -227,6 +227,96 @@ async def review_essay_grading(
     await db.commit()
     await db.refresh(grading)
     return grading
+
+
+async def manual_grade_student_essay_response(
+    db: AsyncSession,
+    data: EssayManualGradeRequest,
+    user,
+) -> EssayGrading:
+    # 1. Fetch StudentResponse with Question and Attempt
+    stmt = (
+        select(StudentResponse)
+        .where(StudentResponse.id == data.response_id)
+        .options(
+            selectinload(StudentResponse.question).selectinload(Question.essay_data),
+            selectinload(StudentResponse.attempt),
+        )
+    )
+    res = await db.execute(stmt)
+    student_response = res.scalar_one_or_none()
+    if not student_response:
+        raise HTTPException(status_code=404, detail="Không tìm thấy câu trả lời của sinh viên")
+
+    question = student_response.question
+    if not question or question.type != "essay":
+        raise HTTPException(status_code=400, detail="Câu hỏi này không phải là câu hỏi tự luận")
+
+    essay_data: Optional[QuestionEssay] = question.essay_data
+    max_points = essay_data.max_points if (essay_data and essay_data.max_points) else None
+    if not max_points and student_response.attempt and student_response.attempt.question_snapshot:
+        for qs in student_response.attempt.question_snapshot:
+            if str(qs.get("id")) == str(question.id):
+                max_points = float(qs.get("points", 10.0))
+                break
+    if not max_points:
+        max_points = 10.0
+
+    target_score = max(0.0, min(float(data.score), max_points))
+    feedback_text = data.feedback.strip() if data.feedback else ""
+
+    # 2. Get or create EssayGrading
+    eg_stmt = (
+        select(EssayGrading)
+        .where(EssayGrading.response_id == data.response_id)
+        .options(selectinload(EssayGrading.reviews))
+    )
+    eg_res = await db.execute(eg_stmt)
+    essay_grading = eg_res.scalar_one_or_none()
+
+    prev_score = 0.0
+    if not essay_grading:
+        essay_grading = EssayGrading(
+            response_id=data.response_id,
+            rubric_id=(essay_data.rubric_id if essay_data else None),
+            ai_score=0.0,
+            ai_feedback="Giáo viên tự xem và chấm điểm trực tiếp.",
+            criteria_breakdown=data.criteria_breakdown or [],
+            final_score=target_score,
+            final_feedback=feedback_text,
+            status="teacher_reviewed",
+        )
+        db.add(essay_grading)
+        await db.flush()
+    else:
+        prev_score = essay_grading.final_score
+        essay_grading.final_score = target_score
+        essay_grading.final_feedback = feedback_text
+        if data.criteria_breakdown is not None:
+            essay_grading.criteria_breakdown = data.criteria_breakdown
+        essay_grading.status = "teacher_reviewed"
+
+    # 3. Log teacher review
+    review = EssayGradingReview(
+        grading_id=essay_grading.id,
+        reviewer_id=user.id,
+        previous_score=prev_score,
+        new_score=target_score,
+        comment=feedback_text,
+        action="manual_grade",
+    )
+    db.add(review)
+
+    # 4. Update StudentResponse
+    student_response.points_earned = target_score
+    student_response.feedback = feedback_text
+    student_response.is_correct = (target_score >= (max_points * 0.5))
+
+    await db.flush()
+    await _recalculate_attempt_total_score(db, student_response.attempt_id)
+    await db.commit()
+    await db.refresh(essay_grading)
+    return essay_grading
 
 
 async def get_essay_grading_by_response(db: AsyncSession, response_id: uuid.UUID) -> Optional[EssayGrading]:

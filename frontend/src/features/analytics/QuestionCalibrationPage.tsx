@@ -17,7 +17,10 @@ import {
   ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
+  Clock,
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { questionApi, analyticsApi, getErrorMessage } from '@/services/api';
 import { Button } from '@/components/ui/Button';
@@ -127,11 +130,25 @@ export function QuestionCalibrationPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs text-indigo-900 shadow-2xs">
+            <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
+            <div>
+              <span className="text-[10px] uppercase font-bold text-indigo-600 block leading-tight">
+                Định cỡ gần nhất
+              </span>
+              <span className="font-bold text-indigo-950 text-xs">
+                {overviewStats?.last_calibrated_at
+                  ? format(new Date(overviewStats.last_calibrated_at), 'HH:mm — dd/MM/yyyy', { locale: vi })
+                  : 'Chưa chạy định cỡ'}
+              </span>
+            </div>
+          </div>
+
           <Button
             onClick={() => calibrateMutation.mutate()}
             loading={calibrateMutation.isPending}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs shrink-0"
           >
             <RefreshCw className="w-4 h-4 mr-1.5" />
             Chạy Định Cỡ Hệ Thống
@@ -158,7 +175,11 @@ export function QuestionCalibrationPage() {
           <p className="text-2xl font-black text-emerald-700 mt-1 font-mono">
             {overviewStats?.calibrated_count ?? localCalibratedCount}
           </p>
-          <span className="text-[11px] text-emerald-600">Đạt chuẩn N ≥ 10 bài nộp</span>
+          <span className="text-[11px] text-emerald-600 block truncate" title={overviewStats?.last_calibrated_at ? format(new Date(overviewStats.last_calibrated_at), 'dd/MM/yyyy HH:mm', { locale: vi }) : ''}>
+            {overviewStats?.last_calibrated_at
+              ? `Cập nhật: ${format(new Date(overviewStats.last_calibrated_at), 'dd/MM/yyyy HH:mm', { locale: vi })}`
+              : 'Đạt chuẩn N ≥ 10 bài nộp'}
+          </span>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/20 shadow-2xs">
@@ -371,10 +392,17 @@ export function QuestionCalibrationPage() {
 
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         {isCalibrated ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            Đã chuẩn hóa
-                          </span>
+                          <div className="inline-flex flex-col items-center">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              Đã chuẩn hóa
+                            </span>
+                            {q.calibrated_at && (
+                              <span className="text-[10px] text-gray-500 font-mono mt-0.5" title="Thời gian định cỡ gần nhất">
+                                {format(new Date(q.calibrated_at), 'dd/MM/yyyy HH:mm', { locale: vi })}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <div className="inline-flex flex-col items-center">
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">

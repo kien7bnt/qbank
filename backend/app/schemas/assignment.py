@@ -88,6 +88,8 @@ class ExamTakingStateOut(BaseModel):
 
 
 class ResponseDetailOut(BaseModel):
+    id: Optional[uuid.UUID] = None
+    response_id: Optional[uuid.UUID] = None
     question_id: uuid.UUID
     stem: str
     type: str
@@ -113,6 +115,7 @@ class AttemptResultOut(BaseModel):
     attempt_number: int = 1
     can_retry: bool = False
     user_name: str
+    student_name: Optional[str] = None
     start_time: datetime
     submitted_at: Optional[datetime] = None
     score: Optional[float] = None

@@ -189,6 +189,7 @@ export interface QuestionListItem {
   irt_b?: number;
   irt_c?: number;
   is_calibrated?: boolean;
+  calibrated_at?: string;
   response_count?: number;
   usage_count?: number;
   in_exercise_bank?: boolean;
@@ -470,6 +471,8 @@ export interface ExamTakingState {
 }
 
 export interface ResponseDetail {
+  id?: string;
+  response_id?: string;
   question_id: string;
   stem: string;
   type: string;
@@ -500,6 +503,7 @@ export interface AttemptResult {
   attempt_number?: number;
   can_retry?: boolean;
   user_name: string;
+  student_name?: string;
   start_time: string;
   submitted_at?: string;
   score?: number;
@@ -641,7 +645,7 @@ export interface EssayGrading {
   response_id: string;
   rubric_id?: string;
   rubric?: Rubric;
-  ai_score: number;
+  ai_score?: number;
   ai_feedback?: string;
   criteria_breakdown: EssayCriterionEvaluation[];
   final_score: number;
