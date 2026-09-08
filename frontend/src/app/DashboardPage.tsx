@@ -235,9 +235,9 @@ export function DashboardPage() {
   }, [assignmentsList, tableTab, classesList]);
 
   return (
-    <div className="w-full h-full min-h-[calc(100vh-3.5rem)] flex flex-col justify-between p-4 sm:p-5 lg:p-6 gap-4 overflow-hidden">
+    <div className="w-full max-w-[1600px] mx-auto p-4 sm:p-5 lg:p-6 space-y-4 sm:space-y-5">
       {/* 1. Welcome Banner */}
-      <div className="shrink-0 relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#4361EE] via-[#4F70F5] to-[#5978F8] px-5 py-4 sm:px-6 sm:py-5 text-white shadow-xs">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#4361EE] via-[#4F70F5] to-[#5978F8] px-5 py-4 sm:px-6 sm:py-5 text-white shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
@@ -261,7 +261,7 @@ export function DashboardPage() {
 
       {/* 2. KPI Cards Grid */}
       {isTeacher ? (
-        <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1: Tổng số câu hỏi */}
           <div
             onClick={() => navigate('/question-bank')}
@@ -340,7 +340,7 @@ export function DashboardPage() {
         </div>
       ) : (
         /* Student KPI Cards */
-        <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Student Card 1: Lớp học của tôi */}
           <div
             onClick={() => navigate('/classes')}
@@ -423,12 +423,12 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* 3. Main Section: Dynamic vertical expansion filling the rest of the screen */}
+      {/* 3. Main Section: Side-by-side with fixed card height so both cards align perfectly */}
       {isTeacher ? (
         /* Teacher: Left = Biểu đồ lớp, Right = Đợt kiểm tra & bài tập */
-        <div className="flex-1 min-h-[340px] grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           {/* Left Column: Kết quả học tập theo lớp (5 cols) */}
-          <div className="lg:col-span-5 bg-white border border-gray-100 rounded-2xl p-5 shadow-xs flex flex-col h-full min-h-0">
+          <div className="lg:col-span-5 bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col h-[390px]">
             <div className="flex items-center justify-between mb-3 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -549,7 +549,7 @@ export function DashboardPage() {
           </div>
 
           {/* Right Column: Đợt kiểm tra & Bài tập mới nhất (7 cols) */}
-          <div className="lg:col-span-7 bg-white border border-gray-100 rounded-2xl p-5 shadow-xs flex flex-col h-full min-h-0">
+          <div className="lg:col-span-7 bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col h-[390px]">
             <div className="flex items-center justify-between mb-3 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -593,16 +593,16 @@ export function DashboardPage() {
             </div>
 
             {/* Table Container (Scrollable) */}
-            <div className="flex-1 overflow-y-auto min-h-0 -mx-5 px-5">
-              <table className="w-full text-left text-xs table-fixed">
+            <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0 -mx-5 sm:-mx-6 px-5 sm:px-6">
+              <table className="w-full text-left text-xs">
                 <thead className="sticky top-0 bg-white z-10">
                   <tr className="border-b border-gray-100 text-xs text-gray-400 font-medium">
-                    <th className="py-2.5 px-3 w-[34%] text-left">Tên</th>
-                    <th className="py-2.5 px-3 w-[18%] text-left">Lớp</th>
-                    <th className="py-2.5 px-3 w-[16%] text-left">Thời gian</th>
-                    <th className="py-2.5 px-3 w-[12%] text-center">Lượt làm</th>
-                    <th className="py-2.5 px-3 w-[10%] text-center">Điểm TB</th>
-                    <th className="py-2.5 px-3 w-[10%] text-center">Trạng thái</th>
+                    <th className="py-2.5 px-3 text-left">Tên</th>
+                    <th className="py-2.5 px-3 text-left w-24 whitespace-nowrap">Lớp</th>
+                    <th className="py-2.5 px-3 text-left w-28 whitespace-nowrap">Thời gian</th>
+                    <th className="py-2.5 px-3 text-center w-24 whitespace-nowrap">Lượt làm</th>
+                    <th className="py-2.5 px-3 text-center w-20 whitespace-nowrap">Điểm TB</th>
+                    <th className="py-2.5 px-3 text-center w-32 whitespace-nowrap">Trạng thái</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -630,36 +630,36 @@ export function DashboardPage() {
                         onClick={() => navigate('/assignments')}
                         className="hover:bg-gray-50/70 transition-colors cursor-pointer group"
                       >
-                        <td className="py-3 px-3 font-semibold text-gray-800 text-sm truncate" title={row.name}>
+                        <td className="py-3 px-3 font-semibold text-gray-800 text-sm max-w-[180px] truncate" title={row.name}>
                           {row.name}
                         </td>
-                        <td className="py-3 px-3 font-medium text-gray-700 text-xs truncate" title={row.class_name}>
+                        <td className="py-3 px-3 font-medium text-gray-700 text-xs truncate max-w-[110px]" title={row.class_name}>
                           {row.class_name}
                         </td>
                         <td className="py-3 px-3 text-gray-500 text-xs whitespace-nowrap">
                           {row.time}
                         </td>
-                        <td className="py-3 px-3 text-center font-bold text-gray-900 text-sm">
+                        <td className="py-3 px-3 text-center font-bold text-gray-900 text-sm whitespace-nowrap">
                           {row.submissions_count}
                         </td>
-                        <td className="py-3 px-3 text-center font-bold text-gray-800 text-xs">
+                        <td className="py-3 px-3 text-center font-bold text-gray-800 text-xs whitespace-nowrap">
                           {row.avg_score}
                         </td>
-                        <td className="py-3 px-3 text-center">
+                        <td className="py-3 px-3 text-center whitespace-nowrap">
                           {row.statusType === 'ongoing' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-100">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-100 whitespace-nowrap">
                               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                               {row.status}
                             </span>
                           )}
                           {row.statusType === 'closed' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200 whitespace-nowrap">
                               <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
                               {row.status}
                             </span>
                           )}
                           {row.statusType === 'upcoming' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100 whitespace-nowrap">
                               <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
                               {row.status}
                             </span>
@@ -675,9 +675,9 @@ export function DashboardPage() {
         </div>
       ) : (
         /* Student: Left = Lớp học của tôi, Right = Danh sách bài tập & Đợt kiểm tra */
-        <div className="flex-1 min-h-[340px] grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           {/* Left Column: Lớp học của tôi (5 cols) */}
-          <div className="lg:col-span-5 bg-white border border-gray-100 rounded-2xl p-5 shadow-xs flex flex-col h-full min-h-0">
+          <div className="lg:col-span-5 bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col h-[390px]">
             <div className="flex items-center justify-between mb-3 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -742,7 +742,7 @@ export function DashboardPage() {
           </div>
 
           {/* Right Column: Danh sách bài tập & Đợt kiểm tra (7 cols) */}
-          <div className="lg:col-span-7 bg-white border border-gray-100 rounded-2xl p-5 shadow-xs flex flex-col h-full min-h-0">
+          <div className="lg:col-span-7 bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col h-[390px]">
             <div className="flex items-center justify-between mb-3 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
