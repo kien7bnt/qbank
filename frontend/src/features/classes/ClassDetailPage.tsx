@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
@@ -40,7 +40,17 @@ export function ClassDetailPage() {
   const { user, activeRole } = useAuthStore();
   const isTeacher = activeRole === 'teacher' && (user?.roles.includes('teacher') || user?.roles.includes('admin'));
 
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+
   const [activeTab, setActiveTab] = useState<'sessions' | 'assignments' | 'members'>('sessions');
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab') || location.state?.tab;
+    if (tabParam === 'assignments' || tabParam === 'sessions' || tabParam === 'members') {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams, location.state]);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);

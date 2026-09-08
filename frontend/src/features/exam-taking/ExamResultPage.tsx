@@ -74,11 +74,24 @@ export function ExamResultPage() {
   const scorePercentage = Math.round(((result.score || 0) / (result.max_score || 10)) * 100);
   const isPassed = result.is_passed;
 
-  const targetAssignmentId = location.state?.assignmentId || result.assignment_id;
-  const targetAssignmentName = location.state?.assignmentName || result.assignment_name;
-  const fromUrl = location.state?.fromUrl;
+  const targetAssignmentId =
+    location.state?.assignmentId ||
+    result.assignment_id ||
+    sessionStorage.getItem('reopen_submissions_assignment_id');
+  const targetAssignmentName =
+    location.state?.assignmentName ||
+    result.assignment_name ||
+    sessionStorage.getItem('reopen_submissions_assignment_name');
+  const fromUrl =
+    location.state?.fromUrl ||
+    sessionStorage.getItem('last_submissions_url');
 
   const handleBackToSubmissions = () => {
+    if (targetAssignmentId) {
+      sessionStorage.setItem('reopen_submissions_assignment_id', targetAssignmentId);
+      sessionStorage.setItem('reopen_submissions_assignment_name', targetAssignmentName || '');
+    }
+
     if (fromUrl) {
       const sep = fromUrl.includes('?') ? '&' : '?';
       navigate(`${fromUrl}${sep}openSubmissions=${targetAssignmentId}`, {
@@ -87,14 +100,20 @@ export function ExamResultPage() {
           openSubmissionsAssignmentName: targetAssignmentName,
         },
       });
-    } else if (result.class_id) {
-      navigate(`/classes/${result.class_id}?tab=assignments&openSubmissions=${targetAssignmentId}`, {
+      return;
+    }
+
+    if (result.class_id) {
+      navigate(`/classes/${result.class_id}?openSubmissions=${targetAssignmentId}`, {
         state: {
           openSubmissionsAssignmentId: targetAssignmentId,
           openSubmissionsAssignmentName: targetAssignmentName,
         },
       });
-    } else if (window.history.length > 1) {
+      return;
+    }
+
+    if (window.history.length > 1) {
       navigate(-1);
     } else {
       navigate(`/assignments?openSubmissions=${targetAssignmentId}`, {
@@ -112,46 +131,46 @@ export function ExamResultPage() {
         {/* Top Actions */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs sm:text-sm text-gray-600 hover:text-gray-900"
-              onClick={() => {
-                if (window.history.length > 1) {
-                  navigate(-1);
-                } else {
-                  navigate('/exercises');
-                }
-              }}
-            >
-              <ArrowLeft className="h-4 w-4 mr-1.5" />
-              Quay lại
-            </Button>
+            {/* Primary Back Button: If teacher/submissions context, always go back to submissions */}
+            {isTeacherUser || location.state?.fromSubmissions || targetAssignmentId ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold shadow-xs text-xs sm:text-sm cursor-pointer"
+                onClick={handleBackToSubmissions}
+              >
+                <ArrowLeft className="h-4 w-4 mr-1.5 text-blue-600" />
+                Quay lại danh sách bài nộp
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs sm:text-sm text-gray-600 hover:text-gray-900"
+                onClick={() => {
+                  if (window.history.length > 1) {
+                    navigate(-1);
+                  } else {
+                    navigate('/exercises');
+                  }
+                }}
+              >
+                <ArrowLeft className="h-4 w-4 mr-1.5" />
+                Quay lại
+              </Button>
+            )}
 
-            {/* Back to Submissions List for Teacher */}
-            {(isTeacherUser || location.state?.fromSubmissions) && targetAssignmentId && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="bg-white border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold shadow-xs text-xs sm:text-sm cursor-pointer"
-                  onClick={handleBackToSubmissions}
-                >
-                  <Users className="h-4 w-4 mr-1.5 text-blue-600" />
-                  Quay lại danh sách bài nộp
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-600 hover:text-gray-900 text-xs sm:text-sm"
-                  onClick={() => setShowSubmissionsModal(true)}
-                  title="Xem nhanh toàn bộ danh sách nộp bài"
-                >
-                  <ExternalLink className="h-3.5 w-3.5 mr-1 text-gray-500" />
-                  Danh sách nộp bài
-                </Button>
-              </>
+            {targetAssignmentId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-600 hover:text-gray-900 text-xs sm:text-sm"
+                onClick={() => setShowSubmissionsModal(true)}
+                title="Xem nhanh danh sách toàn bộ học sinh nộp bài"
+              >
+                <Users className="h-3.5 w-3.5 mr-1 text-gray-500" />
+                Danh sách nộp bài
+              </Button>
             )}
           </div>
 

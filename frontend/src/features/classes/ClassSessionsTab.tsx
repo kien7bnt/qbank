@@ -61,19 +61,6 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
 
-  useEffect(() => {
-    const openId = searchParams.get('openSubmissions') || location.state?.openSubmissionsAssignmentId;
-    if (openId && isTeacher) {
-      const name = location.state?.openSubmissionsAssignmentName || 'Bài kiểm tra';
-      setSelectedSubmissionAssignment({ id: openId, name });
-      if (searchParams.get('openSubmissions')) {
-        const nextParams = new URLSearchParams(searchParams);
-        nextParams.delete('openSubmissions');
-        setSearchParams(nextParams, { replace: true });
-      }
-    }
-  }, [searchParams, location.state, isTeacher]);
-
   // Tab dropdown state per session: 'content' | 'materials' | 'homework' | 'exam' | null
   type SessionTab = 'content' | 'materials' | 'homework' | 'exam';
   const [activeSessionTabs, setActiveSessionTabs] = useState<Record<string, SessionTab | null>>({});
@@ -101,6 +88,41 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
   });
 
   const sessions = sessionsData?.data ?? [];
+
+  useEffect(() => {
+    const openId =
+      searchParams.get('openSubmissions') ||
+      location.state?.openSubmissionsAssignmentId ||
+      sessionStorage.getItem('reopen_submissions_assignment_id');
+
+    if (openId && isTeacher) {
+      let foundName =
+        location.state?.openSubmissionsAssignmentName ||
+        sessionStorage.getItem('reopen_submissions_assignment_name');
+
+      if (!foundName && sessions && sessions.length > 0) {
+        for (const s of sessions) {
+          const found = s.assignments?.find((a) => a.id === openId);
+          if (found) {
+            foundName = found.name;
+            break;
+          }
+        }
+      }
+
+      setSelectedSubmissionAssignment({ id: openId, name: foundName || 'Bài kiểm tra' });
+
+      // Clean up flags
+      sessionStorage.removeItem('reopen_submissions_assignment_id');
+      sessionStorage.removeItem('reopen_submissions_assignment_name');
+
+      if (searchParams.get('openSubmissions')) {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('openSubmissions');
+        setSearchParams(nextParams, { replace: true });
+      }
+    }
+  }, [sessions, searchParams, location.state, isTeacher]);
 
   // Create / Update Session Mutation
   const saveSessionMutation = useMutation({
@@ -364,30 +386,10 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
                   {/* Actions for teacher */}
                   {isTeacher && (
                     <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-center">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openAddExamModal(session.id, 'exam')}
-                        className="text-xs h-7 px-2.5 border-indigo-200 text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100"
-                        title="Giao bài kiểm tra hoặc bài tập vào buổi này"
-                      >
-                        <ClipboardList className="h-3 w-3 mr-1 text-indigo-600" />
-                        Giao bài
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openUploadModal(session.id)}
-                        className="text-xs h-7 px-2.5"
-                        title="Tải tài liệu PDF, Slide, Word lên buổi này"
-                      >
-                        <Upload className="h-3 w-3 mr-1" />
-                        Tải tài liệu
-                      </Button>
                       <button
                         title="Chỉnh sửa buổi học"
                         onClick={() => openEditSessionModal(session)}
-                        className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                        className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                       >
                         <Edit2 className="h-3.5 w-3.5" />
                       </button>
@@ -398,7 +400,7 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
                             deleteSessionMutation.mutate(session.id);
                           }
                         }}
-                        className="p-1 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                        className="p-1 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

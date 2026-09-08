@@ -56,11 +56,24 @@ export function ClassAssignmentsTab({ classId, isTeacher }: ClassAssignmentsTabP
   const allAssignments: Assignment[] = assignmentsData?.data || [];
 
   useEffect(() => {
-    const openId = searchParams.get('openSubmissions') || location.state?.openSubmissionsAssignmentId;
+    const openId =
+      searchParams.get('openSubmissions') ||
+      location.state?.openSubmissionsAssignmentId ||
+      sessionStorage.getItem('reopen_submissions_assignment_id');
+
     if (openId && isTeacher) {
       const found = allAssignments.find((a) => a.id === openId);
-      const name = found?.name || location.state?.openSubmissionsAssignmentName || 'Bài kiểm tra';
+      const name =
+        found?.name ||
+        location.state?.openSubmissionsAssignmentName ||
+        sessionStorage.getItem('reopen_submissions_assignment_name') ||
+        'Bài kiểm tra';
+
       setSelectedSubmissionsAssignment({ id: openId, name });
+
+      sessionStorage.removeItem('reopen_submissions_assignment_id');
+      sessionStorage.removeItem('reopen_submissions_assignment_name');
+
       if (searchParams.get('openSubmissions')) {
         const nextParams = new URLSearchParams(searchParams);
         nextParams.delete('openSubmissions');

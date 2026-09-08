@@ -318,6 +318,11 @@ export function AssignmentSubmissionsModal({
                                 size="sm"
                                 variant="outline"
                                 onClick={() => {
+                                  if (assignmentId) {
+                                    sessionStorage.setItem('reopen_submissions_assignment_id', assignmentId);
+                                    sessionStorage.setItem('reopen_submissions_assignment_name', assignmentName || '');
+                                    sessionStorage.setItem('last_submissions_url', window.location.pathname + window.location.search);
+                                  }
                                   onOpenChange(false);
                                   navigate(`/exam-result/${sub.id}`, {
                                     state: {

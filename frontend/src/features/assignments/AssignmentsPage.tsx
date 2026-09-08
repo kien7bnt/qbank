@@ -53,17 +53,26 @@ export function AssignmentsPage() {
   });
 
   React.useEffect(() => {
-    const openId = searchParams.get('openSubmissions') || location.state?.openSubmissionsAssignmentId;
+    const openId =
+      searchParams.get('openSubmissions') ||
+      location.state?.openSubmissionsAssignmentId ||
+      sessionStorage.getItem('reopen_submissions_assignment_id');
+
     if (openId && isTeacher && assignments?.data) {
       const found = assignments.data.find((a: Assignment) => a.id === openId);
       if (found) {
         setSubmissionsModalAssignment(found);
-      } else if (location.state?.openSubmissionsAssignmentName) {
-        setSubmissionsModalAssignment({
-          id: openId,
-          name: location.state.openSubmissionsAssignmentName,
-        } as any);
+      } else {
+        const name =
+          location.state?.openSubmissionsAssignmentName ||
+          sessionStorage.getItem('reopen_submissions_assignment_name') ||
+          'Bài kiểm tra';
+        setSubmissionsModalAssignment({ id: openId, name } as any);
       }
+
+      sessionStorage.removeItem('reopen_submissions_assignment_id');
+      sessionStorage.removeItem('reopen_submissions_assignment_name');
+
       if (searchParams.get('openSubmissions')) {
         const nextParams = new URLSearchParams(searchParams);
         nextParams.delete('openSubmissions');
