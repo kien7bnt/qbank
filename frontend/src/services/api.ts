@@ -34,6 +34,7 @@ import type {
   AddToAssessmentPayload,
   AutoGeneratePayload,
 } from '@/types';
+import { useAuthStore } from '@/stores/auth.store';
 
 const isBrowser = typeof window !== 'undefined';
 const protocol = isBrowser && window.location.protocol === 'https:' ? 'https:' : 'http:';
@@ -56,15 +57,100 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// ── Response interceptor: handle 401 ─────────────────────────────────────────
+// ── Response interceptor: handle 401 with silent token refresh ───────────────
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: unknown) => void;
+  reject: (reason?: any) => void;
+}> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 apiClient.interceptors.response.use(
   (res) => res,
-  (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      window.location.href = '/login';
+  async (error: AxiosError) => {
+    const originalRequest = error.config as any;
+
+    // Check if error is 401 and request has not already been retried
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('/auth/login') &&
+      !originalRequest.url?.includes('/auth/refresh') &&
+      !originalRequest.url?.includes('/auth/register')
+    ) {
+      const refreshToken = localStorage.getItem('refresh_token');
+
+      if (!refreshToken) {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        useAuthStore.getState().logout();
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return apiClient(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        // Direct axios call without interceptors to prevent infinite loop
+        const res = await axios.post<TokenResponse>(
+          `${BASE_URL}/auth/refresh`,
+          { refresh_token: refreshToken },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+        );
+
+        const newAccessToken = res.data.access_token;
+        const newRefreshToken = res.data.refresh_token || refreshToken;
+        const user = res.data.user || useAuthStore.getState().user;
+
+        localStorage.setItem('access_token', newAccessToken);
+        localStorage.setItem('refresh_token', newRefreshToken);
+
+        if (user) {
+          useAuthStore.getState().setAuth(user, newAccessToken, newRefreshToken);
+        }
+
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        processQueue(null, newAccessToken);
+        return apiClient(originalRequest);
+      } catch (refreshErr) {
+        processQueue(refreshErr, null);
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        useAuthStore.getState().logout();
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+        return Promise.reject(refreshErr);
+      } finally {
+        isRefreshing = false;
+      }
     }
+
     return Promise.reject(error);
   }
 );

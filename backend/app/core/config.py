@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     # JWT
     SECRET_KEY: str = "change-me-in-production-must-be-at-least-32-chars"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # Redis
