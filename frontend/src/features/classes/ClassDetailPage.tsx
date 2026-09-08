@@ -16,6 +16,8 @@ import {
   FileCheck2,
   Edit,
   ClipboardCheck,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -91,6 +93,24 @@ export function ClassDetailPage() {
     onError: (err) => toast.error(getErrorMessage(err)),
   });
 
+  // Toggle Lock Mutation
+  const toggleLockMutation = useMutation({
+    mutationFn: () => {
+      const nextStatus = c?.status === 'locked' ? 'active' : 'locked';
+      return classApi.update(id!, { status: nextStatus });
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['classes'] });
+      qc.invalidateQueries({ queryKey: ['class', id] });
+      if (res.data.status === 'locked') {
+        toast.success('Đã khóa lớp học! Học sinh có mã lớp cũng không thể tham gia.');
+      } else {
+        toast.success('Đã mở khóa lớp học! Học viên có thể tham gia bằng mã.');
+      }
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     toast.success(`Đã sao chép mã lớp: ${code}`);
@@ -135,6 +155,25 @@ export function ClassDetailPage() {
           {isTeacher && (
             <div className="flex items-center gap-2 flex-wrap">
               <Button
+                variant={c.status === 'locked' ? 'primary' : 'secondary'}
+                size="sm"
+                loading={toggleLockMutation.isPending}
+                onClick={() => toggleLockMutation.mutate()}
+                title={c.status === 'locked' ? 'Mở khóa lớp' : 'Khóa lớp'}
+              >
+                {c.status === 'locked' ? (
+                  <>
+                    <Unlock className="h-4 w-4 mr-1.5" />
+                    Mở khóa lớp
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-4 w-4 mr-1.5" />
+                    Khóa lớp
+                  </>
+                )}
+              </Button>
+              <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => setEditModalOpen(true)}
@@ -160,6 +199,15 @@ export function ClassDetailPage() {
             </div>
           )}
         </div>
+
+        {c.status === 'locked' && (
+          <div className="mt-4 flex items-center gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs font-medium">
+            <Lock className="h-4 w-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Lớp học đang bị khóa:</strong> Học sinh dù có mã lớp cũng không thể tự tham gia lúc này. Bạn có thể mở khóa bất cứ lúc nào.
+            </span>
+          </div>
+        )}
 
         <div className="mt-5 pt-4 border-t border-gray-100 flex flex-wrap gap-5 text-sm text-gray-600">
           <div className="flex items-center gap-1.5">

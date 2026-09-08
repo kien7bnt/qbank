@@ -25,7 +25,7 @@ export interface Class {
   subject_name?: string;
   teacher_id: string;
   teacher_name: string;
-  status: 'active' | 'archived' | 'pending';
+  status: 'active' | 'locked' | 'completed' | 'archived' | 'pending';
   description?: string;
   expected_start_date?: string;
   expected_end_date?: string;

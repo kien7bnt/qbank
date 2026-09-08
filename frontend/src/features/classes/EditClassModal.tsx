@@ -120,8 +120,9 @@ export function EditClassModal({ class_: c, open, onOpenChange, onSuccess }: Edi
               onChange={(e) => update('status', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
-              <option value="active">Hoạt động (Active)</option>
-              <option value="completed">Đã hoàn thành</option>
+              <option value="active">Đang mở (Cho phép học viên tham gia)</option>
+              <option value="locked">Đã khóa (Không cho học viên mới tham gia)</option>
+              <option value="completed">Đã kết thúc</option>
               <option value="archived">Lưu trữ</option>
             </select>
           </div>

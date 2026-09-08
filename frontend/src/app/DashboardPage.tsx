@@ -237,7 +237,10 @@ export function DashboardPage() {
   return (
     <div className="w-full max-w-[1600px] mx-auto p-4 sm:p-5 lg:p-6 space-y-4 sm:space-y-5">
       {/* 1. Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#4361EE] via-[#4F70F5] to-[#5978F8] px-5 py-4 sm:px-6 sm:py-5 text-white shadow-xs">
+      <div
+        style={{ background: 'linear-gradient(135deg, #4361EE 0%, #4F70F5 50%, #5978F8 100%)' }}
+        className="relative overflow-hidden rounded-2xl bg-[#4361EE] px-5 py-4 sm:px-6 sm:py-5 text-white shadow-xs"
+      >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
@@ -426,9 +429,9 @@ export function DashboardPage() {
       {/* 3. Main Section: Side-by-side with fixed card height so both cards align perfectly */}
       {isTeacher ? (
         /* Teacher: Left = Biểu đồ lớp, Right = Đợt kiểm tra & bài tập */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-          {/* Left Column: Kết quả học tập theo lớp (5 cols) */}
-          <div className="lg:col-span-5 bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col h-[390px]">
+        <div className="flex flex-col lg:flex-row gap-5 items-stretch w-full">
+          {/* Left Column: Kết quả học tập theo lớp (5 cols / ~42%) */}
+          <div className="w-full lg:w-5/12 shrink-0 bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col h-[390px]">
             <div className="flex items-center justify-between mb-3 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -548,8 +551,8 @@ export function DashboardPage() {
             )}
           </div>
 
-          {/* Right Column: Đợt kiểm tra & Bài tập mới nhất (7 cols) */}
-          <div className="lg:col-span-7 bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col h-[390px]">
+          {/* Right Column: Đợt kiểm tra & Bài tập mới nhất (7 cols / flex-1) */}
+          <div className="w-full lg:w-7/12 flex-1 min-w-0 bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col h-[390px]">
             <div className="flex items-center justify-between mb-3 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -675,9 +678,9 @@ export function DashboardPage() {
         </div>
       ) : (
         /* Student: Left = Lớp học của tôi, Right = Danh sách bài tập & Đợt kiểm tra */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-          {/* Left Column: Lớp học của tôi (5 cols) */}
-          <div className="lg:col-span-5 bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col h-[390px]">
+        <div className="flex flex-col lg:flex-row gap-5 items-stretch w-full">
+          {/* Left Column: Lớp học của tôi (5 cols / ~42%) */}
+          <div className="w-full lg:w-5/12 shrink-0 bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col h-[390px]">
             <div className="flex items-center justify-between mb-3 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -741,8 +744,8 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {/* Right Column: Danh sách bài tập & Đợt kiểm tra (7 cols) */}
-          <div className="lg:col-span-7 bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col h-[390px]">
+          {/* Right Column: Danh sách bài tập & Đợt kiểm tra (7 cols / flex-1) */}
+          <div className="w-full lg:w-7/12 flex-1 min-w-0 bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col h-[390px]">
             <div className="flex items-center justify-between mb-3 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">

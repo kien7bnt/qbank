@@ -178,6 +178,8 @@ async def join_class(
     class_ = result.scalar_one_or_none()
     if not class_:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mã lớp không tồn tại")
+    if class_.status == "locked":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Lớp học đã bị khóa, học viên không thể tham gia lúc này!")
     if class_.status != "active":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Lớp học không còn hoạt động")
 

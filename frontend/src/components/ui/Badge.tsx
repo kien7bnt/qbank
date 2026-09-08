@@ -82,7 +82,9 @@ export function DifficultyBadge({ level }: { level: DifficultyLevel }) {
 }
 
 const CLASS_STATUS_MAP: Record<string, { label: string; variant: BadgeProps['variant'] }> = {
-  active: { label: 'Hoạt động', variant: 'green' },
+  active: { label: 'Đang mở', variant: 'green' },
+  locked: { label: 'Đã khóa', variant: 'red' },
+  completed: { label: 'Đã kết thúc', variant: 'blue' },
   archived: { label: 'Đã lưu trữ', variant: 'default' },
   pending: { label: 'Chờ duyệt', variant: 'yellow' },
 };
