@@ -41,7 +41,7 @@ const QuestionBankPage = safeLazy(() => import('@/features/question-bank/Questio
 const ExamMatricesPage = safeLazy(() => import('@/features/exams/ExamMatricesPage'), 'ExamMatricesPage', 'Ma trận đề thi');
 const ExamsListPage = safeLazy(() => import('@/features/exams/ExamsListPage'), 'ExamsListPage', 'Kho bài kiểm tra');
 const ExercisesListPage = safeLazy(() => import('@/features/exercises/ExercisesListPage'), 'ExercisesListPage', 'Kho bài tập');
-const AssignmentsPage = safeLazy(() => import('@/features/assignments/AssignmentsPage'), 'AssignmentsPage', 'Giao bài tập');
+const AssignmentsPage = safeLazy(() => import('@/features/assignments/AssignmentsPage'), 'AssignmentsPage', 'Tạo đề thi');
 const ExamTakingPage = safeLazy(() => import('@/features/exam-taking/ExamTakingPage'), 'ExamTakingPage', 'Làm bài thi');
 const ExamResultPage = safeLazy(() => import('@/features/exam-taking/ExamResultPage'), 'ExamResultPage', 'Kết quả bài thi');
 const AnalyticsPage = safeLazy(() => import('@/features/analytics/AnalyticsPage'), 'AnalyticsPage', 'Thống kê & Báo cáo');

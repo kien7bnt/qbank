@@ -85,16 +85,16 @@ export function AssignmentsPage() {
   }, [allAssignments, typeFilter]);
 
   const pageTitle = typeFilter === 'exam'
-    ? (isTeacher ? 'Quản Lý Bài Kiểm Tra' : 'Bài Kiểm Tra Chính Thức')
+    ? (isTeacher ? 'Tạo đề thi & Kiểm tra' : 'Bài Kiểm Tra Chính Thức')
     : typeFilter === 'homework'
     ? (isTeacher ? 'Quản Lý Bài Tập' : 'Bài Tập Của Tôi')
-    : (isTeacher ? 'Quản Lý Bài Kiểm Tra & Bài Tập' : 'Bài Kiểm Tra & Bài Tập Của Tôi');
+    : (isTeacher ? 'Tạo đề thi' : 'Bài Kiểm Tra & Bài Tập Của Tôi');
 
   const pageDesc = typeFilter === 'exam'
-    ? (isTeacher ? 'Giao đề kiểm tra chính thức, thiết lập thời gian đếm lui và giám sát kết quả thi.' : 'Các bài thi chính thức tính điểm định kỳ. Mỗi bài chỉ được nộp 1 lần duy nhất.')
+    ? (isTeacher ? 'Tạo đề kiểm tra chính thức, thiết lập thời gian đếm ngược và giám sát kết quả thi.' : 'Các bài thi chính thức tính điểm định kỳ. Mỗi bài chỉ được nộp 1 lần duy nhất.')
     : typeFilter === 'homework'
     ? (isTeacher ? 'Giao bài tập thực hành cho học sinh (cho phép làm lại nhiều lần để rèn luyện).' : 'Các bài tập thực hành. Bạn có thể làm đi làm lại nhiều lần để nâng cao kiến thức.')
-    : (isTeacher ? 'Giao bài và theo dõi toàn bộ bài kiểm tra lẫn bài tập của học sinh.' : 'Danh sách toàn bộ bài thi và bài tập được giao cho bạn.');
+    : (isTeacher ? 'Tạo đề thi, giao bài kiểm tra & bài tập và theo dõi toàn bộ kết quả của học sinh.' : 'Danh sách toàn bộ bài thi và bài tập được giao cho bạn.');
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
@@ -108,7 +108,7 @@ export function AssignmentsPage() {
               </div>
             ) : (
               <div className="p-2 bg-primary-50 text-primary-700 rounded-xl">
-                <ClipboardList className="h-6 w-6" />
+                <Award className="h-6 w-6" />
               </div>
             )}
             <div>
@@ -125,7 +125,7 @@ export function AssignmentsPage() {
         {isTeacher && (
           <Button onClick={() => setCreateModalOpen(true)} className="shrink-0 shadow-xs">
             <Plus className="h-4 w-4 mr-1.5" />
-            {typeFilter === 'homework' ? 'Giao bài tập mới' : 'Giao bài kiểm tra mới'}
+            {typeFilter === 'homework' ? 'Giao bài tập mới' : 'Tạo đề thi mới'}
           </Button>
         )}
       </div>

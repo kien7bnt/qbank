@@ -205,12 +205,12 @@ export function CreateAssignmentModal({
           )}
           <div>
             <span className="font-bold text-gray-900">
-              {isHomeworkMode ? 'Giao Bài Tập Cho Lớp' : 'Giao Bài Kiểm Tra Cho Lớp'}
+              {isHomeworkMode ? 'Giao Bài Tập Cho Lớp' : 'Tạo Đề Thi Cho Lớp'}
             </span>
             <p className="text-xs text-gray-500 font-normal">
               {isHomeworkMode
                 ? 'Luyện tập tự do củng cố kiến thức • Không giới hạn lượt làm • Không tính điểm đạt/trượt'
-                : 'Khảo thí chính thức • Có tính giờ đếm lui • Đánh giá điểm chuẩn'}
+                : 'Tạo đề thi chính thức • Có tính giờ đếm lui • Đánh giá điểm chuẩn'}
             </p>
           </div>
         </div>
@@ -226,7 +226,7 @@ export function CreateAssignmentModal({
             loading={createMutation.isPending}
             className={isHomeworkMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}
           >
-            {isHomeworkMode ? 'Giao bài tập cho lớp' : 'Giao bài kiểm tra cho lớp'}
+            {isHomeworkMode ? 'Giao bài tập cho lớp' : 'Tạo đề thi cho lớp'}
           </Button>
         </>
       }
