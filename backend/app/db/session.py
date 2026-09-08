@@ -67,7 +67,10 @@ async def init_db() -> None:
                 ("questions", "usage_count", "INTEGER DEFAULT 0", "INTEGER DEFAULT 0"),
                 ("questions", "response_count", "INTEGER DEFAULT 0", "INTEGER DEFAULT 0"),
                 ("questions", "is_calibrated", "BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT 0"),
+                ("questions", "calibrated_at", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP"),
                 ("questions", "in_exercise_bank", "BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT 0"),
+                # users
+                ("users", "avatar_url", "TEXT", "TEXT"),
                 # question_essays
                 ("question_essays", "rubric_id", "UUID", "CHAR(32)"),
                 # question_codings
