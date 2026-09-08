@@ -19,6 +19,8 @@ import {
   ClipboardCheck,
   Award,
   Users,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -53,7 +55,19 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
   // Assignment modal state
   const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
   const [targetSessionForExam, setTargetSessionForExam] = useState<string | undefined>(undefined);
+  const [targetAssignmentType, setTargetAssignmentType] = useState<'exam' | 'homework' | undefined>(undefined);
   const [selectedSubmissionAssignment, setSelectedSubmissionAssignment] = useState<{ id: string; name: string } | null>(null);
+
+  // Tab dropdown state per session: 'content' | 'materials' | 'homework' | 'exam' | null
+  type SessionTab = 'content' | 'materials' | 'homework' | 'exam';
+  const [activeSessionTabs, setActiveSessionTabs] = useState<Record<string, SessionTab | null>>({});
+
+  const toggleSessionTab = (sessionId: string, tab: SessionTab) => {
+    setActiveSessionTabs((prev) => ({
+      ...prev,
+      [sessionId]: prev[sessionId] === tab ? null : tab,
+    }));
+  };
 
   // Material upload state
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -119,8 +133,9 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
     onError: (err) => toast.error(getErrorMessage(err)),
   });
 
-  const openAddExamModal = (sessionId: string) => {
+  const openAddExamModal = (sessionId: string, type: 'exam' | 'homework' = 'exam') => {
     setTargetSessionForExam(sessionId);
+    setTargetAssignmentType(type);
     setAssignmentModalOpen(true);
   };
 
@@ -221,19 +236,42 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
   return (
     <div className="space-y-6">
       {/* Header Actions */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-gray-900">Lộ trình Buổi học & Tài liệu giảng dạy</h2>
           <p className="text-sm text-gray-500">
-            Quản lý kế hoạch từng buổi học, đính kèm bài giảng, tài liệu PDF, Slide học tập
+            Quản lý kế hoạch từng buổi học, đính kèm bài giảng, tài liệu PDF, bài tập và đề kiểm tra
           </p>
         </div>
-        {isTeacher && (
-          <Button onClick={openCreateSessionModal} size="sm">
-            <Plus className="h-4 w-4 mr-1.5" />
-            Thêm buổi học
-          </Button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {sessions.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const anyOpen = Object.values(activeSessionTabs).some(Boolean);
+                if (anyOpen) {
+                  setActiveSessionTabs({});
+                } else {
+                  const next: Record<string, SessionTab | null> = {};
+                  sessions.forEach((s) => {
+                    next[s.id] = s.materials?.length ? 'materials' : 'content';
+                  });
+                  setActiveSessionTabs(next);
+                }
+              }}
+              className="text-xs"
+            >
+              {Object.values(activeSessionTabs).some(Boolean) ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
+            </Button>
+          )}
+          {isTeacher && (
+            <Button onClick={openCreateSessionModal} size="sm">
+              <Plus className="h-4 w-4 mr-1.5" />
+              Thêm buổi học
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Empty State */}
@@ -254,20 +292,40 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
           )}
         </div>
       ) : (
-        /* Sessions Timeline */
-        <div className="space-y-4">
-          {sessions.map((session, index) => (
-            <div
-              key={session.id}
-              className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-gray-300"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-700">
+        /* Sessions Compact List */
+        <div className="space-y-3">
+          {sessions.map((session, index) => {
+            const activeTab = activeSessionTabs[session.id] || null;
+            const contentCount = session.description?.trim() ? 1 : (session.session_date ? 1 : 0);
+            const matCount = session.materials?.length || 0;
+            const homeworks = session.assignments?.filter(
+              (a) => a.assignment_type === 'homework' || a.assignment_type === 'assignment'
+            ) || [];
+            const exams = session.assignments?.filter(
+              (a) => a.assignment_type !== 'homework' && a.assignment_type !== 'assignment'
+            ) || [];
+            const hwCount = homeworks.length;
+            const examCount = exams.length;
+
+            const rawTitle = session.title?.trim() || (session as any).name?.trim() || '';
+            const displayTitle = rawTitle.toLowerCase().startsWith('buổi')
+              ? rawTitle
+              : `Buổi ${index + 1}: ${rawTitle}`;
+
+            return (
+              <div
+                key={session.id}
+                className="rounded-2xl border border-gray-200 bg-white shadow-xs hover:border-gray-300 transition-all overflow-hidden"
+              >
+                {/* Header Row */}
+                <div className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-700">
                       {index + 1}
                     </span>
-                    <h3 className="text-base font-bold text-gray-900">{session.title || (session as any).name}</h3>
+                    <h3 className="text-sm sm:text-base font-bold text-gray-900 truncate" title={displayTitle}>
+                      {displayTitle}
+                    </h3>
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         session.status === 'completed'
@@ -287,255 +345,542 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
                     </span>
                   </div>
 
-                  {session.description && (
-                    <p className="text-sm text-gray-600 pl-8 pt-1">{session.description}</p>
-                  )}
-
-                  {session.session_date && (
-                    <div className="flex items-center gap-1.5 pl-8 pt-1 text-xs text-gray-400">
-                      <Calendar className="h-3.5 w-3.5" />
-                      <span>
-                        Thời gian:{' '}
-                        {format(new Date(session.session_date), 'EEEE, dd/MM/yyyy', { locale: vi })}
-                      </span>
+                  {/* Actions for teacher */}
+                  {isTeacher && (
+                    <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-center">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openAddExamModal(session.id, 'exam')}
+                        className="text-xs h-7 px-2.5 border-indigo-200 text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100"
+                        title="Giao bài kiểm tra hoặc bài tập vào buổi này"
+                      >
+                        <ClipboardList className="h-3 w-3 mr-1 text-indigo-600" />
+                        Giao bài
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openUploadModal(session.id)}
+                        className="text-xs h-7 px-2.5"
+                        title="Tải tài liệu PDF, Slide, Word lên buổi này"
+                      >
+                        <Upload className="h-3 w-3 mr-1" />
+                        Tải tài liệu
+                      </Button>
+                      <button
+                        title="Chỉnh sửa buổi học"
+                        onClick={() => openEditSessionModal(session)}
+                        className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        title="Xóa buổi học"
+                        onClick={() => {
+                          if (confirm(`Bạn có chắc muốn xóa buổi học "${session.title || (session as any).name}"?`)) {
+                            deleteSessionMutation.mutate(session.id);
+                          }
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   )}
                 </div>
 
-                {isTeacher && (
-                  <div className="flex items-center gap-1.5 shrink-0 self-start">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => openAddExamModal(session.id)}
-                      className="text-xs h-8 border-indigo-200 text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100 hover:text-indigo-900"
+                {/* The Bar: Nội dung | Tài liệu | Bài tập | Kiểm tra */}
+                <div className="flex items-center flex-wrap gap-1 px-3 py-1.5 bg-gray-50/90 border-t border-gray-100 text-xs">
+                  {/* Tab Nội dung */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSessionTab(session.id, 'content')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                      activeTab === 'content'
+                        ? 'bg-white text-blue-700 font-semibold shadow-2xs border border-blue-200'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
+                    }`}
+                  >
+                    <FileText className={`h-3.5 w-3.5 ${activeTab === 'content' ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <span>Nội dung</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[11px] font-semibold ${
+                        contentCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                      }`}
                     >
-                      <ClipboardList className="h-3.5 w-3.5 mr-1 text-indigo-600" />
-                      Giao bài kiểm tra
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => openUploadModal(session.id)}
-                      className="text-xs h-8"
-                    >
-                      <Upload className="h-3.5 w-3.5 mr-1" />
-                      Tải tài liệu
-                    </Button>
-                    <button
-                      title="Chỉnh sửa buổi học"
-                      onClick={() => openEditSessionModal(session)}
-                      className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      title="Xóa buổi học"
-                      onClick={() => {
-                        if (confirm(`Bạn có chắc muốn xóa buổi học "${session.title || (session as any).name}"?`)) {
-                          deleteSessionMutation.mutate(session.id);
-                        }
-                      }}
-                      className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
+                      ({contentCount})
+                    </span>
+                    {activeTab === 'content' ? (
+                      <ChevronUp className="h-3 w-3 text-blue-600" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3 text-gray-400" />
+                    )}
+                  </button>
 
-              {/* Materials Section */}
-              <div className="mt-4 pt-3 border-t border-gray-100 pl-8 space-y-2">
-                <div className="flex items-center justify-between text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  <span className="flex items-center gap-1">
-                    <Paperclip className="h-3.5 w-3.5" />
-                    Tài liệu đính kèm ({session.materials?.length || 0})
-                  </span>
+                  <span className="text-gray-300 select-none font-light">|</span>
+
+                  {/* Tab Tài liệu */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSessionTab(session.id, 'materials')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                      activeTab === 'materials'
+                        ? 'bg-white text-amber-700 font-semibold shadow-2xs border border-amber-200'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
+                    }`}
+                  >
+                    <Paperclip className={`h-3.5 w-3.5 ${activeTab === 'materials' ? 'text-amber-600' : 'text-gray-400'}`} />
+                    <span>Tài liệu</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[11px] font-semibold ${
+                        matCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      ({matCount})
+                    </span>
+                    {activeTab === 'materials' ? (
+                      <ChevronUp className="h-3 w-3 text-amber-600" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3 text-gray-400" />
+                    )}
+                  </button>
+
+                  <span className="text-gray-300 select-none font-light">|</span>
+
+                  {/* Tab Bài tập */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSessionTab(session.id, 'homework')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                      activeTab === 'homework'
+                        ? 'bg-white text-emerald-700 font-semibold shadow-2xs border border-emerald-200'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
+                    }`}
+                  >
+                    <ClipboardCheck className={`h-3.5 w-3.5 ${activeTab === 'homework' ? 'text-emerald-600' : 'text-gray-400'}`} />
+                    <span>Bài tập</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[11px] font-semibold ${
+                        hwCount > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      ({hwCount})
+                    </span>
+                    {activeTab === 'homework' ? (
+                      <ChevronUp className="h-3 w-3 text-emerald-600" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3 text-gray-400" />
+                    )}
+                  </button>
+
+                  <span className="text-gray-300 select-none font-light">|</span>
+
+                  {/* Tab Kiểm tra */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSessionTab(session.id, 'exam')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                      activeTab === 'exam'
+                        ? 'bg-white text-purple-700 font-semibold shadow-2xs border border-purple-200'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
+                    }`}
+                  >
+                    <Award className={`h-3.5 w-3.5 ${activeTab === 'exam' ? 'text-purple-600' : 'text-gray-400'}`} />
+                    <span>Kiểm tra</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[11px] font-semibold ${
+                        examCount > 0 ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      ({examCount})
+                    </span>
+                    {activeTab === 'exam' ? (
+                      <ChevronUp className="h-3 w-3 text-purple-600" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3 text-gray-400" />
+                    )}
+                  </button>
                 </div>
 
-                {(!session.materials || session.materials.length === 0) ? (
-                  <p className="text-xs text-gray-400 italic">Chưa có tài liệu đính kèm cho buổi này.</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                    {session.materials.map((mat) => {
-                      const isPdf = mat.file_type.includes('pdf');
-                      const isWord = mat.file_type.includes('word') || mat.file_type.includes('officedocument');
-
-                      return (
-                        <div
-                          key={mat.id}
-                          className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-gray-200 bg-gray-50/70 hover:bg-gray-100/80 transition-all text-sm"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className={`p-2 rounded-lg ${isPdf ? 'bg-red-100 text-red-600' : isWord ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'}`}>
-                              <FileText className="h-4 w-4" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-medium text-gray-900 truncate text-xs" title={mat.title || mat.file_name}>
-                                {mat.title || mat.file_name}
-                              </p>
-                              <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                                <span>{formatFileSize(mat.file_size)}</span>
-                                {!mat.is_public && (
-                                  <span className="text-amber-600 bg-amber-50 px-1 rounded">Chỉ GV</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1 shrink-0">
-                            <a
-                              href={mat.id ? `/api/v1/materials/${mat.id}/download` : mat.file_path}
-                              target="_blank"
-                              rel="noreferrer"
-                              download={mat.file_name}
-                              className="p-1.5 text-primary-600 hover:text-primary-800 hover:bg-white rounded-lg transition-colors"
-                              title="Tải xuống tài liệu"
+                {/* Dropdown Details Container */}
+                {activeTab && (
+                  <div className="p-4 sm:p-5 border-t border-gray-100 bg-white">
+                    {/* Content Panel */}
+                    {activeTab === 'content' && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <FileText className="h-3.5 w-3.5 text-blue-600" />
+                            Nội dung chi tiết buổi học
+                          </h4>
+                          {isTeacher && (
+                            <button
+                              onClick={() => openEditSessionModal(session)}
+                              className="text-xs text-primary-600 hover:text-primary-800 font-medium flex items-center gap-1 hover:underline"
                             >
-                              <FileDown className="h-4 w-4" />
-                            </a>
-                            {isTeacher && (
-                              <>
-                                <button
-                                  onClick={() =>
-                                    toggleVisibilityMutation.mutate({
-                                      materialId: mat.id,
-                                      isPublic: !mat.is_public,
-                                    })
-                                  }
-                                  title={mat.is_public ? 'Đang hiện (Bấm để ẩn với HS)' : 'Đang ẩn (Bấm để hiện với HS)'}
-                                  className={`p-1.5 rounded-lg hover:bg-white transition-colors ${
-                                    mat.is_public ? 'text-gray-400 hover:text-gray-600' : 'text-amber-600'
-                                  }`}
-                                >
-                                  {mat.is_public ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    if (confirm(`Bạn có chắc muốn xóa tài liệu "${mat.title || mat.file_name}"?`)) {
-                                      deleteMaterialMutation.mutate(mat.id);
-                                    }
-                                  }}
-                                  title="Xóa tài liệu"
-                                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg transition-colors"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Assignments Section */}
-              <div className="mt-3 pt-3 border-t border-gray-100 pl-8 space-y-2">
-                <div className="flex items-center justify-between text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  <span className="flex items-center gap-1.5 text-indigo-700">
-                    <ClipboardCheck className="h-3.5 w-3.5" />
-                    Bài tập & Bài kiểm tra ({session.assignments?.length || 0})
-                  </span>
-                  {isTeacher && (
-                    <button
-                      onClick={() => openAddExamModal(session.id)}
-                      className="text-[11px] font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline lowercase first-letter:uppercase"
-                    >
-                      <Plus className="h-3 w-3" />
-                      Giao bài vào buổi này
-                    </button>
-                  )}
-                </div>
-
-                {(!session.assignments || session.assignments.length === 0) ? (
-                  <p className="text-xs text-gray-400 italic">Chưa có bài tập hoặc bài kiểm tra nào trong buổi học này.</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                    {session.assignments.map((asgn) => (
-                      <div
-                        key={asgn.id}
-                        className="flex items-center justify-between gap-2 p-3 rounded-xl border border-indigo-100 bg-indigo-50/40 hover:bg-indigo-50/70 transition-all text-sm"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="p-2 rounded-lg bg-indigo-100 text-indigo-700 shrink-0">
-                            <Award className="h-4 w-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              {asgn.assignment_type === 'homework' || asgn.assignment_type === 'assignment' ? (
-                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">Bài tập</span>
-                              ) : (
-                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">Kiểm tra</span>
-                              )}
-                              <p className="font-semibold text-gray-900 truncate text-xs" title={asgn.name}>
-                                {asgn.name}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5">
-                              <span>{asgn.duration_minutes} phút</span>
-                              {asgn.assignment_type !== 'homework' && asgn.assignment_type !== 'assignment' && asgn.pass_score ? (
-                                <>
-                                  <span>•</span>
-                                  <span>Đạt: &ge; {asgn.pass_score} đ</span>
-                                </>
-                              ) : null}
-                              <span>•</span>
-                              <span className="text-emerald-700 font-medium">
-                                {asgn.total_submissions ?? 0} bài nộp
-                              </span>
-                            </div>
-                          </div>
+                              <Edit2 className="h-3 w-3" />
+                              Chỉnh sửa
+                            </button>
+                          )}
                         </div>
 
-                        <div className="flex items-center gap-1 shrink-0">
-                          {isTeacher ? (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2 text-xs text-indigo-700 hover:bg-white"
-                                title="Xem danh sách bài nộp của học sinh"
-                                onClick={() => setSelectedSubmissionAssignment({ id: asgn.id, name: asgn.name })}
-                              >
-                                <Users className="h-3.5 w-3.5 mr-1" />
-                                Bài nộp ({asgn.total_submissions ?? 0})
-                              </Button>
-                              <button
-                                title="Xóa bài này"
-                                onClick={() => {
-                                  const isHw = asgn.assignment_type === 'homework' || asgn.assignment_type === 'assignment';
-                                  if (
-                                    confirm(
-                                      `Bạn có chắc muốn xóa ${isHw ? 'bài tập' : 'bài kiểm tra'} "${asgn.name}" khỏi buổi học? Mọi bài nộp của học sinh cũng sẽ bị xóa.`
-                                    )
-                                  ) {
-                                    deleteAssignmentMutation.mutate(asgn.id);
-                                  }
-                                }}
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg transition-colors"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </>
-                          ) : (
+                        {session.description ? (
+                          <div className="text-sm text-gray-700 bg-gray-50/80 p-3.5 rounded-xl border border-gray-100 whitespace-pre-wrap leading-relaxed">
+                            {session.description}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-400 italic">Chưa có nội dung mô tả cho buổi học này.</p>
+                        )}
+
+                        {session.session_date && (
+                          <div className="flex items-center gap-2 text-xs text-gray-500 pt-1">
+                            <Calendar className="h-4 w-4 text-primary-600" />
+                            <span>
+                              Thời gian buổi học:{' '}
+                              <strong>{format(new Date(session.session_date), 'EEEE, dd/MM/yyyy', { locale: vi })}</strong>
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Materials Panel */}
+                    {activeTab === 'materials' && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <Paperclip className="h-3.5 w-3.5 text-amber-600" />
+                            Tài liệu đính kèm ({matCount})
+                          </h4>
+                          {isTeacher && (
                             <Button
                               size="sm"
-                              className="h-7 px-2.5 text-xs"
-                              onClick={() => navigate('/assignments')}
+                              variant="outline"
+                              onClick={() => openUploadModal(session.id)}
+                              className="h-7 text-xs border-amber-200 text-amber-800 hover:bg-amber-50"
                             >
-                              Làm bài
+                              <Upload className="h-3 w-3 mr-1 text-amber-600" />
+                              Tải tài liệu mới
                             </Button>
                           )}
                         </div>
+
+                        {matCount === 0 ? (
+                          <div className="text-center py-5 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                            <Paperclip className="h-8 w-8 text-gray-300 mx-auto mb-1.5" />
+                            <p className="text-xs text-gray-500">Chưa có tài liệu đính kèm cho buổi này.</p>
+                            {isTeacher && (
+                              <button
+                                onClick={() => openUploadModal(session.id)}
+                                className="mt-2 inline-flex items-center gap-1 text-xs text-primary-600 font-medium hover:underline"
+                              >
+                                <Upload className="h-3 w-3" /> Tải tài liệu ngay
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {session.materials.map((mat) => {
+                              const isPdf = mat.file_type.includes('pdf');
+                              const isWord = mat.file_type.includes('word') || mat.file_type.includes('officedocument');
+                              return (
+                                <div
+                                  key={mat.id}
+                                  className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-gray-200 bg-gray-50/70 hover:bg-gray-100/80 transition-all text-sm"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div
+                                      className={`p-2 rounded-lg ${
+                                        isPdf ? 'bg-red-100 text-red-600' : isWord ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600'
+                                      }`}
+                                    >
+                                      <FileText className="h-4 w-4" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-gray-900 truncate text-xs" title={mat.title || mat.file_name}>
+                                        {mat.title || mat.file_name}
+                                      </p>
+                                      <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                                        <span>{formatFileSize(mat.file_size)}</span>
+                                        {!mat.is_public && (
+                                          <span className="text-amber-600 bg-amber-50 px-1 rounded">Chỉ GV</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <a
+                                      href={mat.id ? `/api/v1/materials/${mat.id}/download` : mat.file_path}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      download={mat.file_name}
+                                      className="p-1.5 text-primary-600 hover:text-primary-800 hover:bg-white rounded-lg transition-colors"
+                                      title="Tải xuống tài liệu"
+                                    >
+                                      <FileDown className="h-4 w-4" />
+                                    </a>
+                                    {isTeacher && (
+                                      <>
+                                        <button
+                                          onClick={() =>
+                                            toggleVisibilityMutation.mutate({
+                                              materialId: mat.id,
+                                              isPublic: !mat.is_public,
+                                            })
+                                          }
+                                          title={mat.is_public ? 'Đang hiện (Bấm để ẩn với HS)' : 'Đang ẩn (Bấm để hiện với HS)'}
+                                          className={`p-1.5 rounded-lg hover:bg-white transition-colors ${
+                                            mat.is_public ? 'text-gray-400 hover:text-gray-600' : 'text-amber-600'
+                                          }`}
+                                        >
+                                          {mat.is_public ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            if (confirm(`Bạn có chắc muốn xóa tài liệu "${mat.title || mat.file_name}"?`)) {
+                                              deleteMaterialMutation.mutate(mat.id);
+                                            }
+                                          }}
+                                          title="Xóa tài liệu"
+                                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg transition-colors"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    )}
+
+                    {/* Homework Panel */}
+                    {activeTab === 'homework' && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <ClipboardCheck className="h-3.5 w-3.5 text-emerald-600" />
+                            Bài tập về nhà ({hwCount})
+                          </h4>
+                          {isTeacher && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openAddExamModal(session.id, 'homework')}
+                              className="h-7 text-xs border-emerald-200 text-emerald-800 hover:bg-emerald-50"
+                            >
+                              <Plus className="h-3 w-3 mr-1 text-emerald-600" />
+                              Giao bài tập
+                            </Button>
+                          )}
+                        </div>
+
+                        {hwCount === 0 ? (
+                          <div className="text-center py-5 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                            <ClipboardCheck className="h-8 w-8 text-gray-300 mx-auto mb-1.5" />
+                            <p className="text-xs text-gray-500">Chưa có bài tập nào cho buổi học này.</p>
+                            {isTeacher && (
+                              <button
+                                onClick={() => openAddExamModal(session.id, 'homework')}
+                                className="mt-2 inline-flex items-center gap-1 text-xs text-emerald-600 font-medium hover:underline"
+                              >
+                                <Plus className="h-3 w-3" /> Giao bài tập ngay
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {homeworks.map((asgn) => (
+                              <div
+                                key={asgn.id}
+                                className="flex items-center justify-between gap-2 p-3 rounded-xl border border-emerald-100 bg-emerald-50/30 hover:bg-emerald-50/60 transition-all text-sm"
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 shrink-0">
+                                    <ClipboardCheck className="h-4 w-4" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-700">
+                                        Bài tập
+                                      </span>
+                                      <p className="font-semibold text-gray-900 truncate text-xs" title={asgn.name}>
+                                        {asgn.name}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5">
+                                      <span>{asgn.duration_minutes} phút</span>
+                                      <span>•</span>
+                                      <span className="text-emerald-700 font-medium">
+                                        {asgn.total_submissions ?? 0} bài nộp
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {isTeacher ? (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 px-2 text-xs text-emerald-700 hover:bg-white"
+                                        title="Xem danh sách bài nộp của học sinh"
+                                        onClick={() => setSelectedSubmissionAssignment({ id: asgn.id, name: asgn.name })}
+                                      >
+                                        <Users className="h-3.5 w-3.5 mr-1" />
+                                        Bài nộp ({asgn.total_submissions ?? 0})
+                                      </Button>
+                                      <button
+                                        title="Xóa bài tập này"
+                                        onClick={() => {
+                                          if (confirm(`Bạn có chắc muốn xóa bài tập "${asgn.name}" khỏi buổi học?`)) {
+                                            deleteAssignmentMutation.mutate(asgn.id);
+                                          }
+                                        }}
+                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg transition-colors"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      className="h-7 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700"
+                                      onClick={() => navigate('/assignments')}
+                                    >
+                                      Làm bài
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Exam Panel */}
+                    {activeTab === 'exam' && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <Award className="h-3.5 w-3.5 text-purple-600" />
+                            Bài kiểm tra ({examCount})
+                          </h4>
+                          {isTeacher && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openAddExamModal(session.id, 'exam')}
+                              className="h-7 text-xs border-purple-200 text-purple-800 hover:bg-purple-50"
+                            >
+                              <Plus className="h-3 w-3 mr-1 text-purple-600" />
+                              Giao bài kiểm tra
+                            </Button>
+                          )}
+                        </div>
+
+                        {examCount === 0 ? (
+                          <div className="text-center py-5 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                            <Award className="h-8 w-8 text-gray-300 mx-auto mb-1.5" />
+                            <p className="text-xs text-gray-500">Chưa có bài kiểm tra nào trong buổi học này.</p>
+                            {isTeacher && (
+                              <button
+                                onClick={() => openAddExamModal(session.id, 'exam')}
+                                className="mt-2 inline-flex items-center gap-1 text-xs text-purple-600 font-medium hover:underline"
+                              >
+                                <Plus className="h-3 w-3" /> Giao bài kiểm tra ngay
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {exams.map((asgn) => (
+                              <div
+                                key={asgn.id}
+                                className="flex items-center justify-between gap-2 p-3 rounded-xl border border-purple-100 bg-purple-50/30 hover:bg-purple-50/60 transition-all text-sm"
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="p-2 rounded-lg bg-purple-100 text-purple-700 shrink-0">
+                                    <Award className="h-4 w-4" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-100 text-purple-700">
+                                        Kiểm tra
+                                      </span>
+                                      <p className="font-semibold text-gray-900 truncate text-xs" title={asgn.name}>
+                                        {asgn.name}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5">
+                                      <span>{asgn.duration_minutes} phút</span>
+                                      {asgn.pass_score ? (
+                                        <>
+                                          <span>•</span>
+                                          <span>Đạt: &ge; {asgn.pass_score} đ</span>
+                                        </>
+                                      ) : null}
+                                      <span>•</span>
+                                      <span className="text-purple-700 font-medium">
+                                        {asgn.total_submissions ?? 0} bài nộp
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {isTeacher ? (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 px-2 text-xs text-purple-700 hover:bg-white"
+                                        title="Xem danh sách bài nộp của học sinh"
+                                        onClick={() => setSelectedSubmissionAssignment({ id: asgn.id, name: asgn.name })}
+                                      >
+                                        <Users className="h-3.5 w-3.5 mr-1" />
+                                        Bài nộp ({asgn.total_submissions ?? 0})
+                                      </Button>
+                                      <button
+                                        title="Xóa bài kiểm tra này"
+                                        onClick={() => {
+                                          if (confirm(`Bạn có chắc muốn xóa bài kiểm tra "${asgn.name}" khỏi buổi học? Mọi bài nộp của học sinh cũng sẽ bị xóa.`)) {
+                                            deleteAssignmentMutation.mutate(asgn.id);
+                                          }
+                                        }}
+                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-white rounded-lg transition-colors"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      className="h-7 px-2.5 text-xs bg-purple-600 hover:bg-purple-700"
+                                      onClick={() => navigate('/assignments')}
+                                    >
+                                      Làm bài thi
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -702,10 +1047,14 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
         open={assignmentModalOpen}
         onOpenChange={(open) => {
           setAssignmentModalOpen(open);
-          if (!open) setTargetSessionForExam(undefined);
+          if (!open) {
+            setTargetSessionForExam(undefined);
+            setTargetAssignmentType(undefined);
+          }
         }}
         initialClassId={classId}
         initialSessionId={targetSessionForExam}
+        initialType={targetAssignmentType}
       />
 
       {/* View Submissions Modal */}
