@@ -35,9 +35,11 @@ import type {
   AutoGeneratePayload,
 } from '@/types';
 
-const API_HOST = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-const defaultBaseUrl = `http://${API_HOST}:8000/api/v1`;
-const BASE_URL = import.meta.env.VITE_API_URL ?? defaultBaseUrl;
+const isBrowser = typeof window !== 'undefined';
+const protocol = isBrowser && window.location.protocol === 'https:' ? 'https:' : 'http:';
+const API_HOST = isBrowser ? window.location.hostname : 'localhost';
+const defaultBaseUrl = `${protocol}//${API_HOST}:8000/api/v1`;
+const BASE_URL = import.meta.env.VITE_API_URL || defaultBaseUrl;
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
