@@ -36,18 +36,21 @@ async def list_assignments(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
+    is_admin = current_user.has_role("admin")
     is_teacher_request = False
     if role == "teacher":
-        if not current_user.has_role("teacher", "admin"):
+        if not (is_admin or current_user.has_role("teacher")):
             raise HTTPException(status_code=403, detail="Bạn không có quyền giáo viên")
         is_teacher_request = True
     elif role == "student":
         is_teacher_request = False
-    elif current_user.has_role("teacher", "admin"):
+    elif is_admin or current_user.has_role("teacher"):
         is_teacher_request = True
 
     if is_teacher_request:
-        assignments = await assignment_service.list_assignments(db, class_id)
+        assignments = await assignment_service.list_assignments(
+            db, class_id=class_id, user_id=current_user.id, is_admin=is_admin
+        )
         if session_id:
             assignments = [a for a in assignments if a.session_id == session_id]
         return [

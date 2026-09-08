@@ -72,7 +72,7 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
   // 3. Đánh giá
   { label: 'ĐÁNH GIÁ', section: true, icon: <></> },
   {
-    label: 'A. Rublic/Tiêu chí chấm',
+    label: 'A. Rubric/Tiêu chí chấm',
     icon: <ClipboardCheck className="h-4 w-4 text-purple-600" />,
     to: '/rubrics',
   },
@@ -87,9 +87,9 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
     to: '/exam-matrices',
   },
   {
-    label: 'D. Ngân hàng đề thi',
+    label: 'D. Đợt thi & Đánh giá',
     icon: <Award className="h-4 w-4 text-blue-600" />,
-    to: '/exams',
+    to: '/assignments',
   },
 
   // 4. Trí tuệ nhân tạo
@@ -154,11 +154,13 @@ export function Sidebar() {
   const renderNavLinks = (isMobileView: boolean) => (
     <div className="space-y-0.5">
       {navItems.map((item, idx) => {
+        const itemKey = `${activeRole}-${item.to || ''}-${item.label}-${idx}`;
+
         if (item.section) {
           if (!isMobileView && collapsed) return null;
           return (
             <p
-              key={idx}
+              key={itemKey}
               className="mt-4 px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400"
             >
               {item.label}
@@ -169,7 +171,7 @@ export function Sidebar() {
         if (item.disabled) {
           return (
             <div
-              key={idx}
+              key={itemKey}
               className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-gray-400 select-none opacity-60 cursor-not-allowed"
               title="Tính năng đang được phát triển"
             >
@@ -190,7 +192,7 @@ export function Sidebar() {
 
         if (item.isPrimary) {
           return (
-            <div key={item.to || idx} className="mb-2.5">
+            <div key={itemKey} className="mb-2.5">
               <NavLink
                 to={item.to!}
                 onClick={() => {
@@ -232,7 +234,7 @@ export function Sidebar() {
 
         return (
           <NavLink
-            key={item.to || idx}
+            key={itemKey}
             to={item.to!}
             onClick={() => {
               if (isMobileView) closeMobile();

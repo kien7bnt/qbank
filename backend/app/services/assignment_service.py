@@ -5,7 +5,7 @@ import logging
 from typing import Sequence, Optional, List, Dict, Any
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, or_, func
 from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,12 @@ async def get_assignment(db: AsyncSession, assignment_id: uuid.UUID) -> Optional
     return result.scalar_one_or_none()
 
 
-async def list_assignments(db: AsyncSession, class_id: Optional[uuid.UUID] = None) -> Sequence[Assignment]:
+async def list_assignments(
+    db: AsyncSession,
+    class_id: Optional[uuid.UUID] = None,
+    user_id: Optional[uuid.UUID] = None,
+    is_admin: bool = False,
+) -> Sequence[Assignment]:
     stmt = (
         select(Assignment)
         .options(
@@ -76,6 +81,14 @@ async def list_assignments(db: AsyncSession, class_id: Optional[uuid.UUID] = Non
     )
     if class_id:
         stmt = stmt.where(Assignment.class_id == class_id)
+
+    if not is_admin and user_id:
+        stmt = stmt.where(
+            or_(
+                Assignment.created_by == user_id,
+                Assignment.class_.has(Class.teacher_id == user_id),
+            )
+        )
         
     result = await db.execute(stmt)
     return result.scalars().all()
