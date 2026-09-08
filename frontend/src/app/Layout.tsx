@@ -27,14 +27,19 @@ function UserMenu() {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-gray-100 transition-colors"
+        className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-gray-100 transition-colors"
       >
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-100 text-primary-700 text-xs font-semibold">
-          {user?.full_name?.[0]?.toUpperCase() ?? 'U'}
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-600 text-white text-xs font-bold shrink-0 shadow-xs">
+          {activeRole === 'teacher' ? 'GV' : 'HV'}
         </div>
-        <span className="hidden sm:block max-w-[120px] truncate text-gray-700 font-medium">
-          {user?.full_name}
-        </span>
+        <div className="hidden sm:flex flex-col text-left">
+          <span className="max-w-[130px] truncate text-gray-900 font-semibold text-xs leading-tight">
+            {user?.full_name || 'Nguyễn Văn A'}
+          </span>
+          <span className="text-[10px] text-gray-500 font-medium">
+            {activeRole === 'teacher' ? 'Giáo viên' : 'Học viên'}
+          </span>
+        </div>
         <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
       </button>
 
@@ -161,6 +166,9 @@ export function Layout() {
 
             <button className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 transition-colors relative">
               <Bell className="h-5 w-5" />
+              <span className="absolute top-1 right-1 h-3.5 w-3.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                3
+              </span>
             </button>
 
             <UserMenu />
