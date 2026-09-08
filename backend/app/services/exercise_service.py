@@ -135,8 +135,7 @@ async def create_exercise_from_question_ids(
             q_obj.in_exercise_bank = True
 
     await db.commit()
-    await db.refresh(exercise)
-    return exercise
+    return await get_exercise(db, exercise.id)
 
 
 async def add_questions_to_exercise(
@@ -206,8 +205,7 @@ async def add_questions_to_exercise(
             q_obj.in_exercise_bank = True
 
     await db.commit()
-    await db.refresh(exercise)
-    return exercise
+    return await get_exercise(db, exercise.id)
 
 
 async def remove_question_from_exercise(

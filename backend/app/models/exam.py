@@ -95,9 +95,16 @@ class Exam(Base):
 
     @property
     def total_questions(self) -> int:
-        if not hasattr(self, "sections") or not self.sections:
+        try:
+            if "sections" not in self.__dict__ or not self.sections:
+                return 0
+            count = 0
+            for s in self.sections:
+                if "questions" in s.__dict__ and s.questions:
+                    count += len(s.questions)
+            return count
+        except Exception:
             return 0
-        return sum(len(s.questions) for s in self.sections if hasattr(s, "questions") and s.questions)
 
     @property
     def question_count(self) -> int:
@@ -105,13 +112,16 @@ class Exam(Base):
 
     @property
     def total_points(self) -> float:
-        if not hasattr(self, "sections") or not self.sections:
+        try:
+            if "sections" not in self.__dict__ or not self.sections:
+                return 0.0
+            total = 0.0
+            for s in self.sections:
+                if "questions" in s.__dict__ and s.questions:
+                    total += sum(getattr(q, "points", 1.0) for q in s.questions)
+            return total
+        except Exception:
             return 0.0
-        total = 0.0
-        for s in self.sections:
-            if hasattr(s, "questions") and s.questions:
-                total += sum(getattr(q, "points", 1.0) for q in s.questions)
-        return total
 
 
 class ExamMatrixRule(Base):
@@ -173,9 +183,12 @@ class ExamSection(Base):
 
     @property
     def question_count(self) -> int:
-        if not hasattr(self, "questions") or not self.questions:
+        try:
+            if "questions" not in self.__dict__ or not self.questions:
+                return 0
+            return len(self.questions)
+        except Exception:
             return 0
-        return len(self.questions)
 
 
 class ExamQuestion(Base):

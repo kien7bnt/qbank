@@ -18,7 +18,7 @@ import {
   FileText,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { exerciseApi, getErrorMessage } from '@/services/api';
+import { exerciseApi, questionApi, getErrorMessage } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -61,10 +61,12 @@ export function ExercisesListPage() {
     return exercises.filter((ex) => (ex.name || '').toLowerCase().includes(term));
   }, [exercises, searchTerm]);
 
-  // Total questions across all exercises
-  const totalQuestionsSum = useMemo(() => {
-    return exercises.reduce((acc, curr) => acc + getExerciseQuestionCount(curr), 0);
-  }, [exercises]);
+  // Total questions in Question/Exercise Bank
+  const { data: bankQuestionsData } = useQuery({
+    queryKey: ['questions', 'exercise-bank-count'],
+    queryFn: () => questionApi.list({ page: 1, page_size: 1, in_exercise_bank: true }),
+  });
+  const totalBankQuestions = bankQuestionsData?.data?.total ?? 0;
 
   // Delete exercise mutation
   const deleteMutation = useMutation({
@@ -128,8 +130,8 @@ export function ExercisesListPage() {
             <Layers className="h-5 w-5" />
           </div>
           <div>
-            <div className="text-xl font-bold text-gray-900 leading-tight">{totalQuestionsSum}</div>
-            <div className="text-xs text-gray-500 font-medium mt-0.5">Tổng số câu hỏi</div>
+            <div className="text-xl font-bold text-gray-900 leading-tight">{totalBankQuestions}</div>
+            <div className="text-xs text-gray-500 font-medium mt-0.5">Tổng số câu trong kho</div>
           </div>
         </div>
       </div>
