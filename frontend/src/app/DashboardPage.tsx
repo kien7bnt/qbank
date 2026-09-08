@@ -217,7 +217,6 @@ export function DashboardPage() {
       }
 
       const cls = classesList.find((c: any) => c.id === a.class_id);
-      const memberCount = a.class_member_count ?? cls?.member_count ?? 0;
       const subCount = a.total_submissions ?? (a.attempts ? a.attempts.length : 0);
 
       return {
@@ -227,7 +226,7 @@ export function DashboardPage() {
         time: a.created_at
           ? format(new Date(a.created_at), 'dd/MM/yyyy')
           : (a.start_time ? format(new Date(a.start_time), 'dd/MM/yyyy') : '-'),
-        done_ratio: `${subCount}/${memberCount}`,
+        submissions_count: subCount,
         avg_score: avg,
         status,
         statusType,
@@ -595,15 +594,15 @@ export function DashboardPage() {
 
             {/* Table Container (Scrollable) */}
             <div className="flex-1 overflow-y-auto min-h-0 -mx-5 px-5">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs table-fixed">
                 <thead className="sticky top-0 bg-white z-10">
                   <tr className="border-b border-gray-100 text-xs text-gray-400 font-medium">
-                    <th className="py-2.5 px-3">Tên</th>
-                    <th className="py-2.5 px-3">Lớp</th>
-                    <th className="py-2.5 px-3">Thời gian</th>
-                    <th className="py-2.5 px-3">Đã làm</th>
-                    <th className="py-2.5 px-3">Điểm TB</th>
-                    <th className="py-2.5 px-3">Trạng thái</th>
+                    <th className="py-2.5 px-3 w-[34%] text-left">Tên</th>
+                    <th className="py-2.5 px-3 w-[18%] text-left">Lớp</th>
+                    <th className="py-2.5 px-3 w-[16%] text-left">Thời gian</th>
+                    <th className="py-2.5 px-3 w-[12%] text-center">Lượt làm</th>
+                    <th className="py-2.5 px-3 w-[10%] text-center">Điểm TB</th>
+                    <th className="py-2.5 px-3 w-[10%] text-center">Trạng thái</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -631,22 +630,22 @@ export function DashboardPage() {
                         onClick={() => navigate('/assignments')}
                         className="hover:bg-gray-50/70 transition-colors cursor-pointer group"
                       >
-                        <td className="py-3 px-3 font-semibold text-gray-800 text-sm max-w-[180px] truncate" title={row.name}>
+                        <td className="py-3 px-3 font-semibold text-gray-800 text-sm truncate" title={row.name}>
                           {row.name}
                         </td>
-                        <td className="py-3 px-3 font-medium text-gray-700 text-xs max-w-[120px] truncate" title={row.class_name}>
+                        <td className="py-3 px-3 font-medium text-gray-700 text-xs truncate" title={row.class_name}>
                           {row.class_name}
                         </td>
-                        <td className="py-3 px-3 text-gray-500 text-xs">
+                        <td className="py-3 px-3 text-gray-500 text-xs whitespace-nowrap">
                           {row.time}
                         </td>
-                        <td className="py-3 px-3 font-medium text-gray-700 text-xs">
-                          {row.done_ratio}
+                        <td className="py-3 px-3 text-center font-bold text-gray-900 text-sm">
+                          {row.submissions_count}
                         </td>
-                        <td className="py-3 px-3 font-bold text-gray-800 text-xs">
+                        <td className="py-3 px-3 text-center font-bold text-gray-800 text-xs">
                           {row.avg_score}
                         </td>
-                        <td className="py-3 px-3">
+                        <td className="py-3 px-3 text-center">
                           {row.statusType === 'ongoing' && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-100">
                               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
