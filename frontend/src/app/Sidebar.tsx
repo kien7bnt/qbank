@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   BookOpen,
   ClipboardCheck,
+  CheckSquare,
   Database,
   BarChart3,
   Settings,
@@ -14,6 +15,7 @@ import {
   BookMarked,
   Sparkles,
   Award,
+  Scale,
   X,
 } from 'lucide-react';
 import { useUIStore } from '@/stores/ui.store';
@@ -78,6 +80,16 @@ const TEACHER_NAV_ITEMS: NavItem[] = [
     label: 'Tiêu chí chấm (Rubric)',
     icon: <ClipboardCheck className="h-4 w-4 text-purple-600" />,
     to: '/rubrics',
+  },
+  {
+    label: 'Định cỡ câu hỏi',
+    icon: <Scale className="h-4 w-4 text-indigo-600" />,
+    to: '/calibration',
+  },
+  {
+    label: 'Ma trận cấu trúc đề thi',
+    icon: <CheckSquare className="h-4 w-4 text-teal-600" />,
+    to: '/exam-matrices',
   },
 
   // 4. Trí tuệ nhân tạo
