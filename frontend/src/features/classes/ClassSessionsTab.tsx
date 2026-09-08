@@ -25,7 +25,7 @@ import {
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import { sessionApi, assignmentApi, getErrorMessage } from '@/services/api';
+import { sessionApi, assignmentApi, getErrorMessage, getBackendOrigin } from '@/services/api';
 import type { ClassSession, SessionMaterial } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -630,7 +630,13 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
 
                                   <div className="flex items-center gap-1 shrink-0">
                                     <a
-                                      href={mat.id ? `/api/v1/materials/${mat.id}/download` : mat.file_path}
+                                      href={
+                                        mat.id
+                                          ? `${getBackendOrigin()}/api/v1/materials/${mat.id}/download`
+                                          : mat.file_path.startsWith('http')
+                                          ? mat.file_path
+                                          : `${getBackendOrigin()}${mat.file_path.startsWith('/') ? '' : '/'}${mat.file_path}`
+                                      }
                                       target="_blank"
                                       rel="noreferrer"
                                       download={mat.file_name}

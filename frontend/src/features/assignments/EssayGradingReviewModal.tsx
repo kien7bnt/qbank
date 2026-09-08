@@ -18,7 +18,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { rubricApi, getErrorMessage } from '@/services/api';
+import { rubricApi, getErrorMessage, getBackendOrigin } from '@/services/api';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { PageSpinner } from '@/components/ui/Spinner';
@@ -277,7 +277,11 @@ export function EssayGradingReviewModal({
                       Xem trực tiếp
                     </button>
                     <a
-                      href={parsedAnswer.attachment.url}
+                      href={
+                        parsedAnswer.attachment.url.startsWith('http')
+                          ? parsedAnswer.attachment.url
+                          : `${getBackendOrigin()}${parsedAnswer.attachment.url.startsWith('/') ? '' : '/'}${parsedAnswer.attachment.url}`
+                      }
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium transition-colors"

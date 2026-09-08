@@ -16,6 +16,7 @@ import { renderAsync } from 'docx-preview';
 import * as XLSX from 'xlsx';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { getBackendOrigin } from '@/services/api';
 
 interface DocumentPreviewModalProps {
   open: boolean;
@@ -45,10 +46,11 @@ export function DocumentPreviewModal({
 
   const docxContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Normalize absolute URL if relative
+  // Normalize absolute URL: if relative (e.g. /uploads/..., /api/...), route to backend origin
+  const backendOrigin = getBackendOrigin();
   const absoluteUrl = url.startsWith('http')
     ? url
-    : `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
+    : `${backendOrigin}${url.startsWith('/') ? '' : '/'}${url}`;
 
   // Deduce extension & type
   const extension = url.split('?')[0].split('#')[0].split('.').pop()?.toLowerCase() || '';
@@ -249,11 +251,30 @@ export function DocumentPreviewModal({
           </div>
         ) : isPdf ? (
           /* Case 2: PDF */
-          <iframe
-            src={`${absoluteUrl}#toolbar=1&navpanes=0`}
-            title={title}
+          <object
+            data={`${absoluteUrl}#toolbar=1&navpanes=0`}
+            type="application/pdf"
             className="w-full h-[70vh] border-0 rounded-lg bg-white"
-          />
+          >
+            <iframe
+              src={`${absoluteUrl}#toolbar=1&navpanes=0`}
+              title={title}
+              className="w-full h-full border-0 rounded-lg bg-white"
+            >
+              <div className="flex flex-col items-center justify-center h-full p-6 text-center space-y-3 bg-white">
+                <FileText className="w-12 h-12 text-rose-500" />
+                <p className="text-sm font-semibold text-gray-800">Trình duyệt không hỗ trợ xem trực tiếp tệp PDF này</p>
+                <a
+                  href={absoluteUrl}
+                  download
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-semibold"
+                >
+                  <Download className="w-4 h-4" />
+                  Tải tệp PDF về máy
+                </a>
+              </div>
+            </iframe>
+          </object>
         ) : isDocx ? (
           /* Case 3: DOCX rendered directly via docx-preview */
           <div className="w-full h-[70vh] flex flex-col bg-white overflow-hidden">

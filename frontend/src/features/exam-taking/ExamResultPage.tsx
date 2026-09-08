@@ -27,7 +27,7 @@ import {
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { PageSpinner } from '@/components/ui/Spinner';
-import { assignmentApi, getErrorMessage } from '@/services/api';
+import { assignmentApi, getErrorMessage, getBackendOrigin } from '@/services/api';
 import type { AttemptResult, ResponseDetail } from '@/types';
 import { parseEssayResponse } from './ExamTakingPage';
 import { useAuthStore } from '@/stores/auth.store';
@@ -466,7 +466,11 @@ export function ExamResultPage() {
                                 Xem tài liệu
                               </button>
                               <a
-                                href={essay.attachment.url}
+                                href={
+                                  essay.attachment.url.startsWith('http')
+                                    ? essay.attachment.url
+                                    : `${getBackendOrigin()}${essay.attachment.url.startsWith('/') ? '' : '/'}${essay.attachment.url}`
+                                }
                                 target="_blank"
                                 rel="noreferrer"
                                 className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition shadow-2xs"

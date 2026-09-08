@@ -40,7 +40,15 @@ const isBrowser = typeof window !== 'undefined';
 const protocol = isBrowser && window.location.protocol === 'https:' ? 'https:' : 'http:';
 const API_HOST = isBrowser ? window.location.hostname : 'localhost';
 const defaultBaseUrl = `${protocol}//${API_HOST}:8000/api/v1`;
-const BASE_URL = import.meta.env.VITE_API_URL || defaultBaseUrl;
+export const BASE_URL = import.meta.env.VITE_API_URL || defaultBaseUrl;
+
+export function getBackendOrigin(): string {
+  try {
+    return new URL(BASE_URL).origin;
+  } catch {
+    return `${protocol}//${API_HOST}:8000`;
+  }
+}
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
