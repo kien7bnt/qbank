@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ClipboardList,
@@ -44,6 +44,9 @@ export function ClassAssignmentsTab({ classId, isTeacher }: ClassAssignmentsTabP
     name: string;
   } | null>(null);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+
   const { data: assignmentsData, isLoading } = useQuery({
     queryKey: ['class-assignments', classId, isTeacher ? 'teacher' : 'student'],
     queryFn: () => assignmentApi.list({ class_id: classId, role: isTeacher ? 'teacher' : 'student' }),
@@ -51,6 +54,20 @@ export function ClassAssignmentsTab({ classId, isTeacher }: ClassAssignmentsTabP
   });
 
   const allAssignments: Assignment[] = assignmentsData?.data || [];
+
+  useEffect(() => {
+    const openId = searchParams.get('openSubmissions') || location.state?.openSubmissionsAssignmentId;
+    if (openId && isTeacher) {
+      const found = allAssignments.find((a) => a.id === openId);
+      const name = found?.name || location.state?.openSubmissionsAssignmentName || 'Bài kiểm tra';
+      setSelectedSubmissionsAssignment({ id: openId, name });
+      if (searchParams.get('openSubmissions')) {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('openSubmissions');
+        setSearchParams(nextParams, { replace: true });
+      }
+    }
+  }, [allAssignments, searchParams, location.state, isTeacher]);
 
   const isHomework = (t?: string) => t === 'homework' || t === 'assignment';
 

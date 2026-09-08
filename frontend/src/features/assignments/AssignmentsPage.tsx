@@ -17,7 +17,7 @@ import {
   AlertCircle,
   Lock,
 } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import toast from 'react-hot-toast';
@@ -45,10 +45,32 @@ export function AssignmentsPage() {
   const isHomework = (t?: string) => t === 'homework' || t === 'assignment';
   const isExam = (t?: string) => !isHomework(t);
 
+  const location = useLocation();
+
   const { data: assignments, isLoading } = useQuery({
     queryKey: ['assignments', activeRole],
     queryFn: () => assignmentApi.list({ role: activeRole }),
   });
+
+  React.useEffect(() => {
+    const openId = searchParams.get('openSubmissions') || location.state?.openSubmissionsAssignmentId;
+    if (openId && isTeacher && assignments?.data) {
+      const found = assignments.data.find((a: Assignment) => a.id === openId);
+      if (found) {
+        setSubmissionsModalAssignment(found);
+      } else if (location.state?.openSubmissionsAssignmentName) {
+        setSubmissionsModalAssignment({
+          id: openId,
+          name: location.state.openSubmissionsAssignmentName,
+        } as any);
+      }
+      if (searchParams.get('openSubmissions')) {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('openSubmissions');
+        setSearchParams(nextParams, { replace: true });
+      }
+    }
+  }, [assignments, searchParams, location.state, isTeacher]);
 
   const startExamMutation = useMutation({
     mutationFn: (assignmentId: string) => assignmentApi.start(assignmentId),

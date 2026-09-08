@@ -819,6 +819,7 @@ async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_id: u
     return AttemptResultOut(
         attempt_id=attempt.id,
         assignment_id=attempt.assignment_id,
+        class_id=assignment.class_id if assignment else None,
         assignment_name=assignment.name,
         assignment_type=assignment_type,
         attempt_number=attempt.attempt_number or 1,
@@ -838,27 +839,79 @@ async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_id: u
 
 
 async def list_assignment_submissions(db: AsyncSession, assignment_id: uuid.UUID) -> List[Dict[str, Any]]:
+    import json
+    from pathlib import Path
+
     stmt = (
         select(ExamAttempt)
-        .options(selectinload(ExamAttempt.user))
+        .options(
+            selectinload(ExamAttempt.user),
+            selectinload(ExamAttempt.responses),
+        )
         .where(ExamAttempt.assignment_id == assignment_id)
         .order_by(ExamAttempt.submitted_at.desc())
     )
     res = await db.execute(stmt)
     attempts = res.scalars().all()
 
-    return [
-        {
+    results = []
+    for a in attempts:
+        attachments = []
+        seen_urls = set()
+
+        # 1. Inspect responses for essay attachment JSON
+        for r in (a.responses or []):
+            if r.text_response and "attachment" in r.text_response:
+                try:
+                    raw = r.text_response.strip()
+                    if raw.startswith("{") and raw.endswith("}"):
+                        parsed = json.loads(raw)
+                        att = parsed.get("attachment")
+                        if att and isinstance(att, dict) and att.get("url"):
+                            url = att.get("url")
+                            if url not in seen_urls:
+                                seen_urls.add(url)
+                                attachments.append({
+                                    "url": url,
+                                    "name": att.get("name") or "Tệp đính kèm",
+                                    "size": att.get("size", 0),
+                                    "type": att.get("type") or (url.split(".")[-1].lower() if "." in url else ""),
+                                    "question_id": str(r.question_id),
+                                })
+                except Exception:
+                    pass
+
+        # 2. Check disk fallback if uploads/submissions/<attempt_id> exists
+        sub_dir = Path(__file__).parent.parent.parent / "uploads" / "submissions" / str(a.id)
+        if sub_dir.exists() and sub_dir.is_dir():
+            for f in sub_dir.iterdir():
+                if f.is_file():
+                    file_url = f"/uploads/submissions/{a.id}/{f.name}"
+                    if file_url not in seen_urls:
+                        seen_urls.add(file_url)
+                        ext = f.suffix.lstrip(".").lower()
+                        attachments.append({
+                            "url": file_url,
+                            "name": f.name,
+                            "size": f.stat().st_size,
+                            "type": ext,
+                            "question_id": None,
+                        })
+
+        results.append({
             "id": a.id,
             "student_id": a.user_id,
-            "student_name": a.user.full_name,
-            "student_email": a.user.email,
+            "student_name": a.user.full_name if a.user else "Học sinh",
+            "student_email": a.user.email if a.user else "",
             "start_time": a.start_time,
             "submitted_at": a.submitted_at,
             "score": a.score,
             "max_score": a.max_score,
             "is_passed": a.is_passed,
             "status": a.status,
-        }
-        for a in attempts
-    ]
+            "has_attachment": len(attachments) > 0,
+            "attachments_count": len(attachments),
+            "attachments": attachments,
+        })
+
+    return results

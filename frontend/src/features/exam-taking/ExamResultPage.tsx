@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   Award,
@@ -22,6 +22,7 @@ import {
   Sparkles,
   Eye,
   Edit3,
+  Users,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
@@ -32,15 +33,18 @@ import { parseEssayResponse } from './ExamTakingPage';
 import { useAuthStore } from '@/stores/auth.store';
 import { EssayGradingReviewModal } from '@/features/assignments/EssayGradingReviewModal';
 import { DocumentPreviewModal } from '@/components/ui/DocumentPreviewModal';
+import { AssignmentSubmissionsModal } from '@/features/assignments/AssignmentSubmissionsModal';
 
 export function ExamResultPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { activeRole, hasRole } = useAuthStore();
   const isTeacherUser = activeRole === 'teacher' || hasRole('teacher', 'admin');
 
   const [gradingModalData, setGradingModalData] = React.useState<ResponseDetail | null>(null);
   const [previewDoc, setPreviewDoc] = React.useState<{ url: string; name: string; type: string } | null>(null);
+  const [showSubmissionsModal, setShowSubmissionsModal] = React.useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['attempt-result', attemptId],
@@ -70,26 +74,86 @@ export function ExamResultPage() {
   const scorePercentage = Math.round(((result.score || 0) / (result.max_score || 10)) * 100);
   const isPassed = result.is_passed;
 
+  const targetAssignmentId = location.state?.assignmentId || result.assignment_id;
+  const targetAssignmentName = location.state?.assignmentName || result.assignment_name;
+  const fromUrl = location.state?.fromUrl;
+
+  const handleBackToSubmissions = () => {
+    if (fromUrl) {
+      const sep = fromUrl.includes('?') ? '&' : '?';
+      navigate(`${fromUrl}${sep}openSubmissions=${targetAssignmentId}`, {
+        state: {
+          openSubmissionsAssignmentId: targetAssignmentId,
+          openSubmissionsAssignmentName: targetAssignmentName,
+        },
+      });
+    } else if (result.class_id) {
+      navigate(`/classes/${result.class_id}?tab=assignments&openSubmissions=${targetAssignmentId}`, {
+        state: {
+          openSubmissionsAssignmentId: targetAssignmentId,
+          openSubmissionsAssignmentName: targetAssignmentName,
+        },
+      });
+    } else if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate(`/assignments?openSubmissions=${targetAssignmentId}`, {
+        state: {
+          openSubmissionsAssignmentId: targetAssignmentId,
+          openSubmissionsAssignmentName: targetAssignmentName,
+        },
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-5 sm:py-8 px-3 sm:px-6">
       <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6">
         {/* Top Actions */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs sm:text-sm"
-            onClick={() => {
-              if (window.history.length > 1) {
-                navigate(-1);
-              } else {
-                navigate('/exercises');
-              }
-            }}
-          >
-            <ArrowLeft className="h-4 w-4 mr-1.5" />
-            Quay lại
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs sm:text-sm text-gray-600 hover:text-gray-900"
+              onClick={() => {
+                if (window.history.length > 1) {
+                  navigate(-1);
+                } else {
+                  navigate('/exercises');
+                }
+              }}
+            >
+              <ArrowLeft className="h-4 w-4 mr-1.5" />
+              Quay lại
+            </Button>
+
+            {/* Back to Submissions List for Teacher */}
+            {(isTeacherUser || location.state?.fromSubmissions) && targetAssignmentId && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-white border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold shadow-xs text-xs sm:text-sm cursor-pointer"
+                  onClick={handleBackToSubmissions}
+                >
+                  <Users className="h-4 w-4 mr-1.5 text-blue-600" />
+                  Quay lại danh sách bài nộp
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-600 hover:text-gray-900 text-xs sm:text-sm"
+                  onClick={() => setShowSubmissionsModal(true)}
+                  title="Xem nhanh toàn bộ danh sách nộp bài"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 mr-1 text-gray-500" />
+                  Danh sách nộp bài
+                </Button>
+              </>
+            )}
+          </div>
 
           {result.can_retry && result.assignment_id && (
             <Button
@@ -488,6 +552,16 @@ export function ExamResultPage() {
           url={previewDoc.url}
           title={previewDoc.name}
           fileType={previewDoc.type}
+        />
+      )}
+
+      {/* Submissions List Modal */}
+      {showSubmissionsModal && targetAssignmentId && (
+        <AssignmentSubmissionsModal
+          open={showSubmissionsModal}
+          onOpenChange={setShowSubmissionsModal}
+          assignmentId={targetAssignmentId}
+          assignmentName={targetAssignmentName}
         />
       )}
     </div>

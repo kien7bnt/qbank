@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus,
@@ -57,6 +57,22 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
   const [targetSessionForExam, setTargetSessionForExam] = useState<string | undefined>(undefined);
   const [targetAssignmentType, setTargetAssignmentType] = useState<'exam' | 'homework' | undefined>(undefined);
   const [selectedSubmissionAssignment, setSelectedSubmissionAssignment] = useState<{ id: string; name: string } | null>(null);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+
+  useEffect(() => {
+    const openId = searchParams.get('openSubmissions') || location.state?.openSubmissionsAssignmentId;
+    if (openId && isTeacher) {
+      const name = location.state?.openSubmissionsAssignmentName || 'Bài kiểm tra';
+      setSelectedSubmissionAssignment({ id: openId, name });
+      if (searchParams.get('openSubmissions')) {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('openSubmissions');
+        setSearchParams(nextParams, { replace: true });
+      }
+    }
+  }, [searchParams, location.state, isTeacher]);
 
   // Tab dropdown state per session: 'content' | 'materials' | 'homework' | 'exam' | null
   type SessionTab = 'content' | 'materials' | 'homework' | 'exam';

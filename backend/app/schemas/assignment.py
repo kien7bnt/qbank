@@ -110,6 +110,7 @@ class ResponseDetailOut(BaseModel):
 class AttemptResultOut(BaseModel):
     attempt_id: uuid.UUID
     assignment_id: Optional[uuid.UUID] = None
+    class_id: Optional[uuid.UUID] = None
     assignment_name: str
     assignment_type: str = "exam"  # "exam" | "homework"
     attempt_number: int = 1

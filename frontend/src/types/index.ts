@@ -495,9 +495,34 @@ export interface ResponseDetail {
   feedback?: string;
 }
 
+export interface SubmissionAttachment {
+  url: string;
+  name: string;
+  size?: number;
+  type?: string;
+  question_id?: string | null;
+}
+
+export interface AssignmentSubmissionItem {
+  id: string;
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  start_time: string;
+  submitted_at?: string;
+  score?: number;
+  max_score: number;
+  is_passed?: boolean;
+  status: string;
+  has_attachment?: boolean;
+  attachments_count?: number;
+  attachments?: SubmissionAttachment[];
+}
+
 export interface AttemptResult {
   attempt_id: string;
   assignment_id?: string;
+  class_id?: string;
   assignment_name: string;
   assignment_type?: string;
   attempt_number?: number;
