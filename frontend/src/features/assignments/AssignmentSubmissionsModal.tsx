@@ -118,7 +118,7 @@ export function AssignmentSubmissionsModal({
             <span>Danh sách nộp bài — {assignmentName}</span>
           </div>
         }
-        size="xl"
+        size="2xl"
         footer={
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Đóng
@@ -135,56 +135,51 @@ export function AssignmentSubmissionsModal({
           />
         ) : (
           <div className="space-y-4">
-            {/* Filter & Metric summary */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
-              {/* Filter Tabs */}
-              <div className="flex flex-wrap items-center gap-1.5">
+            {/* Header Metrics & Filters */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50/80 p-3 rounded-xl border border-gray-200/80">
+              {/* Quick Filter Tabs */}
+              <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold">
                 <button
                   type="button"
                   onClick={() => setFilterMode('all')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                  className={`px-3 py-1 rounded-lg transition-colors ${
                     filterMode === 'all'
-                      ? 'bg-gray-900 text-white shadow-xs'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ? 'bg-primary-600 text-white shadow-2xs'
+                      : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                   }`}
                 >
                   Tất cả ({totalCount})
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setFilterMode('has_file')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                  className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1 ${
                     filterMode === 'has_file'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : withFilesCount > 0
-                      ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
-                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      ? 'bg-blue-600 text-white shadow-2xs'
+                      : 'bg-white text-blue-700 hover:bg-blue-50 border border-blue-200'
                   }`}
                 >
                   <Paperclip className="h-3 w-3" />
                   Có gửi file ({withFilesCount})
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setFilterMode('submitted')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                  className={`px-3 py-1 rounded-lg transition-colors ${
                     filterMode === 'submitted'
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ? 'bg-emerald-600 text-white shadow-2xs'
+                      : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                   }`}
                 >
                   Đã nộp ({submittedCount})
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setFilterMode('in_progress')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                  className={`px-3 py-1 rounded-lg transition-colors ${
                     filterMode === 'in_progress'
-                      ? 'bg-amber-600 text-white shadow-xs'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ? 'bg-amber-600 text-white shadow-2xs'
+                      : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                   }`}
                 >
                   Đang làm ({inProgressCount})
@@ -192,14 +187,14 @@ export function AssignmentSubmissionsModal({
               </div>
 
               {/* Search Box */}
-              <div className="relative w-full sm:w-60">
+              <div className="relative w-full sm:w-56">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Tìm học sinh, file..."
-                  className="w-full pl-8 pr-3 py-1 text-xs rounded-lg border border-gray-200 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-gray-200 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
             </div>
@@ -210,16 +205,16 @@ export function AssignmentSubmissionsModal({
               </div>
             ) : (
               <div className="overflow-x-auto border border-gray-200 rounded-xl">
-                <table className="w-full text-left text-xs sm:text-sm">
+                <table className="w-full text-left text-xs">
                   <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold uppercase tracking-wider text-[11px]">
                     <tr>
-                      <th className="px-4 py-3">Học sinh</th>
-                      <th className="px-4 py-3">Trạng thái</th>
-                      <th className="px-4 py-3">Tệp đính kèm</th>
-                      <th className="px-4 py-3">Thời gian nộp</th>
-                      <th className="px-4 py-3 text-center">Điểm số</th>
-                      <th className="px-4 py-3 text-center">Kết quả</th>
-                      <th className="px-4 py-3 text-right">Chi tiết</th>
+                      <th className="px-3 py-2.5">Học sinh</th>
+                      <th className="px-2.5 py-2.5">Trạng thái</th>
+                      <th className="px-2.5 py-2.5">Tệp đính kèm</th>
+                      <th className="px-2.5 py-2.5">Thời gian nộp</th>
+                      <th className="px-2 py-2.5 text-center">Điểm</th>
+                      <th className="px-2 py-2.5 text-center">Kết quả</th>
+                      <th className="px-3 py-2.5 text-right">Chi tiết</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
@@ -230,12 +225,12 @@ export function AssignmentSubmissionsModal({
 
                       return (
                         <tr key={sub.id} className="hover:bg-gray-50/70 transition-colors">
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2.5">
                             <div className="flex items-center gap-1.5">
                               <span className="font-semibold text-gray-900">{sub.student_name}</span>
                               {hasFiles && (
                                 <span
-                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200 shrink-0"
+                                  className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200 shrink-0"
                                   title={`Học sinh có gửi ${attachments.length || 1} tệp bài làm`}
                                 >
                                   <Paperclip className="h-2.5 w-2.5" />
@@ -243,20 +238,20 @@ export function AssignmentSubmissionsModal({
                                 </span>
                               )}
                             </div>
-                            <div className="text-xs text-gray-400">{sub.student_email}</div>
+                            <div className="text-[11px] text-gray-400">{sub.student_email}</div>
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
+                          <td className="px-2.5 py-2.5 whitespace-nowrap">
                             {sub.status === 'in_progress' ? (
-                              <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full text-xs border border-amber-200">
-                                <Clock className="h-3 w-3 animate-spin" /> Đang làm bài
+                              <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full text-[11px] border border-amber-200">
+                                <Clock className="h-3 w-3 animate-spin" /> Đang làm
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-green-700 bg-green-50 px-2 py-0.5 rounded-full text-xs border border-green-200">
-                                <CheckCircle2 className="h-3 w-3" /> Đã nộp bài
+                              <span className="inline-flex items-center gap-1 text-green-700 bg-green-50 px-2 py-0.5 rounded-full text-[11px] border border-green-200">
+                                <CheckCircle2 className="h-3 w-3" /> Đã nộp
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-2.5 py-2.5">
                             {hasFiles ? (
                               <div className="flex flex-col gap-1 items-start">
                                 {attachments.map((att: SubmissionAttachment, idx: number) => (
@@ -271,17 +266,17 @@ export function AssignmentSubmissionsModal({
                                         type: att.type || att.name.split('.').pop() || '',
                                       });
                                     }}
-                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-colors max-w-[200px] truncate shadow-2xs group text-left cursor-pointer"
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-colors max-w-[130px] truncate shadow-2xs group text-left cursor-pointer"
                                     title={`Bấm để xem nhanh tệp: ${att.name}`}
                                   >
                                     {getFileIcon(att.type, att.name)}
-                                    <span className="truncate max-w-[110px]">{att.name}</span>
+                                    <span className="truncate max-w-[65px]">{att.name}</span>
                                     {att.size ? (
-                                      <span className="text-[10px] text-blue-500 font-mono">
+                                      <span className="text-[9px] text-blue-500 font-mono">
                                         ({formatFileSize(att.size)})
                                       </span>
                                     ) : null}
-                                    <Eye className="h-3 w-3 ml-0.5 text-blue-400 group-hover:text-blue-600 shrink-0" />
+                                    <Eye className="h-2.5 w-2.5 ml-0.5 text-blue-400 group-hover:text-blue-600 shrink-0" />
                                   </button>
                                 ))}
                               </div>
@@ -289,34 +284,35 @@ export function AssignmentSubmissionsModal({
                               <span className="text-gray-300 text-xs">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                          <td className="px-2.5 py-2.5 text-gray-500 text-[11px] whitespace-nowrap">
                             {sub.submitted_at
-                              ? format(new Date(sub.submitted_at), 'dd/MM/yyyy HH:mm', { locale: vi })
+                              ? format(new Date(sub.submitted_at), 'dd/MM/yy HH:mm', { locale: vi })
                               : '—'}
                           </td>
-                          <td className="px-4 py-3 text-center font-bold font-mono text-gray-900 whitespace-nowrap">
+                          <td className="px-2 py-2.5 text-center font-bold font-mono text-gray-900 whitespace-nowrap text-xs">
                             {isGraded && sub.score !== null && sub.score !== undefined ? `${sub.score}/${sub.max_score}` : '—'}
                           </td>
-                          <td className="px-4 py-3 text-center whitespace-nowrap">
+                          <td className="px-2 py-2.5 text-center whitespace-nowrap">
                             {isGraded ? (
                               sub.is_passed ? (
-                                <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full text-xs font-semibold">
-                                  <Award className="h-3.5 w-3.5" /> Đạt
+                                <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                                  <Award className="h-3 w-3" /> Đạt
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-red-700 bg-red-50 px-2 py-0.5 rounded-full text-xs font-semibold">
-                                  <XCircle className="h-3.5 w-3.5" /> Chưa đạt
+                                <span className="inline-flex items-center gap-1 text-red-700 bg-red-50 px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                                  <XCircle className="h-3 w-3" /> Chưa đạt
                                 </span>
                               )
                             ) : (
                               <span className="text-gray-400">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                          <td className="px-3 py-2.5 text-right whitespace-nowrap">
                             {isGraded ? (
                               <Button
                                 size="sm"
                                 variant="outline"
+                                className="px-2.5 py-1 text-xs h-7"
                                 onClick={() => {
                                   if (assignmentId) {
                                     sessionStorage.setItem('reopen_submissions_assignment_id', assignmentId);
@@ -334,7 +330,7 @@ export function AssignmentSubmissionsModal({
                                   });
                                 }}
                               >
-                                <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                                <ExternalLink className="h-3 w-3 mr-1" />
                                 Xem bài làm
                               </Button>
                             ) : (
