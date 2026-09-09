@@ -39,6 +39,7 @@ export function ExamsListPage() {
 
   // Domain Management Modals
   const [createDomainModalOpen, setCreateDomainModalOpen] = useState(false);
+  const [manageDomainsModalOpen, setManageDomainsModalOpen] = useState(false);
   const [newDomainName, setNewDomainName] = useState('');
   const [newDomainDesc, setNewDomainDesc] = useState('');
   const [assignDomainItem, setAssignDomainItem] = useState<Exam | null>(null);
@@ -179,9 +180,9 @@ export function ExamsListPage() {
   };
 
   return (
-    <div className="flex h-full min-h-screen bg-gray-50">
-      {/* ── Left sidebar: Lĩnh vực ─────────────────────────────── */}
-      <aside className="w-56 shrink-0 border-r border-gray-200 bg-white flex flex-col py-4 gap-1 overflow-y-auto">
+    <div className="flex flex-col md:flex-row h-full min-h-screen bg-gray-50">
+      {/* ── Left sidebar: Lĩnh vực (Desktop) ─────────────────────── */}
+      <aside className="hidden md:flex w-56 lg:w-60 shrink-0 border-r border-gray-200 bg-white flex-col py-4 gap-1 overflow-y-auto">
         <div className="px-4 flex items-center justify-between mb-2">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Lĩnh vực</p>
           <button
@@ -256,16 +257,71 @@ export function ExamsListPage() {
       </aside>
 
       {/* ── Main content ──────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Mobile Domain Bar */}
+        <div className="md:hidden bg-white border-b border-gray-200 px-3 py-2.5 flex items-center gap-2 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setSelectedDomainId('all')}
+            className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+              selectedDomainId === 'all'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <span>Tất cả</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${selectedDomainId === 'all' ? 'bg-blue-700 text-white' : 'bg-gray-200 text-gray-600'}`}>
+              {examList.length}
+            </span>
+          </button>
+
+          {domains.map((domain) => {
+            const count = domainExamCounts.get(domain.id) || domain.exam_count || 0;
+            const isSelected = selectedDomainId === domain.id;
+            return (
+              <button
+                key={domain.id}
+                onClick={() => setSelectedDomainId(domain.id)}
+                className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <span>{domain.name}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${isSelected ? 'bg-blue-700 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+
+          <button
+            onClick={() => setCreateDomainModalOpen(true)}
+            className="shrink-0 px-2.5 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Thêm
+          </button>
+
+          {domains.length > 0 && (
+            <button
+              onClick={() => setManageDomainsModalOpen(true)}
+              className="shrink-0 px-2.5 py-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-lg text-xs font-medium transition-colors"
+            >
+              Quản lý
+            </button>
+          )}
+        </div>
+
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-50 rounded-lg">
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3.5 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 bg-indigo-50 rounded-lg shrink-0">
               <FileText className="h-5 w-5 text-indigo-600" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-gray-900">Kho Bài Kiểm Tra</h1>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">Kho Bài Kiểm Tra</h1>
                 {selectedDomainId !== 'all' && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
                     Lĩnh vực: {domainMap.get(selectedDomainId) || 'Đang chọn'}
@@ -279,21 +335,21 @@ export function ExamsListPage() {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-gray-500">Quản lý các đề thi đã được tạo từ Ma trận hoặc biên soạn thủ công.</p>
+              <p className="text-xs text-gray-500 hidden sm:block">Quản lý các đề thi đã được tạo từ Ma trận hoặc biên soạn thủ công.</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end sm:justify-start">
             <Button
               variant="outline"
               onClick={() => setCreateFromBankOpen(true)}
               size="sm"
-              className="sm:h-9 sm:px-4 text-xs sm:text-sm border-gray-300"
+              className="flex-1 sm:flex-none sm:h-9 sm:px-4 text-xs sm:text-sm border-gray-300"
             >
               <Plus className="h-4 w-4 mr-1.5" />
               Tạo từ Ngân hàng
             </Button>
-            <Link to="/exam-matrices">
-              <Button size="sm" className="sm:h-9 sm:px-4 text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white">
+            <Link to="/exam-matrices" className="flex-1 sm:flex-none">
+              <Button size="sm" className="w-full sm:w-auto sm:h-9 sm:px-4 text-xs sm:text-sm bg-blue-600 hover:bg-blue-700 text-white">
                 <Layers className="h-4 w-4 mr-1.5" />
                 Tạo từ Ma trận
               </Button>
@@ -302,40 +358,42 @@ export function ExamsListPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 max-w-sm">
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-2.5 sm:py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="relative w-full sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
               placeholder="Tìm kiếm đề thi theo tên..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
+              className="w-full pl-9 pr-4 py-1.5 sm:py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
             />
           </div>
 
-          {/* Sort */}
-          <div className="ml-auto">
-            <button
-              onClick={() => {
-                const opts: Array<'newest' | 'oldest' | 'name'> = ['newest', 'oldest', 'name'];
-                const next = opts[(opts.indexOf(sortOrder) + 1) % opts.length];
-                setSortOrder(next);
-              }}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-600 hover:bg-gray-50 transition-colors"
-            >
-              <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" />
-              Sắp xếp: {sortLabel}
-            </button>
-          </div>
+          <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+            {/* Sort */}
+            <div>
+              <button
+                onClick={() => {
+                  const opts: Array<'newest' | 'oldest' | 'name'> = ['newest', 'oldest', 'name'];
+                  const next = opts[(opts.indexOf(sortOrder) + 1) % opts.length];
+                  setSortOrder(next);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-200 rounded-lg bg-white text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" />
+                Sắp xếp: {sortLabel}
+              </button>
+            </div>
 
-          <div className="text-xs text-gray-400 whitespace-nowrap">
-            Hiển thị <strong className="text-gray-700">{filteredExams.length}</strong> / {examList.length} đề thi
+            <div className="text-xs text-gray-400 whitespace-nowrap">
+              Hiển thị <strong className="text-gray-700">{filteredExams.length}</strong> / {examList.length} đề thi
+            </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 pb-28">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 pb-28">
           {isLoading ? (
             <PageSpinner />
           ) : examList.length === 0 ? (
@@ -373,82 +431,93 @@ export function ExamsListPage() {
                 return (
                   <div
                     key={exam.id}
-                    className={`flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors ${!isLast ? 'border-b border-gray-100' : ''}`}
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3.5 hover:bg-gray-50 transition-colors ${!isLast ? 'border-b border-gray-100' : ''}`}
                   >
-                    {/* Icon */}
-                    <div className="h-9 w-9 shrink-0 rounded-lg bg-indigo-50 flex items-center justify-center">
-                      <FileText className="h-4 w-4 text-indigo-500" />
-                    </div>
+                    <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                      {/* Icon */}
+                      <div className="h-9 w-9 shrink-0 rounded-lg bg-indigo-50 flex items-center justify-center mt-0.5 sm:mt-0">
+                        <FileText className="h-4 w-4 text-indigo-500" />
+                      </div>
 
-                    {/* Title + meta */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{exam.name}</p>
-                      <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {date}
-                        </span>
-                        {exam.duration_minutes > 0 && (
+                      {/* Title + meta */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{exam.name}</p>
+                          {domainName && (
+                            <span className="sm:hidden px-2 py-0.5 rounded-md text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-0.5">
+                              <Tag className="h-2.5 w-2.5 text-blue-500" />
+                              {domainName}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-400 mt-1 flex-wrap">
                           <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {exam.duration_minutes} phút
+                            <Calendar className="h-3 w-3" />
+                            {date}
                           </span>
-                        )}
-                        {sectionCount > 0 && (
-                          <span className="flex items-center gap-1">
-                            <BookOpen className="h-3 w-3" />
-                            {sectionCount} phần
-                          </span>
-                        )}
+                          {exam.duration_minutes > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {exam.duration_minutes} phút
+                            </span>
+                          )}
+                          {sectionCount > 0 && (
+                            <span className="flex items-center gap-1">
+                              <BookOpen className="h-3 w-3" />
+                              {sectionCount} phần
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Tags: Domain Badge + Status + Type */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {domainName && (
-                        <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
-                          <Tag className="h-3 w-3 text-blue-500" />
-                          {domainName}
+                    <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t border-gray-50 sm:border-0">
+                      {/* Tags: Domain Badge (desktop only) + Status + Type */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {domainName && (
+                          <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 items-center gap-1">
+                            <Tag className="h-3 w-3 text-blue-500" />
+                            {domainName}
+                          </span>
+                        )}
+                        <span className={`px-2 py-0.5 rounded-md text-xs font-medium border ${stCls}`}>
+                          {stLabel}
                         </span>
-                      )}
-                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium border ${stCls}`}>
-                        {stLabel}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
-                        Kiểm tra
-                      </span>
-                    </div>
+                        <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          Kiểm tra
+                        </span>
+                      </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewExamId(exam.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        Xem
-                      </button>
-
-                      {/* Three-dot menu */}
-                      <div className="relative">
+                      {/* Actions */}
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           type="button"
-                          onClick={() => setOpenMenuId(openMenuId === exam.id ? null : exam.id)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          onClick={() => setPreviewExamId(exam.id)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
                         >
-                          <MoreVertical className="h-4 w-4" />
+                          <Eye className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Xem</span>
                         </button>
-                        {openMenuId === exam.id && (
-                          <div className={`absolute right-0 ${isNearBottom ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} z-50 bg-white border border-gray-200 rounded-xl shadow-xl py-1 w-48`}>
-                            <button
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                setAssignDomainItem(exam);
-                                setTargetDomainId(exam.domain_id || '');
-                              }}
-                              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
+
+                        {/* Three-dot menu */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setOpenMenuId(openMenuId === exam.id ? null : exam.id)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                          {openMenuId === exam.id && (
+                            <div className={`absolute right-0 ${isNearBottom ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} z-50 bg-white border border-gray-200 rounded-xl shadow-xl py-1 w-48`}>
+                              <button
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setAssignDomainItem(exam);
+                                  setTargetDomainId(exam.domain_id || '');
+                                }}
+                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                              >
                               <Tag className="h-3.5 w-3.5 text-blue-600" />
                               {exam.domain_id ? 'Đổi lĩnh vực...' : 'Gắn vào lĩnh vực...'}
                             </button>
@@ -483,6 +552,7 @@ export function ExamsListPage() {
                           </div>
                         )}
                       </div>
+                    </div>
                     </div>
                   </div>
                 );
@@ -610,6 +680,59 @@ export function ExamsListPage() {
         open={createFromBankOpen}
         onClose={() => setCreateFromBankOpen(false)}
       />
+
+      {/* ── Modal Quản lý lĩnh vực (Hỗ trợ Mobile) ───────────────── */}
+      <Modal
+        open={manageDomainsModalOpen}
+        onOpenChange={setManageDomainsModalOpen}
+        title="Quản lý Lĩnh vực"
+        description="Danh sách lĩnh vực phân loại bài kiểm tra"
+        size="md"
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setManageDomainsModalOpen(false);
+                setCreateDomainModalOpen(true);
+              }}
+              leftIcon={<Plus className="h-4 w-4" />}
+            >
+              Thêm mới
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setManageDomainsModalOpen(false)}>
+              Đóng
+            </Button>
+          </div>
+        }
+      >
+        <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto -mx-6 px-6">
+          {domains.length === 0 ? (
+            <p className="text-sm text-gray-500 py-4 text-center">Chưa có lĩnh vực nào</p>
+          ) : (
+            domains.map((domain) => {
+              const count = domainExamCounts.get(domain.id) || domain.exam_count || 0;
+              return (
+                <div key={domain.id} className="py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">{domain.name}</p>
+                    <p className="text-xs text-gray-400">{count} đề thi</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteDomain(domain)}
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Xóa lĩnh vực"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </Modal>
 
       {/* Close dropdown on outside click */}
       {openMenuId && (

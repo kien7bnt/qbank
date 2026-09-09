@@ -51,6 +51,7 @@ export function ExercisesListPage() {
 
   // Domain Management Modals
   const [createDomainModalOpen, setCreateDomainModalOpen] = useState(false);
+  const [manageDomainsModalOpen, setManageDomainsModalOpen] = useState(false);
   const [newDomainName, setNewDomainName] = useState('');
   const [newDomainDesc, setNewDomainDesc] = useState('');
   const [assignDomainItem, setAssignDomainItem] = useState<Exam | null>(null);
@@ -187,12 +188,18 @@ export function ExercisesListPage() {
     }
   };
 
+  const handleDeleteExercise = (id: string, name: string) => {
+    if (confirm(`Bạn có chắc muốn xóa bài tập "${name}" khỏi kho?`)) {
+      deleteMutation.mutate(id);
+    }
+  };
+
   const sortLabel = { newest: 'Mới nhất', oldest: 'Cũ nhất', name: 'Theo tên' }[sortOrder];
 
   return (
-    <div className="flex h-full min-h-screen bg-gray-50">
-      {/* ── Left sidebar: Lĩnh vực ───────────────────────────────── */}
-      <aside className="w-56 shrink-0 border-r border-gray-200 bg-white flex flex-col py-4 gap-1 overflow-y-auto">
+    <div className="flex flex-col md:flex-row h-full min-h-screen bg-gray-50">
+      {/* ── Left sidebar: Lĩnh vực (Desktop) ─────────────────────── */}
+      <aside className="hidden md:flex w-56 lg:w-60 shrink-0 border-r border-gray-200 bg-white flex-col py-4 gap-1 overflow-y-auto">
         <div className="px-4 flex items-center justify-between mb-2">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Lĩnh vực</p>
           <button
@@ -268,16 +275,62 @@ export function ExercisesListPage() {
       </aside>
 
       {/* ── Main content ─────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Mobile Domain Bar */}
+        <div className="md:hidden bg-white border-b border-gray-200 px-3 py-2.5 flex items-center gap-2 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setSelectedDomainId('all')}
+            className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+              selectedDomainId === 'all'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <span>Tất cả</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${selectedDomainId === 'all' ? 'bg-blue-700 text-white' : 'bg-gray-200 text-gray-600'}`}>
+              {exercises.length}
+            </span>
+          </button>
+
+          {domains.map((domain) => {
+            const count = domainExerciseCounts.get(domain.id) || domain.exercise_count || 0;
+            const isSelected = selectedDomainId === domain.id;
+            return (
+              <button
+                key={domain.id}
+                onClick={() => setSelectedDomainId(domain.id)}
+                className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-blue-600 text-white shadow-xs font-semibold'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <span>{domain.name}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${isSelected ? 'bg-blue-700 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+
+          <button
+            onClick={() => setCreateDomainModalOpen(true)}
+            className="shrink-0 px-2.5 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Thêm</span>
+          </button>
+        </div>
+
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-emerald-50 rounded-lg">
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3.5 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 bg-emerald-50 rounded-lg shrink-0">
               <BookOpen className="h-5 w-5 text-emerald-600" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-gray-900">Kho Bài Tập</h1>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-base sm:text-lg font-bold text-gray-900">Kho Bài Tập</h1>
                 {selectedDomainId !== 'all' && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
                     Lĩnh vực: {domainMap.get(selectedDomainId) || 'Đang chọn'}
@@ -291,12 +344,12 @@ export function ExercisesListPage() {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-gray-500">Quản lý các bộ bài tập và giao bài trực tiếp cho lớp học</p>
+              <p className="text-xs text-gray-500 truncate sm:whitespace-normal">Quản lý các bộ bài tập và giao bài trực tiếp cho lớp học</p>
             </div>
           </div>
           <Button
             onClick={() => setCreateModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl px-4 py-2 shadow-xs"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl px-4 py-2 shadow-xs shrink-0 w-full sm:w-auto justify-center"
             leftIcon={<Plus className="h-4 w-4" />}
           >
             Tạo bài tập mới
@@ -304,42 +357,42 @@ export function ExercisesListPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-3 flex-wrap">
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-2.5 sm:py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           {/* Search */}
-          <div className="relative flex-1 max-w-sm">
+          <div className="relative flex-1 w-full sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Tìm kiếm bài tập theo tên, chủ đề, mô tả..."
+              placeholder="Tìm kiếm bài tập theo tên..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
+              className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
             />
           </div>
 
-          {/* Sort */}
-          <div className="relative ml-auto">
+          <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto">
+            {/* Sort */}
             <button
               onClick={() => {
                 const opts: Array<'newest' | 'oldest' | 'name'> = ['newest', 'oldest', 'name'];
                 const next = opts[(opts.indexOf(sortOrder) + 1) % opts.length];
                 setSortOrder(next);
               }}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-600 hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-200 rounded-lg bg-white text-gray-600 hover:bg-gray-50 transition-colors"
             >
               <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" />
               Sắp xếp: {sortLabel}
             </button>
-          </div>
 
-          {/* Count */}
-          <div className="text-xs text-gray-400 whitespace-nowrap">
-            Hiển thị <strong className="text-gray-700">{filteredExercises.length}</strong> / {exercises.length} bài tập
+            {/* Count */}
+            <div className="text-xs text-gray-400 whitespace-nowrap">
+              Hiển thị <strong className="text-gray-700">{filteredExercises.length}</strong> / {exercises.length} bài tập
+            </div>
           </div>
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 pb-28">
+        <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 pb-28">
           {isLoading ? (
             <PageSpinner />
           ) : exercises.length === 0 ? (
@@ -375,112 +428,125 @@ export function ExercisesListPage() {
                 return (
                   <div
                     key={exercise.id}
-                    className={`flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors ${!isLast ? 'border-b border-gray-100' : ''}`}
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3.5 hover:bg-gray-50 transition-colors ${!isLast ? 'border-b border-gray-100' : ''}`}
                   >
-                    {/* Icon */}
-                    <div className="h-9 w-9 shrink-0 rounded-lg bg-blue-50 flex items-center justify-center">
-                      <FileText className="h-4 w-4 text-blue-500" />
-                    </div>
+                    {/* Left: Icon + Title + Meta */}
+                    <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                      <div className="h-9 w-9 shrink-0 rounded-lg bg-blue-50 flex items-center justify-center mt-0.5 sm:mt-0">
+                        <FileText className="h-4 w-4 text-blue-500" />
+                      </div>
 
-                    {/* Title + meta */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{exercise.name}</p>
-                      <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {date}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <BookOpen className="h-3 w-3" />
-                          {count} câu
-                        </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-gray-900 break-words">{exercise.name}</p>
+                          {domainName && (
+                            <span className="sm:hidden px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                              <Tag className="h-3 w-3 text-blue-500" />
+                              {domainName}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {date}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <BookOpen className="h-3 w-3" />
+                            {count} câu
+                          </span>
+                          <span className="sm:hidden px-1.5 py-0.2 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700">
+                            Bài tập
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Tags: Domain Badge + Type Badge */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {domainName && (
-                        <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
-                          <Tag className="h-3 w-3 text-blue-500" />
-                          {domainName}
+                    {/* Right: Badges (desktop) + Actions */}
+                    <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100 w-full sm:w-auto">
+                      {/* Desktop Tags */}
+                      <div className="hidden sm:flex items-center gap-1.5">
+                        {domainName && (
+                          <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                            <Tag className="h-3 w-3 text-blue-500" />
+                            {domainName}
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+                          Bài tập
                         </span>
-                      )}
-                      <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
-                        Bài tập
-                      </span>
-                    </div>
+                      </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewExerciseId(exercise.id)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        Xem
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenAssign({ id: exercise.id, name: exercise.name })}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-xs"
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                        Giao cho lớp
-                      </button>
-
-                      {/* Three-dot menu */}
-                      <div className="relative">
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                         <button
                           type="button"
-                          onClick={() => setOpenMenuId(openMenuId === exercise.id ? null : exercise.id)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          onClick={() => setPreviewExerciseId(exercise.id)}
+                          className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
                         >
-                          <MoreVertical className="h-4 w-4" />
+                          <Eye className="h-3.5 w-3.5" />
+                          Xem
                         </button>
-                        {openMenuId === exercise.id && (
-                          <div className={`absolute right-0 ${isNearBottom ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} z-50 bg-white border border-gray-200 rounded-xl shadow-xl py-1 w-48`}>
-                            <button
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                setAssignDomainItem(exercise);
-                                setTargetDomainId(exercise.domain_id || '');
-                              }}
-                              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              <Tag className="h-3.5 w-3.5 text-blue-600" />
-                              {exercise.domain_id ? 'Đổi lĩnh vực...' : 'Gắn vào lĩnh vực...'}
-                            </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAssign({ id: exercise.id, name: exercise.name })}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-xs"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                          Giao cho lớp
+                        </button>
 
-                            {exercise.domain_id && (
+                        {/* Three-dot menu */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setOpenMenuId(openMenuId === exercise.id ? null : exercise.id)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                          {openMenuId === exercise.id && (
+                            <div className={`absolute right-0 ${isNearBottom ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} z-50 bg-white border border-gray-200 rounded-xl shadow-xl py-1 w-48`}>
                               <button
                                 onClick={() => {
                                   setOpenMenuId(null);
-                                  handleRemoveFromDomain(exercise);
+                                  setAssignDomainItem(exercise);
+                                  setTargetDomainId(exercise.domain_id || '');
                                 }}
-                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-amber-700 hover:bg-amber-50 transition-colors"
+                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                               >
-                                <FolderMinus className="h-3.5 w-3.5 text-amber-600" />
-                                Xóa khỏi lĩnh vực
+                                <Tag className="h-3.5 w-3.5 text-blue-600" />
+                                {exercise.domain_id ? 'Đổi lĩnh vực...' : 'Gắn vào lĩnh vực...'}
                               </button>
-                            )}
 
-                            <div className="border-t border-gray-100 my-1" />
+                              {exercise.domain_id && (
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    handleRemoveFromDomain(exercise);
+                                  }}
+                                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-amber-700 hover:bg-amber-50 transition-colors"
+                                >
+                                  <FolderMinus className="h-3.5 w-3.5 text-amber-600" />
+                                  Xóa khỏi lĩnh vực
+                                </button>
+                              )}
 
-                            <button
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                if (confirm(`Bạn có chắc muốn xóa bài tập "${exercise.name}" khỏi kho?`)) {
-                                  deleteMutation.mutate(exercise.id);
-                                }
-                              }}
-                              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              Xóa bài tập
-                            </button>
-                          </div>
-                        )}
+                              <div className="border-t border-gray-100 my-1" />
+
+                              <button
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  handleDeleteExercise(exercise.id, exercise.name);
+                                }}
+                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Xóa bài tập
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -619,6 +685,59 @@ export function ExercisesListPage() {
         initialExamId={selectedExerciseForAssign?.id}
         initialExamName={selectedExerciseForAssign?.name}
       />
+
+      {/* ── Modal Quản lý lĩnh vực (Hỗ trợ Mobile) ───────────────── */}
+      <Modal
+        open={manageDomainsModalOpen}
+        onOpenChange={setManageDomainsModalOpen}
+        title="Quản lý Lĩnh vực"
+        description="Danh sách lĩnh vực phân loại bài tập"
+        size="md"
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setManageDomainsModalOpen(false);
+                setCreateDomainModalOpen(true);
+              }}
+              leftIcon={<Plus className="h-4 w-4" />}
+            >
+              Thêm mới
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setManageDomainsModalOpen(false)}>
+              Đóng
+            </Button>
+          </div>
+        }
+      >
+        <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto -mx-6 px-6">
+          {domains.length === 0 ? (
+            <p className="text-sm text-gray-500 py-4 text-center">Chưa có lĩnh vực nào</p>
+          ) : (
+            domains.map((domain) => {
+              const count = domainExerciseCounts.get(domain.id) || domain.exercise_count || 0;
+              return (
+                <div key={domain.id} className="py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">{domain.name}</p>
+                    <p className="text-xs text-gray-400">{count} bài tập</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteDomain(domain)}
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Xóa lĩnh vực"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </Modal>
 
       {/* Close dropdown on outside click */}
       {openMenuId && (
