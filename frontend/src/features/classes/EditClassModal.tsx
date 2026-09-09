@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea } from '@/components/ui/Input';
-import { classApi, curriculumApi, getErrorMessage } from '@/services/api';
+import { classApi, getErrorMessage } from '@/services/api';
 import type { Class } from '@/types';
 
 interface EditClassModalProps {
@@ -18,7 +18,6 @@ export function EditClassModal({ class_: c, open, onOpenChange, onSuccess }: Edi
   const qc = useQueryClient();
   const [form, setForm] = useState({
     name: c.name || '',
-    subject_id: c.subject_id || '',
     status: c.status || 'active',
     description: c.description || '',
     expected_start_date: c.expected_start_date || '',
@@ -30,7 +29,6 @@ export function EditClassModal({ class_: c, open, onOpenChange, onSuccess }: Edi
     if (open) {
       setForm({
         name: c.name || '',
-        subject_id: c.subject_id || '',
         status: c.status || 'active',
         description: c.description || '',
         expected_start_date: c.expected_start_date || '',
@@ -40,17 +38,10 @@ export function EditClassModal({ class_: c, open, onOpenChange, onSuccess }: Edi
     }
   }, [c, open]);
 
-  const { data: subjects } = useQuery({
-    queryKey: ['subjects'],
-    queryFn: () => curriculumApi.subjects(),
-    enabled: open,
-  });
-
   const mutation = useMutation({
     mutationFn: () =>
       classApi.update(c.id, {
         name: form.name,
-        subject_id: form.subject_id || undefined,
         status: form.status,
         description: form.description || undefined,
         expected_start_date: form.expected_start_date || undefined,
@@ -96,36 +87,18 @@ export function EditClassModal({ class_: c, open, onOpenChange, onSuccess }: Edi
           required
         />
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Môn học / Lĩnh vực</label>
-            <select
-              value={form.subject_id}
-              onChange={(e) => update('subject_id', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="">— Chưa gắn môn học —</option>
-              {subjects?.data?.map((s: any) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
-            <select
-              value={form.status}
-              onChange={(e) => update('status', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="active">Đang mở (Cho phép học viên tham gia)</option>
-              <option value="locked">Đã khóa (Không cho học viên mới tham gia)</option>
-              <option value="completed">Đã kết thúc</option>
-              <option value="archived">Lưu trữ</option>
-            </select>
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+          <select
+            value={form.status}
+            onChange={(e) => update('status', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="active">Đang mở (Cho phép học viên tham gia)</option>
+            <option value="locked">Đã khóa (Không cho học viên mới tham gia)</option>
+            <option value="completed">Đã kết thúc</option>
+            <option value="archived">Lưu trữ</option>
+          </select>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
