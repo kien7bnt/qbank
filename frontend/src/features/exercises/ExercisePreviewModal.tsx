@@ -63,17 +63,18 @@ export function ExercisePreviewModal({
         </div>
       }
       footer={
-        <div className="flex items-center justify-between w-full">
-          <div className="text-xs text-gray-500">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
+          <div className="text-xs text-gray-500 text-center sm:text-left">
             Nguồn: Tham chiếu từ Ngân hàng câu hỏi
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={onClose}>
+          <div className="flex items-center gap-2 justify-end">
+            <Button variant="secondary" onClick={onClose} size="sm" className="flex-1 sm:flex-none">
               Đóng
             </Button>
             {onAssign && exercise && (
               <Button
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white flex-1 sm:flex-none"
+                size="sm"
                 onClick={() => {
                   onClose();
                   onAssign(exercise);

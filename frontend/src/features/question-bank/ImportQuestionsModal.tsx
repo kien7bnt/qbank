@@ -296,8 +296,8 @@ export function ImportQuestionsModal({
       }
       size="xl"
       footer={
-        <div className="flex items-center justify-between w-full">
-          <div className="text-xs text-gray-500">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
+          <div className="text-xs text-gray-500 text-center sm:text-left">
             {parsedQuestions.length > 0 ? (
               <span className="text-primary-700 font-semibold">
                 ✓ Sẵn sàng nhập {parsedQuestions.length} câu hỏi vào hệ thống
@@ -306,13 +306,15 @@ export function ImportQuestionsModal({
               <span>Chưa có câu hỏi nào được nhận diện</span>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={() => onOpenChange(false)}>
+          <div className="flex items-center gap-2 justify-end">
+            <Button variant="secondary" onClick={() => onOpenChange(false)} size="sm" className="flex-1 sm:flex-none">
               Hủy
             </Button>
             <Button
               disabled={parsedQuestions.length === 0}
               loading={batchImportMutation.isPending || isParsing}
+              size="sm"
+              className="flex-1 sm:flex-none"
               onClick={() => batchImportMutation.mutate()}
             >
               <CheckCircle2 className="h-4 w-4 mr-1.5" />

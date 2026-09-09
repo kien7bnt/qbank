@@ -144,32 +144,36 @@ export function CreateExamFromBankModal({
       }
       size="xl"
       footer={
-        <>
-          <div className="mr-auto text-xs text-gray-500 font-medium">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
+          <div className="text-xs text-gray-500 font-medium text-center sm:text-left">
             Đã chọn: <strong className="text-primary-700 text-sm">{selectedQuestionIds.length}</strong> câu hỏi
           </div>
-          <Button variant="secondary" onClick={onClose}>
-            Hủy
-          </Button>
-          <Button
-            loading={createMutation.isPending}
-            disabled={selectedQuestionIds.length === 0}
-            onClick={() => {
-              if (!examName.trim()) {
-                toast.error('Vui lòng nhập tên đề thi');
-                return;
-              }
-              if (selectedQuestionIds.length === 0) {
-                toast.error('Vui lòng chọn ít nhất 1 câu hỏi');
-                return;
-              }
-              createMutation.mutate();
-            }}
-          >
-            <CheckCircle2 className="h-4 w-4 mr-1.5" />
-            Tạo đề thi ({selectedQuestionIds.length} câu)
-          </Button>
-        </>
+          <div className="flex items-center gap-2 justify-end">
+            <Button variant="secondary" onClick={onClose} size="sm" className="flex-1 sm:flex-none">
+              Hủy
+            </Button>
+            <Button
+              loading={createMutation.isPending}
+              disabled={selectedQuestionIds.length === 0}
+              size="sm"
+              className="flex-1 sm:flex-none"
+              onClick={() => {
+                if (!examName.trim()) {
+                  toast.error('Vui lòng nhập tên đề thi');
+                  return;
+                }
+                if (selectedQuestionIds.length === 0) {
+                  toast.error('Vui lòng chọn ít nhất 1 câu hỏi');
+                  return;
+                }
+                createMutation.mutate();
+              }}
+            >
+              <CheckCircle2 className="h-4 w-4 mr-1.5" />
+              Tạo đề thi ({selectedQuestionIds.length} câu)
+            </Button>
+          </div>
+        </div>
       }
     >
       <div className="space-y-4">

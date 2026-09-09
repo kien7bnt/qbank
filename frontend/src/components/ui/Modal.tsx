@@ -89,7 +89,7 @@ export function Modal({
 
           {/* Footer */}
           {footer && (
-            <div className="flex flex-wrap sm:flex-nowrap items-center justify-end gap-2 border-t border-gray-100 px-4 sm:px-6 py-3 sm:py-4 shrink-0 bg-gray-50/50 rounded-b-2xl">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 border-t border-gray-100 px-4 sm:px-6 py-3 sm:py-4 shrink-0 bg-gray-50/50 rounded-b-2xl">
               {footer}
             </div>
           )}

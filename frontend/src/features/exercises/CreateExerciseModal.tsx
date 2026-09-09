@@ -212,16 +212,17 @@ export function CreateExerciseModal({
       }
       size="xl"
       footer={
-        <div className="flex items-center justify-between w-full">
-          <span className="text-xs text-gray-500">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
+          <span className="text-xs text-gray-500 text-center sm:text-left">
             Tổng cộng: <strong className="text-emerald-700 font-bold">{questionIds.length}</strong> câu hỏi được chọn
           </span>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={onClose}>
+          <div className="flex items-center gap-2 justify-end flex-wrap">
+            <Button variant="secondary" onClick={onClose} size="sm" className="flex-1 sm:flex-none">
               Hủy
             </Button>
             <Button
               variant="secondary"
+              size="sm"
               loading={createExerciseMutation.isPending}
               onClick={() => {
                 if (!name.trim()) {
@@ -234,12 +235,13 @@ export function CreateExerciseModal({
                 }
                 createExerciseMutation.mutate(false);
               }}
-              className="border-emerald-200 text-emerald-800 hover:bg-emerald-50"
+              className="border-emerald-200 text-emerald-800 hover:bg-emerald-50 flex-1 sm:flex-none"
             >
               Lưu Bài Tập
             </Button>
             <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium w-full sm:w-auto"
+              size="sm"
               loading={createExerciseMutation.isPending}
               leftIcon={<Send className="h-4 w-4" />}
               onClick={() => {

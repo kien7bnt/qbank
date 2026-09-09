@@ -49,11 +49,12 @@ export function ExamPreviewModal({ examId, open, onOpenChange }: ExamPreviewModa
       }
       size="xl"
       footer={
-        <div className="flex items-center justify-between w-full">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowAnswerKey(!showAnswerKey)}
+            className="flex-1 sm:flex-none"
           >
             {showAnswerKey ? (
               <>
@@ -68,16 +69,17 @@ export function ExamPreviewModal({ examId, open, onOpenChange }: ExamPreviewModa
             )}
           </Button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 justify-end">
             <Button
               variant="secondary"
               size="sm"
               onClick={handlePrint}
+              className="flex-1 sm:flex-none"
             >
               <Printer className="h-4 w-4 mr-1.5" />
               In đề thi (Print)
             </Button>
-            <Button onClick={() => onOpenChange(false)}>
+            <Button onClick={() => onOpenChange(false)} size="sm" className="flex-1 sm:flex-none">
               Đóng
             </Button>
           </div>

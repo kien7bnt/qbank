@@ -232,18 +232,19 @@ export function CreateAssignmentModal({
       }
       size="lg"
       footer={
-        <>
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+        <div className="flex items-center gap-2 justify-end w-full">
+          <Button variant="secondary" onClick={() => onOpenChange(false)} size="sm" className="flex-1 sm:flex-none">
             Hủy
           </Button>
           <Button
             onClick={handleSubmit}
             loading={createMutation.isPending}
-            className={isHomeworkMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}
+            size="sm"
+            className={`flex-1 sm:flex-none ${isHomeworkMode ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
           >
             {isHomeworkMode ? 'Giao bài tập cho lớp' : 'Tạo đề thi cho lớp'}
           </Button>
-        </>
+        </div>
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
