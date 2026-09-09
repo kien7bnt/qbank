@@ -424,6 +424,7 @@ export const examApi = {
     points_per_question?: number;
     shuffle_questions?: boolean;
     shuffle_options?: boolean;
+    ai_grading?: boolean;
   }) => apiClient.post('/exams/from-questions', data),
 
   delete: (id: string) => apiClient.delete(`/exams/${id}`),
@@ -457,6 +458,7 @@ export const exerciseApi = {
     allow_retry?: boolean;
     show_hints?: boolean;
     points_per_question?: number;
+    ai_grading?: boolean;
   }) => apiClient.post<Exam>('/exercises', data),
 
   update: (id: string, data: Partial<Exam>) =>

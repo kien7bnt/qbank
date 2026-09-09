@@ -2,7 +2,7 @@ from __future__ import annotations
 import uuid
 from typing import Optional, List, Any
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class AssignmentBase(BaseModel):
@@ -19,6 +19,7 @@ class AssignmentBase(BaseModel):
     shuffle_questions: bool = False
     shuffle_options: bool = False
     show_results: str = Field("immediately", max_length=20)
+    ai_grading: bool = True
 
 
 class AssignmentCreate(AssignmentBase):
@@ -33,6 +34,7 @@ class AssignmentUpdate(BaseModel):
     end_time: Optional[datetime] = None
     duration_minutes: Optional[int] = None
     status: Optional[str] = None
+    ai_grading: Optional[bool] = None
 
 
 class AssignmentOut(AssignmentBase):
@@ -56,6 +58,13 @@ class SaveResponseRequest(BaseModel):
     selected_option_id: Optional[uuid.UUID] = None
     text_response: Optional[str] = None
     code_response: Optional[str] = None
+
+    @field_validator("selected_option_id", mode="before")
+    @classmethod
+    def coerce_empty_string(cls, v):
+        if v == "" or v is None:
+            return None
+        return v
 
 
 class QuestionTakingOut(BaseModel):

@@ -88,6 +88,7 @@ async def init_db() -> None:
                 ("exams", "show_correct_answers", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 ("exams", "show_explanations", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 ("exams", "show_feedback", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("exams", "ai_grading", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 # assignments
                 ("assignments", "session_id", "UUID", "CHAR(32)"),
                 ("assignments", "assignment_type", "VARCHAR(20) DEFAULT 'assignment'", "VARCHAR(20) DEFAULT 'assignment'"),
@@ -99,6 +100,7 @@ async def init_db() -> None:
                 ("assignments", "show_feedback", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 ("assignments", "show_correct_answer", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 ("assignments", "show_explanation", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("assignments", "ai_grading", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 # classes
                 ("classes", "expected_start_date", "DATE", "DATE"),
                 ("classes", "expected_end_date", "DATE", "DATE"),

@@ -24,6 +24,9 @@ from app.services import compiler_service
 async def create_assignment(db: AsyncSession, data: AssignmentCreate, user_id: uuid.UUID) -> Assignment:
     assignment_type = getattr(data, "assignment_type", "exam") or "exam"
     max_attempts = 999 if assignment_type == "homework" else (data.max_attempts or 1)
+    ai_grading = getattr(data, "ai_grading", True)
+    if ai_grading is None:
+        ai_grading = True
 
     assignment = Assignment(
         name=data.name,
@@ -39,6 +42,7 @@ async def create_assignment(db: AsyncSession, data: AssignmentCreate, user_id: u
         shuffle_questions=data.shuffle_questions,
         shuffle_options=data.shuffle_options,
         show_results=data.show_results,
+        ai_grading=ai_grading,
         created_by=user_id,
         status="published"
     )
@@ -116,6 +120,8 @@ async def update_assignment(db: AsyncSession, assignment_id: uuid.UUID, data: As
         assignment.duration_minutes = data.duration_minutes
     if data.status is not None:
         assignment.status = data.status
+    if data.ai_grading is not None:
+        assignment.ai_grading = data.ai_grading
     await db.commit()
     return await get_assignment(db, assignment_id)
 
@@ -687,11 +693,17 @@ async def submit_and_grade_attempt(db: AsyncSession, attempt_id: uuid.UUID, user
 
         elif q_type == "essay":
             has_text = bool(resp and resp.text_response and resp.text_response.strip())
+            is_ai = getattr(assignment, "ai_grading", True)
+            if is_ai is None:
+                is_ai = True
+
             if has_text:
-                # Không tự động cộng tối đa điểm; chuyển trạng thái chờ AI chấm theo Rubric
                 resp.points_earned = 0.0
                 resp.is_correct = None
-                resp.feedback = "Đã nộp bài tự luận. Đang chờ AI đối chiếu đáp án gợi ý và chấm điểm theo Rubric..."
+                if is_ai:
+                    resp.feedback = "Đã nộp bài tự luận. Đang chờ AI đối chiếu đáp án gợi ý và chấm điểm theo Rubric..."
+                else:
+                    resp.feedback = "Đã nộp bài tự luận. Đang chờ giáo viên chấm điểm trực tiếp."
             else:
                 if resp:
                     resp.is_correct = False
@@ -717,7 +729,7 @@ async def submit_and_grade_attempt(db: AsyncSession, attempt_id: uuid.UUID, user
     if has_pending_essay:
         attempt.score = None
         attempt.is_passed = None
-        attempt.status = "submitted"  # Trạng thái: Đã nộp bài (chờ AI chấm)
+        attempt.status = "submitted"  # Trạng thái: Đã nộp bài (chờ chấm)
     else:
         attempt.score = round(total_score, 2)
         if getattr(assignment, "assignment_type", None) in ["homework", "assignment"] or (assignment.pass_score or 0) <= 0:
@@ -743,8 +755,12 @@ async def submit_and_grade_attempt(db: AsyncSession, attempt_id: uuid.UUID, user
 
     await db.commit()
 
-    # Kích hoạt tác vụ AI chấm tự luận chạy nền
-    if has_pending_essay:
+    # Kích hoạt tác vụ AI chấm tự luận chạy nền chỉ khi bật ai_grading
+    is_ai = getattr(assignment, "ai_grading", True)
+    if is_ai is None:
+        is_ai = True
+
+    if has_pending_essay and is_ai:
         asyncio.create_task(_bg_grade_attempt_essays(attempt.id))
 
     return await get_attempt_result(db, attempt_id, user_id)

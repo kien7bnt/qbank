@@ -40,6 +40,7 @@ export function CreateExamFromBankModal({
   const [classId, setClassId] = useState('');
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [shuffleOptions, setShuffleOptions] = useState(true);
+  const [aiGrading, setAiGrading] = useState(true);
 
   // Filter state for questions
   const [search, setSearch] = useState('');
@@ -110,6 +111,7 @@ export function CreateExamFromBankModal({
         duration_minutes: Number(durationMinutes) || 45,
         shuffle_questions: shuffleQuestions,
         shuffle_options: shuffleOptions,
+        ai_grading: aiGrading,
       }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['exams'] });
@@ -218,25 +220,50 @@ export function CreateExamFromBankModal({
               </select>
             </div>
 
-            <div className="flex items-center gap-4 text-xs font-medium text-gray-700 pt-5">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={shuffleQuestions}
-                  onChange={(e) => setShuffleQuestions(e.target.checked)}
-                  className="rounded text-primary-600 focus:ring-primary-500 h-3.5 w-3.5"
-                />
-                Đảo thứ tự câu
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={shuffleOptions}
-                  onChange={(e) => setShuffleOptions(e.target.checked)}
-                  className="rounded text-primary-600 focus:ring-primary-500 h-3.5 w-3.5"
-                />
-                Đảo phương án A,B,C,D
-              </label>
+            <div className="flex flex-wrap items-center justify-between gap-4 text-xs font-medium text-gray-700 pt-5">
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={shuffleQuestions}
+                    onChange={(e) => setShuffleQuestions(e.target.checked)}
+                    className="rounded text-primary-600 focus:ring-primary-500 h-3.5 w-3.5"
+                  />
+                  Đảo thứ tự câu
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={shuffleOptions}
+                    onChange={(e) => setShuffleOptions(e.target.checked)}
+                    className="rounded text-primary-600 focus:ring-primary-500 h-3.5 w-3.5"
+                  />
+                  Đảo phương án A,B,C,D
+                </label>
+              </div>
+
+              {/* AI Grading Switch */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-700">
+                  Chấm bài tự động bằng AI:
+                </span>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={aiGrading}
+                    onChange={(e) => setAiGrading(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-600"></div>
+                </label>
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    aiGrading ? 'bg-primary-100 text-primary-700' : 'bg-gray-200 text-gray-600'
+                  }`}
+                >
+                  {aiGrading ? 'BẬT' : 'TẮT'}
+                </span>
+              </div>
             </div>
           </div>
         </div>

@@ -61,6 +61,7 @@ export function CreateExerciseModal({
   const [activeTab, setActiveTab] = useState<'picker' | 'create'>('picker');
   const [name, setName] = useState('');
   const [questionIds, setQuestionIds] = useState<string[]>(selectedQuestionIds);
+  const [aiGrading, setAiGrading] = useState(true);
 
   // Tab b state: New Question Form
   const [newType, setNewType] = useState<QuestionType>('mcq');
@@ -78,6 +79,7 @@ export function CreateExerciseModal({
       setQuestionIds(selectedQuestionIds || []);
       setName('');
       setActiveTab('picker');
+      setAiGrading(true);
     }
   }, [open]);
 
@@ -102,6 +104,7 @@ export function CreateExerciseModal({
         practice_mode: 'free',
         allow_retry: true,
         show_hints: true,
+        ai_grading: aiGrading,
       });
       return { exercise: res.data, shouldAssignImmediately };
     },
@@ -572,6 +575,38 @@ export function CreateExerciseModal({
             placeholder="Ví dụ: Bài tập tuần 3 - Phương trình lượng giác và đồ thị hàm số..."
             className="text-sm font-medium"
           />
+        </div>
+
+        {/* Chế độ chấm AI */}
+        <div className="p-3.5 bg-violet-50/60 rounded-xl border border-violet-200 flex items-center justify-between">
+          <div className="pr-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                Chế độ chấm bài tự động bằng AI
+              </span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  aiGrading ? 'bg-violet-100 text-violet-700' : 'bg-gray-200 text-gray-600'
+                }`}
+              >
+                {aiGrading ? 'ĐANG BẬT' : 'ĐANG TẮT'}
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+              {aiGrading
+                ? 'AI sẽ tự động đối chiếu Rubric & gợi ý đáp án để chấm điểm bài tự luận ngay sau khi nộp.'
+                : 'Tắt chấm AI: Học sinh nộp bài tự luận sẽ được lưu để giáo viên trực tiếp chấm điểm thủ công.'}
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer shrink-0">
+            <input
+              type="checkbox"
+              checked={aiGrading}
+              onChange={(e) => setAiGrading(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
+          </label>
         </div>
       </div>
     </Modal>

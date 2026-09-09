@@ -83,6 +83,7 @@ class Exam(Base):
     show_correct_answers: Mapped[bool] = mapped_column(Boolean, default=True)
     show_explanations: Mapped[bool] = mapped_column(Boolean, default=True)
     show_feedback: Mapped[bool] = mapped_column(Boolean, default=True)
+    ai_grading: Mapped[bool] = mapped_column(Boolean, default=True)
     
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)

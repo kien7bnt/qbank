@@ -335,6 +335,7 @@ export interface Exam {
   show_correct_answers?: boolean;
   show_explanations?: boolean;
   show_feedback?: boolean;
+  ai_grading?: boolean;
   created_at: string;
   sections?: ExamSectionDetail[];
 }
@@ -407,6 +408,7 @@ export interface Assignment {
   shuffle_questions?: boolean;
   shuffle_options?: boolean;
   show_results?: string;
+  ai_grading?: boolean;
   status: 'draft' | 'published' | 'closed';
   total_submissions?: number;
   created_at: string;

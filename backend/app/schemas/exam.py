@@ -96,6 +96,7 @@ class ExamBase(BaseModel):
     show_correct_answers: bool = True
     show_explanations: bool = True
     show_feedback: bool = True
+    ai_grading: bool = True
 
 
 class ExamCreate(ExamBase):
@@ -122,6 +123,7 @@ class ExamUpdate(BaseModel):
     show_correct_answers: Optional[bool] = None
     show_explanations: Optional[bool] = None
     show_feedback: Optional[bool] = None
+    ai_grading: Optional[bool] = None
 
 
 class ExamOut(ExamBase):
@@ -157,6 +159,7 @@ class CreateExamFromQuestionsRequest(BaseModel):
     points_per_question: Optional[float] = None
     shuffle_questions: bool = False
     shuffle_options: bool = False
+    ai_grading: bool = True
 
 
 # ─── 2D Grid Matrix & Multi-Variant Schemas ──────────────────────────────────

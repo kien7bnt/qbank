@@ -35,6 +35,7 @@ class Assignment(Base):
     allow_review: Mapped[bool] = mapped_column(Boolean, default=True)
     show_correct_answer: Mapped[bool] = mapped_column(Boolean, default=True)
     show_explanation: Mapped[bool] = mapped_column(Boolean, default=True)
+    ai_grading: Mapped[bool] = mapped_column(Boolean, default=True)
     
     status: Mapped[str] = mapped_column(String(20), default="published")  # draft, published, closed
     

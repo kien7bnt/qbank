@@ -196,8 +196,7 @@ async def create_exam_from_matrix(
                 db.add(eq)
 
     await db.commit()
-    await db.refresh(exam)
-    return exam
+    return await get_exam(db, exam.id)
 
 
 async def get_exam(db: AsyncSession, exam_id: uuid.UUID) -> Optional[Exam]:
@@ -260,6 +259,7 @@ async def create_exam_from_question_ids(
     shuffle_questions: bool = False,
     shuffle_options: bool = False,
     type: str = "exam",
+    ai_grading: bool = True,
 ) -> Exam:
     pts = points_per_question if points_per_question is not None else (10.0 / len(question_ids) if question_ids else 1.0)
 
@@ -271,6 +271,7 @@ async def create_exam_from_question_ids(
         duration_minutes=duration_minutes,
         shuffle_questions=shuffle_questions,
         shuffle_options=shuffle_options,
+        ai_grading=ai_grading,
         created_by=user_id,
         status="draft",
     )
@@ -321,8 +322,7 @@ async def create_exam_from_question_ids(
             q_obj.usage_count = (q_obj.usage_count or 0) + 1
 
     await db.commit()
-    await db.refresh(exam)
-    return exam
+    return await get_exam(db, exam.id)
 
 
 async def add_questions_to_exam(
@@ -390,5 +390,4 @@ async def add_questions_to_exam(
             q_obj.usage_count = (q_obj.usage_count or 0) + 1
 
     await db.commit()
-    await db.refresh(exam)
-    return exam
+    return await get_exam(db, exam.id)

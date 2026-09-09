@@ -67,6 +67,7 @@ async def create_exercise_from_question_ids(
     allow_retry: bool = True,
     show_hints: bool = True,
     points_per_question: Optional[float] = None,
+    ai_grading: bool = True,
 ) -> Exam:
     """Tạo bộ bài tập mới từ danh sách câu hỏi được chọn trong Ngân hàng câu hỏi"""
     pts = points_per_question if points_per_question is not None else (10.0 / len(question_ids) if question_ids else 1.0)
@@ -89,6 +90,7 @@ async def create_exercise_from_question_ids(
         shuffle_questions=False,
         shuffle_options=False,
         show_results="immediately",
+        ai_grading=ai_grading,
         created_by=user_id,
         status="published",
     )

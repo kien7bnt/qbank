@@ -54,6 +54,7 @@ export function CreateAssignmentModal({
   const [passScore, setPassScore] = useState<number | string>(5.0);
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [shuffleOptions, setShuffleOptions] = useState(false);
+  const [aiGrading, setAiGrading] = useState(true);
 
   // Fetch Exams (Kho Kiểm Tra)
   const { data: examsData } = useQuery({
@@ -103,6 +104,18 @@ export function CreateAssignmentModal({
   // Find selected exercise metadata if any
   const selectedExercise = exerciseList.find((ex: any) => ex.id === examId);
 
+  useEffect(() => {
+    if (examId) {
+      const isHomework = assignmentType === 'homework';
+      const selected = isHomework
+        ? exerciseList.find((ex: any) => ex.id === examId)
+        : examList.find((ex: any) => ex.id === examId);
+      if (selected && selected.ai_grading !== undefined) {
+        setAiGrading(selected.ai_grading);
+      }
+    }
+  }, [examId, assignmentType, exerciseList, examList]);
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const finalExamId = examId;
@@ -135,6 +148,7 @@ export function CreateAssignmentModal({
         shuffle_questions: isHomework ? false : shuffleQuestions,
         shuffle_options: isHomework ? false : shuffleOptions,
         show_results: 'immediately',
+        ai_grading: aiGrading,
       });
     },
     onSuccess: () => {
@@ -162,6 +176,7 @@ export function CreateAssignmentModal({
     setEndTime('');
     setDurationMinutes(45);
     setPassScore(5.0);
+    setAiGrading(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -549,6 +564,38 @@ export function CreateAssignmentModal({
             </div>
           </>
         )}
+
+        {/* AI Grading Mode Toggle */}
+        <div className="p-3.5 bg-violet-50/60 rounded-xl border border-violet-200 flex items-center justify-between mt-3">
+          <div className="pr-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                Chế độ chấm bài tự động bằng AI
+              </span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  aiGrading ? 'bg-violet-100 text-violet-700' : 'bg-gray-200 text-gray-600'
+                }`}
+              >
+                {aiGrading ? 'ĐANG BẬT' : 'ĐANG TẮT'}
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+              {aiGrading
+                ? 'AI sẽ tự động đọc bài tự luận, đối chiếu Rubric & gợi ý đáp án để chấm điểm ngay sau khi nộp.'
+                : 'Tắt chấm bằng AI: Bài làm tự luận sẽ được chuyển cho giáo viên xem và cho điểm thủ công.'}
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer shrink-0">
+            <input
+              type="checkbox"
+              checked={aiGrading}
+              onChange={(e) => setAiGrading(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
+          </label>
+        </div>
       </form>
     </Modal>
   );

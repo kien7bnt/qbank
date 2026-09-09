@@ -31,6 +31,7 @@ class CreateExerciseRequest(BaseModel):
     allow_retry: bool = True
     show_hints: bool = True
     points_per_question: Optional[float] = None
+    ai_grading: bool = True
 
 
 class AddQuestionsToExerciseRequest(BaseModel):
@@ -71,6 +72,7 @@ async def create_exercise(
         allow_retry=data.allow_retry,
         show_hints=data.show_hints,
         points_per_question=data.points_per_question,
+        ai_grading=data.ai_grading,
     )
 
 
@@ -162,6 +164,7 @@ async def get_exercise(
         "show_correct_answers": exercise.show_correct_answers,
         "show_explanations": exercise.show_explanations,
         "show_feedback": exercise.show_feedback,
+        "ai_grading": getattr(exercise, "ai_grading", True),
         "created_at": exercise.created_at,
         "sections": [
             {
@@ -182,6 +185,20 @@ async def get_exercise(
                         "bloom_level": eq.question.bloom_level if eq.question else None,
                         "difficulty": eq.question.expected_difficulty if eq.question else None,
                         "rationale": eq.question.rationale if eq.question else None,
+                        "coding_data": {
+                            "allowed_languages": eq.question.coding_data.allowed_languages,
+                            "time_limit_ms": eq.question.coding_data.time_limit_ms,
+                            "memory_limit_mb": eq.question.coding_data.memory_limit_mb,
+                            "starter_code": eq.question.coding_data.starter_code,
+                            "sample_input": eq.question.coding_data.sample_input,
+                            "sample_output": eq.question.coding_data.sample_output,
+                        } if eq.question and getattr(eq.question, "coding_data", None) else None,
+                        "essay_data": {
+                            "min_words": eq.question.essay_data.min_words,
+                            "max_words": eq.question.essay_data.max_words,
+                            "rubric": eq.question.essay_data.rubric,
+                            "suggested_answer": eq.question.essay_data.suggested_answer,
+                        } if eq.question and getattr(eq.question, "essay_data", None) else None,
                         "options": [
                             {
                                 "id": opt.id,
@@ -217,8 +234,7 @@ async def update_exercise(
         setattr(exercise, field, val)
 
     await db.commit()
-    await db.refresh(exercise)
-    return exercise
+    return await exercise_service.get_exercise(db, exercise.id)
 
 
 @router.delete("/exercises/{exercise_id}", status_code=status.HTTP_204_NO_CONTENT)

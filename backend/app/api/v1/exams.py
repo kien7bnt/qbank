@@ -141,6 +141,7 @@ async def create_exam_from_questions(
         points_per_question=data.points_per_question,
         shuffle_questions=data.shuffle_questions,
         shuffle_options=data.shuffle_options,
+        ai_grading=data.ai_grading,
     )
 
 
@@ -174,8 +175,7 @@ async def update_exam(
         setattr(exam, field, val)
 
     await db.commit()
-    await db.refresh(exam)
-    return exam
+    return await exam_service.get_exam(db, exam.id)
 
 
 @router.get("/exams/{exam_id}")
@@ -203,6 +203,7 @@ async def get_exam(
         "shuffle_questions": exam.shuffle_questions,
         "shuffle_options": exam.shuffle_options,
         "show_results": exam.show_results,
+        "ai_grading": getattr(exam, "ai_grading", True),
         "created_at": exam.created_at,
         "sections": [
             {
@@ -221,6 +222,21 @@ async def get_exam(
                         "type": eq.question.type if eq.question else "mcq",
                         "bloom_level": eq.question.bloom_level if eq.question else None,
                         "difficulty": eq.question.expected_difficulty if eq.question else None,
+                        "rationale": eq.question.rationale if eq.question else None,
+                        "coding_data": {
+                            "allowed_languages": eq.question.coding_data.allowed_languages,
+                            "time_limit_ms": eq.question.coding_data.time_limit_ms,
+                            "memory_limit_mb": eq.question.coding_data.memory_limit_mb,
+                            "starter_code": eq.question.coding_data.starter_code,
+                            "sample_input": eq.question.coding_data.sample_input,
+                            "sample_output": eq.question.coding_data.sample_output,
+                        } if eq.question and getattr(eq.question, "coding_data", None) else None,
+                        "essay_data": {
+                            "min_words": eq.question.essay_data.min_words,
+                            "max_words": eq.question.essay_data.max_words,
+                            "rubric": eq.question.essay_data.rubric,
+                            "suggested_answer": eq.question.essay_data.suggested_answer,
+                        } if eq.question and getattr(eq.question, "essay_data", None) else None,
                         "options": [
                             {
                                 "id": opt.id,
