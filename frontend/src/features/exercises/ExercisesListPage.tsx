@@ -16,12 +16,10 @@ import {
   Clock,
   RotateCcw,
   FileText,
-  FolderPlus,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { exerciseApi, questionApi, domainApi, getErrorMessage } from '@/services/api';
+import { exerciseApi, questionApi, getErrorMessage } from '@/services/api';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { CreateExerciseModal } from './CreateExerciseModal';
@@ -44,27 +42,9 @@ export function ExercisesListPage() {
 
   // Modals
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [createFolderOpen, setCreateFolderOpen] = useState(false);
-  const [folderForm, setFolderForm] = useState({ name: '', description: '' });
   const [previewExerciseId, setPreviewExerciseId] = useState<string | null>(null);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedExerciseForAssign, setSelectedExerciseForAssign] = useState<{ id: string; name: string } | null>(null);
-
-  // Create folder mutation
-  const createFolderMutation = useMutation({
-    mutationFn: () =>
-      domainApi.createDomain({
-        name: folderForm.name.trim(),
-        description: folderForm.description.trim() || undefined,
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['domains'] });
-      toast.success(`Đã thêm thư mục môn học/lĩnh vực "${folderForm.name.trim()}" thành công!`);
-      setCreateFolderOpen(false);
-      setFolderForm({ name: '', description: '' });
-    },
-    onError: (err) => toast.error(getErrorMessage(err)),
-  });
 
   // 1. Fetch all exercises
   const { data: exercisesData, isLoading } = useQuery({
@@ -123,17 +103,6 @@ export function ExercisesListPage() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setFolderForm({ name: '', description: '' });
-              setCreateFolderOpen(true);
-            }}
-            className="border-gray-300 text-gray-700 hover:bg-gray-50 text-xs sm:text-sm rounded-xl px-3.5 py-2 sm:py-2.5 shadow-2xs"
-            leftIcon={<FolderPlus className="h-4 w-4 text-blue-600" />}
-          >
-            Thêm thư mục (môn/lĩnh vực)
-          </Button>
           <Button
             onClick={() => setCreateModalOpen(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl px-4 py-2 sm:py-2.5 shadow-xs"
@@ -314,83 +283,6 @@ export function ExercisesListPage() {
         initialExamId={selectedExerciseForAssign?.id}
         initialExamName={selectedExerciseForAssign?.name}
       />
-
-      {/* Modal Thêm thư mục (Môn học / Lĩnh vực) */}
-      <Modal
-        open={createFolderOpen}
-        onOpenChange={(v) => {
-          if (!v) {
-            setCreateFolderOpen(false);
-            setFolderForm({ name: '', description: '' });
-          }
-        }}
-        title={
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-blue-100 text-blue-700 rounded-xl">
-              <FolderPlus className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-gray-900">Thêm thư mục môn học / lĩnh vực mới</h3>
-              <p className="text-xs text-gray-500 font-normal">Tạo thư mục môn học/lĩnh vực dùng chung cho ngân hàng câu hỏi, bài tập và đề thi</p>
-            </div>
-          </div>
-        }
-        size="md"
-        footer={
-          <div className="flex items-center justify-end gap-2 w-full">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setCreateFolderOpen(false);
-                setFolderForm({ name: '', description: '' });
-              }}
-            >
-              Hủy
-            </Button>
-            <Button
-              loading={createFolderMutation.isPending}
-              onClick={() => {
-                if (!folderForm.name.trim()) {
-                  toast.error('Vui lòng nhập tên thư mục môn học/lĩnh vực');
-                  return;
-                }
-                createFolderMutation.mutate();
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              Lưu thư mục
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-4 py-1">
-          <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-              Tên thư mục môn học / lĩnh vực <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              autoFocus
-              value={folderForm.name}
-              onChange={(e) => setFolderForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Ví dụ: Toán học, Tin học, Lịch sử, Ngoại ngữ..."
-              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-              Mô tả ngắn (tùy chọn)
-            </label>
-            <textarea
-              rows={2}
-              value={folderForm.description}
-              onChange={(e) => setFolderForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder="Mô tả phạm vi hoặc phân môn..."
-              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            />
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }
