@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BookMarked, Upload, Trash2, FileText, Tag, Search,
-  Plus, Filter, FolderOpen, Loader2, RefreshCw,
+  Plus, Filter, FolderOpen, FolderPlus, Loader2, RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { documentApi, getErrorMessage } from '@/services/api';
 import { UploadDocumentModal } from './UploadDocumentModal';
 
@@ -40,6 +41,8 @@ export function DocumentLibraryPage() {
   const qc = useQueryClient();
 
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [createFolderOpen, setCreateFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -94,6 +97,18 @@ export function DocumentLibraryPage() {
         <div className="flex items-center gap-2">
           <Button
             size="sm"
+            variant="outline"
+            onClick={() => {
+              setNewFolderName('');
+              setCreateFolderOpen(true);
+            }}
+            className="border-gray-300 text-gray-700 hover:bg-gray-50 gap-1.5"
+          >
+            <FolderPlus className="h-4 w-4 text-blue-600" />
+            Thêm thư mục
+          </Button>
+          <Button
+            size="sm"
             onClick={() => setUploadOpen(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
           >
@@ -105,8 +120,22 @@ export function DocumentLibraryPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar: Topics */}
-        <aside className="w-52 shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col p-3 gap-1 overflow-y-auto">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-2 pb-1">Chủ đề</p>
+        <aside className="w-56 shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col p-3 gap-1 overflow-y-auto">
+          <div className="flex items-center justify-between px-2 pb-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Thư mục / Chủ đề</p>
+            <button
+              type="button"
+              onClick={() => {
+                setNewFolderName('');
+                setCreateFolderOpen(true);
+              }}
+              className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+              title="Tạo thư mục mới"
+            >
+              <Plus className="h-3 w-3" />
+              Thêm
+            </button>
+          </div>
           <button
             onClick={() => setActiveTag(null)}
             className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -115,7 +144,7 @@ export function DocumentLibraryPage() {
           >
             <span className="flex items-center gap-2">
               <FolderOpen className="h-4 w-4" />
-              Tất cả
+              Tất cả tài liệu
             </span>
             <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
               !activeTag ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'
@@ -292,6 +321,91 @@ export function DocumentLibraryPage() {
         onClose={() => setUploadOpen(false)}
         defaultTopicTag={activeTag ?? ''}
       />
+
+      {/* Modal Thêm thư mục mới */}
+      <Modal
+        open={createFolderOpen}
+        onOpenChange={(v) => {
+          if (!v) {
+            setCreateFolderOpen(false);
+            setNewFolderName('');
+          }
+        }}
+        title={
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-blue-100 text-blue-700 rounded-xl">
+              <FolderPlus className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-gray-900">Thêm thư mục mới</h3>
+              <p className="text-xs text-gray-500 font-normal">Tạo thư mục/chủ đề để phân loại và gom nhóm tài liệu</p>
+            </div>
+          </div>
+        }
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setCreateFolderOpen(false);
+                setNewFolderName('');
+              }}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={() => {
+                const trimmed = newFolderName.trim();
+                if (!trimmed) {
+                  toast.error('Vui lòng nhập tên thư mục');
+                  return;
+                }
+                setCreateFolderOpen(false);
+                setActiveTag(trimmed);
+                setUploadOpen(true);
+                toast.success(`Đã chọn thư mục "${trimmed}". Hãy tải tài liệu vào thư mục này!`);
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Tạo và thêm tài liệu
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-1">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+              Tên thư mục / Chủ đề <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              autoFocus
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const trimmed = newFolderName.trim();
+                  if (!trimmed) {
+                    toast.error('Vui lòng nhập tên thư mục');
+                    return;
+                  }
+                  setCreateFolderOpen(false);
+                  setActiveTag(trimmed);
+                  setUploadOpen(true);
+                  toast.success(`Đã chọn thư mục "${trimmed}". Hãy tải tài liệu vào thư mục này!`);
+                }
+              }}
+              placeholder="Ví dụ: Đại số 12, Đề thi mẫu, Lập trình C++..."
+              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            Thư mục sẽ được tự động đồng bộ và lưu trữ ngay khi bạn tải tài liệu đầu tiên vào thư mục này.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }

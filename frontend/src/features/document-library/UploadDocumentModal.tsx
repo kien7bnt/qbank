@@ -26,6 +26,12 @@ export function UploadDocumentModal({ open, onClose, defaultTopicTag = '', onSuc
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
+  React.useEffect(() => {
+    if (open) {
+      setTopicTag(defaultTopicTag);
+    }
+  }, [open, defaultTopicTag]);
+
   const uploadMutation = useMutation({
     mutationFn: async () => {
       if (!selectedFile) throw new Error('Chưa chọn file');

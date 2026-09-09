@@ -119,6 +119,7 @@ export function DashboardPage() {
   );
   const totalSubmissionsDisplay = (stats?.total_attempts ?? totalSubmissionsLive ?? 0).toLocaleString('vi-VN');
   const totalDocsCount = docsList.length;
+  const totalClassesCount = stats?.total_classes ?? (classesData?.data?.total ?? classesList.length);
 
   // 2. Student KPI Stats
   const completedAttempts = studentHistory.length;
@@ -264,8 +265,27 @@ export function DashboardPage() {
 
       {/* 2. KPI Cards Grid */}
       {isTeacher ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Tổng số câu hỏi */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          {/* Card 1: Tổng số lớp */}
+          <div
+            onClick={() => navigate('/classes')}
+            className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-xs hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
+                <GraduationCap className="h-5 w-5" />
+              </div>
+              <span className="text-xs sm:text-sm font-semibold text-gray-700">Lớp học</span>
+            </div>
+            <div className="mt-3">
+              <p className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight leading-tight">
+                {totalClassesCount}
+              </p>
+              <p className="text-xs text-gray-400 font-normal mt-1 truncate">Lớp học phụ trách</p>
+            </div>
+          </div>
+
+          {/* Card 2: Tổng số câu hỏi */}
           <div
             onClick={() => navigate('/question-bank')}
             className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-xs hover:border-blue-200 hover:shadow-md transition-all cursor-pointer group"
@@ -284,7 +304,7 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {/* Card 2: Bài kiểm tra */}
+          {/* Card 3: Bài kiểm tra */}
           <div
             onClick={() => navigate('/exams')}
             className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-xs hover:border-purple-200 hover:shadow-md transition-all cursor-pointer group"
@@ -303,7 +323,7 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {/* Card 3: Lượt làm bài */}
+          {/* Card 4: Lượt làm bài */}
           <div
             onClick={() => navigate('/assignments')}
             className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-xs hover:border-emerald-200 hover:shadow-md transition-all cursor-pointer group"
@@ -322,7 +342,7 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {/* Card 4: Kho tài liệu */}
+          {/* Card 5: Kho tài liệu */}
           <div
             onClick={() => navigate('/document-library')}
             className="bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-xs hover:border-amber-200 hover:shadow-md transition-all cursor-pointer group"
