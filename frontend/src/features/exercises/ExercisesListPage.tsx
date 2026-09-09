@@ -339,7 +339,7 @@ export function ExercisesListPage() {
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 pb-28">
           {isLoading ? (
             <PageSpinner />
           ) : exercises.length === 0 ? (
@@ -362,13 +362,14 @@ export function ExercisesListPage() {
               Không tìm thấy bài tập nào{selectedDomainId !== 'all' ? ` thuộc lĩnh vực "${domainMap.get(selectedDomainId)}"` : ''} {searchTerm ? `khớp với từ khóa "${searchTerm}"` : ''}
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs">
+            <div className="bg-white border border-gray-200 rounded-xl shadow-xs">
               {filteredExercises.map((exercise, idx) => {
                 const count = getExerciseQuestionCount(exercise);
                 const date = exercise.created_at
                   ? new Date(exercise.created_at).toLocaleDateString('vi-VN')
                   : '—';
                 const isLast = idx === filteredExercises.length - 1;
+                const isNearBottom = idx >= Math.max(0, filteredExercises.length - 2);
                 const domainName = exercise.domain_name || (exercise.domain_id ? domainMap.get(exercise.domain_id) : undefined);
 
                 return (
@@ -438,7 +439,7 @@ export function ExercisesListPage() {
                           <MoreVertical className="h-4 w-4" />
                         </button>
                         {openMenuId === exercise.id && (
-                          <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-48">
+                          <div className={`absolute right-0 ${isNearBottom ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} z-50 bg-white border border-gray-200 rounded-xl shadow-xl py-1 w-48`}>
                             <button
                               onClick={() => {
                                 setOpenMenuId(null);

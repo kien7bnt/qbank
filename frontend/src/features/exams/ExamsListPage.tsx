@@ -335,7 +335,7 @@ export function ExamsListPage() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 pb-28">
           {isLoading ? (
             <PageSpinner />
           ) : examList.length === 0 ? (
@@ -359,7 +359,7 @@ export function ExamsListPage() {
               Không tìm thấy đề thi nào{selectedDomainId !== 'all' ? ` thuộc lĩnh vực "${domainMap.get(selectedDomainId)}"` : ''} {searchTerm ? `khớp với từ khóa "${searchTerm}"` : ''}
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs">
+            <div className="bg-white border border-gray-200 rounded-xl shadow-xs">
               {filteredExams.map((exam, idx) => {
                 const { label: stLabel, cls: stCls } = statusLabel(exam.status);
                 const sectionCount = exam.sections?.length ?? 0;
@@ -367,6 +367,7 @@ export function ExamsListPage() {
                   ? format(new Date(exam.created_at), 'dd/MM/yyyy', { locale: vi })
                   : '—';
                 const isLast = idx === filteredExams.length - 1;
+                const isNearBottom = idx >= Math.max(0, filteredExams.length - 2);
                 const domainName = exam.domain_name || (exam.domain_id ? domainMap.get(exam.domain_id) : undefined);
 
                 return (
@@ -439,7 +440,7 @@ export function ExamsListPage() {
                           <MoreVertical className="h-4 w-4" />
                         </button>
                         {openMenuId === exam.id && (
-                          <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-48">
+                          <div className={`absolute right-0 ${isNearBottom ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} z-50 bg-white border border-gray-200 rounded-xl shadow-xl py-1 w-48`}>
                             <button
                               onClick={() => {
                                 setOpenMenuId(null);
