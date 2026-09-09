@@ -129,32 +129,34 @@ export function GenerateFromDocModal({
       size="xl"
       footer={
         results.length > 0 ? (
-          <>
-            <Button variant="secondary" onClick={() => setResults([])}>← Tùy chỉnh lại</Button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto sm:justify-end">
+            <Button size="sm" variant="secondary" onClick={() => setResults([])} className="flex-1 sm:flex-none">← Tùy chỉnh lại</Button>
             <Button
+              size="sm"
               onClick={() => {
                 qc.invalidateQueries({ queryKey: ['questions'] });
                 handleClose();
               }}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
+              className="bg-purple-600 hover:bg-purple-700 text-white flex-1 sm:flex-none"
             >
               <CheckCircle2 className="h-4 w-4 mr-1.5" />
               Hoàn tất
             </Button>
-          </>
+          </div>
         ) : (
-          <>
-            <Button variant="secondary" onClick={handleClose}>Hủy</Button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto sm:justify-end">
+            <Button size="sm" variant="secondary" onClick={handleClose} className="flex-1 sm:flex-none">Hủy</Button>
             <Button
+              size="sm"
               loading={generateMutation.isPending}
               onClick={() => generateMutation.mutate()}
               disabled={!selectedDocIds.length}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
+              className="bg-purple-600 hover:bg-purple-700 text-white flex-1 sm:flex-none"
             >
               <Zap className="h-4 w-4 mr-1.5" />
               Kích hoạt AI sinh câu hỏi
             </Button>
-          </>
+          </div>
         )
       }
     >

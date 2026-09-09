@@ -100,18 +100,19 @@ export function UploadDocumentModal({ open, onClose, defaultTopicTag = '', onSuc
       }
       size="lg"
       footer={
-        <>
-          <Button variant="secondary" onClick={handleClose}>Hủy</Button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto sm:justify-end">
+          <Button size="sm" variant="secondary" onClick={handleClose} className="flex-1 sm:flex-none">Hủy</Button>
           <Button
+            size="sm"
             loading={uploadMutation.isPending}
             onClick={() => uploadMutation.mutate()}
             disabled={!selectedFile}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-none"
           >
             <Upload className="h-4 w-4 mr-1.5" />
             Tải lên
           </Button>
-        </>
+        </div>
       }
     >
       <div className="space-y-4">

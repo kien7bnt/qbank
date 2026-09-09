@@ -82,19 +82,19 @@ export function DocumentLibraryPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 text-blue-700 rounded-xl">
-            <BookMarked className="h-5 w-5" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-white shrink-0 gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="p-1.5 sm:p-2 bg-blue-100 text-blue-700 rounded-xl shrink-0">
+            <BookMarked className="h-4 w-4 sm:h-5 sm:w-5" />
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">Kho Tài Liệu Cá Nhân</h1>
-            <p className="text-xs text-gray-500">
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-bold text-gray-900 truncate">Kho Tài Liệu Cá Nhân</h1>
+            <p className="text-xs text-gray-500 truncate">
               {docs.length} tài liệu · Quản lý và phân loại theo chủ đề
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             size="sm"
             variant="outline"
@@ -105,7 +105,7 @@ export function DocumentLibraryPage() {
             className="border-gray-300 text-gray-700 hover:bg-gray-50 gap-1.5"
           >
             <FolderPlus className="h-4 w-4 text-blue-600" />
-            Thêm thư mục
+            <span className="hidden sm:inline">Thêm thư mục</span>
           </Button>
           <Button
             size="sm"
@@ -113,14 +113,47 @@ export function DocumentLibraryPage() {
             className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
           >
             <Upload className="h-4 w-4" />
-            Tải tài liệu lên
+            <span className="hidden sm:inline">Tải tài liệu lên</span>
           </Button>
         </div>
       </div>
 
+      {/* Mobile topic pill bar */}
+      <div className="md:hidden border-b border-gray-200 bg-gray-50 px-3 py-2 shrink-0">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
+          <button
+            onClick={() => setActiveTag(null)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shrink-0 transition-colors ${
+              !activeTag ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
+            }`}
+          >
+            <FolderOpen className="h-3 w-3" />
+            Tất cả
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+              !activeTag ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'
+            }`}>{docs.length}</span>
+          </button>
+          {topics.map((t) => (
+            <button
+              key={t.topic_tag}
+              onClick={() => setActiveTag(t.topic_tag === activeTag ? null : t.topic_tag)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shrink-0 transition-colors ${
+                activeTag === t.topic_tag ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
+              }`}
+            >
+              <Tag className="h-3 w-3" />
+              <span className="max-w-[120px] truncate">{t.topic_tag}</span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                activeTag === t.topic_tag ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'
+              }`}>{t.document_count}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar: Topics */}
-        <aside className="w-56 shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col p-3 gap-1 overflow-y-auto">
+        {/* Sidebar: Topics – hidden on mobile */}
+        <aside className="hidden md:flex w-56 shrink-0 border-r border-gray-200 bg-gray-50 flex-col p-3 gap-1 overflow-y-auto">
           <div className="flex items-center justify-between px-2 pb-1.5">
             <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Thư mục / Chủ đề</p>
             <button
@@ -179,9 +212,9 @@ export function DocumentLibraryPage() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 min-w-0">
           {/* Search bar */}
-          <div className="flex items-center gap-3 mb-5">
+          <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -189,12 +222,12 @@ export function DocumentLibraryPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Tìm kiếm tài liệu..."
-                className="w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 pr-4 py-2 sm:py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <button
               onClick={() => refetch()}
-              className="p-2.5 border border-gray-300 rounded-xl hover:bg-gray-50 text-gray-500"
+              className="p-2 sm:p-2.5 border border-gray-300 rounded-xl hover:bg-gray-50 text-gray-500 shrink-0"
               title="Làm mới"
             >
               <RefreshCw className="h-4 w-4" />
@@ -242,7 +275,7 @@ export function DocumentLibraryPage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
               {docs.map((doc: any) => (
                 <div
                   key={doc.id}
@@ -344,17 +377,20 @@ export function DocumentLibraryPage() {
         }
         size="sm"
         footer={
-          <div className="flex items-center justify-end gap-2 w-full">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto sm:justify-end">
             <Button
+              size="sm"
               variant="secondary"
               onClick={() => {
                 setCreateFolderOpen(false);
                 setNewFolderName('');
               }}
+              className="flex-1 sm:flex-none"
             >
               Hủy
             </Button>
             <Button
+              size="sm"
               onClick={() => {
                 const trimmed = newFolderName.trim();
                 if (!trimmed) {
@@ -366,7 +402,7 @@ export function DocumentLibraryPage() {
                 setUploadOpen(true);
                 toast.success(`Đã chọn thư mục "${trimmed}". Hãy tải tài liệu vào thư mục này!`);
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-none"
             >
               Tạo và thêm tài liệu
             </Button>
