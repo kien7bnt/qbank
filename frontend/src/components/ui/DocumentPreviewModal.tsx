@@ -12,7 +12,6 @@ import {
   AlertCircle,
   Loader2,
 } from 'lucide-react';
-import { renderAsync } from 'docx-preview';
 import * as XLSX from 'xlsx';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -82,14 +81,23 @@ export function DocumentPreviewModal({
       setLoadingDoc(true);
       setDocError(null);
 
-      fetch(absoluteUrl)
-        .then(async (res) => {
+      Promise.all([
+        fetch(absoluteUrl).then(async (res) => {
           if (!res.ok) throw new Error(`Không thể tải tệp (Mã lỗi ${res.status})`);
           return res.blob();
-        })
-        .then(async (blob) => {
+        }),
+        import('docx-preview').catch((err) => {
+          console.error('Failed to load docx-preview package:', err);
+          throw new Error('Thư viện xem file Word chưa sẵn sàng. Vui lòng tải file về máy.');
+        }),
+      ])
+        .then(async ([blob, docxModule]) => {
           if (isCancelled || !docxContainerRef.current) return;
           docxContainerRef.current.innerHTML = '';
+          const renderAsync = docxModule.renderAsync || docxModule.default?.renderAsync;
+          if (!renderAsync) {
+            throw new Error('Không thể khởi tạo bộ đọc tệp Word.');
+          }
           await renderAsync(blob, docxContainerRef.current, undefined, {
             className: 'docx-preview-content',
             inWrapper: true,
