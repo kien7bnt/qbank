@@ -405,16 +405,21 @@ export const examMatrixApi = {
 
 // ─── Exam API ────────────────────────────────────────────────────────────────
 export const examApi = {
-  list: (params?: { class_id?: string }) => apiClient.get('/exams', { params }),
+  list: (params?: { class_id?: string; domain_id?: string }) => apiClient.get('/exams', { params }),
 
   get: (id: string) => apiClient.get(`/exams/${id}`),
 
   create: (data: any) => apiClient.post('/exams', data),
 
+  update: (id: string, data: Partial<Exam>) => apiClient.patch<Exam>(`/exams/${id}`, data),
+
+  updateDomain: (id: string, domainId: string | null) => apiClient.patch<Exam>(`/exams/${id}`, { domain_id: domainId }),
+
   createFromQuestions: (data: {
     name: string;
     question_ids: string[];
     class_id?: string;
+    domain_id?: string;
     duration_minutes?: number;
     points_per_question?: number;
     shuffle_questions?: boolean;
@@ -435,8 +440,10 @@ export const examApi = {
 
 // ─── Exercise Bank API (Kho Bài Tập) ──────────────────────────────────────────
 export const exerciseApi = {
-  list: (classId?: string) =>
-    apiClient.get<Exam[]>('/exercises', { params: { class_id: classId } }),
+  list: (params?: { class_id?: string; domain_id?: string } | string) => {
+    const p = typeof params === 'string' ? { class_id: params } : params;
+    return apiClient.get<Exam[]>('/exercises', { params: p });
+  },
 
   get: (id: string) => apiClient.get<Exam>(`/exercises/${id}`),
 
@@ -444,6 +451,7 @@ export const exerciseApi = {
     name: string;
     question_ids: string[];
     class_id?: string;
+    domain_id?: string;
     duration_minutes?: number;
     practice_mode?: string;
     allow_retry?: boolean;
@@ -452,7 +460,10 @@ export const exerciseApi = {
   }) => apiClient.post<Exam>('/exercises', data),
 
   update: (id: string, data: Partial<Exam>) =>
-    apiClient.put<Exam>(`/exercises/${id}`, data),
+    apiClient.patch<Exam>(`/exercises/${id}`, data),
+
+  updateDomain: (id: string, domainId: string | null) =>
+    apiClient.patch<Exam>(`/exercises/${id}`, { domain_id: domainId }),
 
   delete: (id: string) => apiClient.delete(`/exercises/${id}`),
 

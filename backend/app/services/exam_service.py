@@ -204,7 +204,8 @@ async def get_exam(db: AsyncSession, exam_id: uuid.UUID) -> Optional[Exam]:
     stmt = (
         select(Exam)
         .options(
-            selectinload(Exam.sections).selectinload(ExamSection.questions).selectinload(ExamQuestion.question).selectinload(Question.options)
+            selectinload(Exam.sections).selectinload(ExamSection.questions).selectinload(ExamQuestion.question).selectinload(Question.options),
+            selectinload(Exam.domain),
         )
         .where(Exam.id == exam_id)
     )
@@ -216,10 +217,14 @@ async def list_exams(
     db: AsyncSession,
     class_id: Optional[uuid.UUID] = None,
     user_id: Optional[uuid.UUID] = None,
+    domain_id: Optional[uuid.UUID] = None,
 ) -> Sequence[Exam]:
     stmt = (
         select(Exam)
-        .options(selectinload(Exam.sections).selectinload(ExamSection.questions))
+        .options(
+            selectinload(Exam.sections).selectinload(ExamSection.questions),
+            selectinload(Exam.domain),
+        )
         .where((Exam.type == "exam") | (Exam.type == None))
         .order_by(Exam.created_at.desc())
     )
@@ -227,6 +232,8 @@ async def list_exams(
         stmt = stmt.where(Exam.class_id == class_id)
     if user_id:
         stmt = stmt.where(Exam.created_by == user_id)
+    if domain_id:
+        stmt = stmt.where(Exam.domain_id == domain_id)
         
     result = await db.execute(stmt)
     return result.scalars().all()
@@ -247,6 +254,7 @@ async def create_exam_from_question_ids(
     question_ids: list[uuid.UUID],
     user_id: uuid.UUID,
     class_id: Optional[uuid.UUID] = None,
+    domain_id: Optional[uuid.UUID] = None,
     duration_minutes: int = 45,
     points_per_question: Optional[float] = None,
     shuffle_questions: bool = False,
@@ -259,6 +267,7 @@ async def create_exam_from_question_ids(
         name=name,
         type=type,
         class_id=class_id,
+        domain_id=domain_id,
         duration_minutes=duration_minutes,
         shuffle_questions=shuffle_questions,
         shuffle_options=shuffle_options,

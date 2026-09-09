@@ -15,12 +15,14 @@ async def list_exercises(
     db: AsyncSession,
     class_id: Optional[uuid.UUID] = None,
     user_id: Optional[uuid.UUID] = None,
+    domain_id: Optional[uuid.UUID] = None,
 ) -> Sequence[Exam]:
     """Danh sách các bộ bài tập trong Kho Bài Tập (type == 'exercise')"""
     stmt = (
         select(Exam)
         .options(
-            selectinload(Exam.sections).selectinload(ExamSection.questions)
+            selectinload(Exam.sections).selectinload(ExamSection.questions),
+            selectinload(Exam.domain),
         )
         .where(Exam.type == "exercise")
         .order_by(Exam.created_at.desc())
@@ -29,6 +31,8 @@ async def list_exercises(
         stmt = stmt.where(Exam.class_id == class_id)
     if user_id:
         stmt = stmt.where(Exam.created_by == user_id)
+    if domain_id:
+        stmt = stmt.where(Exam.domain_id == domain_id)
 
     result = await db.execute(stmt)
     return result.scalars().all()
@@ -42,7 +46,8 @@ async def get_exercise(db: AsyncSession, exercise_id: uuid.UUID) -> Optional[Exa
             selectinload(Exam.sections)
             .selectinload(ExamSection.questions)
             .selectinload(ExamQuestion.question)
-            .selectinload(Question.options)
+            .selectinload(Question.options),
+            selectinload(Exam.domain),
         )
         .where(and_(Exam.id == exercise_id, Exam.type == "exercise"))
     )
@@ -56,6 +61,7 @@ async def create_exercise_from_question_ids(
     question_ids: list[uuid.UUID],
     user_id: uuid.UUID,
     class_id: Optional[uuid.UUID] = None,
+    domain_id: Optional[uuid.UUID] = None,
     duration_minutes: int = 45,
     practice_mode: str = "free",
     allow_retry: bool = True,
@@ -69,6 +75,7 @@ async def create_exercise_from_question_ids(
         name=name,
         type="exercise",
         class_id=class_id,
+        domain_id=domain_id,
         duration_minutes=duration_minutes,
         practice_mode=practice_mode,
         allow_retry=allow_retry,

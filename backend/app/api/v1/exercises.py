@@ -25,6 +25,7 @@ class CreateExerciseRequest(BaseModel):
     name: str = Field(..., max_length=255)
     question_ids: list[uuid.UUID] = Field(..., min_length=1)
     class_id: Optional[uuid.UUID] = None
+    domain_id: Optional[uuid.UUID] = None
     duration_minutes: int = Field(default=45, ge=1)
     practice_mode: str = Field("free", max_length=20)  # free, linear
     allow_retry: bool = True
@@ -39,12 +40,13 @@ class AddQuestionsToExerciseRequest(BaseModel):
 @router.get("/exercises", response_model=List[ExamOut])
 async def list_exercises(
     class_id: Optional[uuid.UUID] = None,
+    domain_id: Optional[uuid.UUID] = None,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
     """Lấy danh sách các bộ bài tập trong Kho Bài Tập"""
     user_id = None if current_user.has_role("admin") else current_user.id
-    return await exercise_service.list_exercises(db, class_id=class_id, user_id=user_id)
+    return await exercise_service.list_exercises(db, class_id=class_id, user_id=user_id, domain_id=domain_id)
 
 
 @router.post("/exercises", response_model=ExamOut, status_code=status.HTTP_201_CREATED)
@@ -63,6 +65,7 @@ async def create_exercise(
         question_ids=data.question_ids,
         user_id=current_user.id,
         class_id=data.class_id,
+        domain_id=data.domain_id,
         duration_minutes=data.duration_minutes,
         practice_mode=data.practice_mode,
         allow_retry=data.allow_retry,
@@ -146,6 +149,8 @@ async def get_exercise(
         "name": exercise.name,
         "type": exercise.type,
         "class_id": exercise.class_id,
+        "domain_id": exercise.domain_id,
+        "domain_name": exercise.domain_name,
         "status": exercise.status,
         "duration_minutes": exercise.duration_minutes,
         "practice_mode": exercise.practice_mode,
@@ -196,6 +201,7 @@ async def get_exercise(
 
 
 @router.put("/exercises/{exercise_id}", response_model=ExamOut)
+@router.patch("/exercises/{exercise_id}", response_model=ExamOut)
 async def update_exercise(
     exercise_id: uuid.UUID,
     data: ExamUpdate,

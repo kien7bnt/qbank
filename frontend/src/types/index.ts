@@ -315,6 +315,8 @@ export interface Exam {
   type?: 'exam' | 'exercise';
   matrix_id?: string;
   class_id?: string;
+  domain_id?: string;
+  domain_name?: string;
   status: 'draft' | 'published' | 'active' | 'closed';
   duration_minutes: number;
   start_time?: string;

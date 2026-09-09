@@ -75,6 +75,8 @@ class ExamBase(BaseModel):
     type: str = Field(default="exam", max_length=20)  # "exam" | "exercise"
     matrix_id: Optional[uuid.UUID] = None
     class_id: Optional[uuid.UUID] = None
+    domain_id: Optional[uuid.UUID] = None
+    domain_name: Optional[str] = None
     duration_minutes: int = Field(default=45, ge=1)
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
@@ -104,6 +106,7 @@ class ExamUpdate(BaseModel):
     name: Optional[str] = None
     type: Optional[str] = None
     status: Optional[str] = None
+    domain_id: Optional[uuid.UUID] = None
     duration_minutes: Optional[int] = None
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
@@ -148,6 +151,7 @@ class CreateExamFromQuestionsRequest(BaseModel):
     name: str = Field(..., max_length=255)
     type: str = Field(default="exam", max_length=20)  # "exam" | "exercise"
     class_id: Optional[uuid.UUID] = None
+    domain_id: Optional[uuid.UUID] = None
     duration_minutes: int = Field(default=45, ge=1)
     question_ids: list[uuid.UUID] = Field(..., min_length=1)
     points_per_question: Optional[float] = None

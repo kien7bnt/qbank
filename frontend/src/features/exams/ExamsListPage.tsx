@@ -1,11 +1,26 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileText, Trash2, Eye, Calendar, Layers, Plus, Search, Clock, MoreVertical, ArrowUpDown, BookOpen } from 'lucide-react';
+import {
+  FileText,
+  Trash2,
+  Eye,
+  Calendar,
+  Layers,
+  Plus,
+  Search,
+  Clock,
+  MoreVertical,
+  ArrowUpDown,
+  BookOpen,
+  Tag,
+  FolderMinus,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { examApi, domainApi, getErrorMessage } from '@/services/api';
@@ -22,39 +37,138 @@ export function ExamsListPage() {
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'name'>('newest');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
+  // Domain Management Modals
+  const [createDomainModalOpen, setCreateDomainModalOpen] = useState(false);
+  const [newDomainName, setNewDomainName] = useState('');
+  const [newDomainDesc, setNewDomainDesc] = useState('');
+  const [assignDomainItem, setAssignDomainItem] = useState<Exam | null>(null);
+  const [targetDomainId, setTargetDomainId] = useState<string>('');
+
+  // 1. Fetch Exams
   const { data: exams, isLoading } = useQuery({
     queryKey: ['exams'],
     queryFn: () => examApi.list(),
   });
 
+  // 2. Fetch Domains
   const { data: domainsData } = useQuery({
     queryKey: ['domains'],
     queryFn: () => domainApi.list(),
   });
 
+  const examList: Exam[] = exams?.data || [];
+  const domains: any[] = domainsData?.data ?? [];
+
+  // Map domain id -> domain name
+  const domainMap = useMemo(() => {
+    const map = new Map<string, string>();
+    domains.forEach((d) => map.set(d.id, d.name));
+    return map;
+  }, [domains]);
+
+  // Compute counts per domain dynamically from exams
+  const domainExamCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    examList.forEach((ex) => {
+      if (ex.domain_id) {
+        counts.set(ex.domain_id, (counts.get(ex.domain_id) || 0) + 1);
+      }
+    });
+    return counts;
+  }, [examList]);
+
+  // Filter & sort
+  const filteredExams = useMemo(() => {
+    let list = [...examList];
+
+    // Filter by domain
+    if (selectedDomainId !== 'all') {
+      list = list.filter((ex) => ex.domain_id === selectedDomainId);
+    }
+
+    // Filter by search
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      list = list.filter((ex) => (ex.name || '').toLowerCase().includes(term));
+    }
+
+    // Sort
+    if (sortOrder === 'newest') list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    else if (sortOrder === 'oldest') list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    else if (sortOrder === 'name') list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+    return list;
+  }, [examList, selectedDomainId, searchTerm, sortOrder]);
+
+  // Delete Exam Mutation
   const deleteMutation = useMutation({
     mutationFn: (id: string) => examApi.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['exams'] });
+      qc.invalidateQueries({ queryKey: ['domains'] });
       toast.success('Đã xóa đề thi');
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
 
-  const examList: Exam[] = exams?.data || [];
-  const domains: any[] = domainsData?.data ?? [];
+  // Create Domain Mutation
+  const createDomainMutation = useMutation({
+    mutationFn: () => domainApi.createDomain({ name: newDomainName.trim(), description: newDomainDesc.trim() || undefined }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['domains'] });
+      toast.success(`Đã thêm lĩnh vực "${newDomainName.trim()}"`);
+      setCreateDomainModalOpen(false);
+      setNewDomainName('');
+      setNewDomainDesc('');
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
 
-  const filteredExams = useMemo(() => {
-    let list = [...examList];
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      list = list.filter((ex) => (ex.name || '').toLowerCase().includes(term));
+  // Delete Domain Mutation
+  const deleteDomainMutation = useMutation({
+    mutationFn: (domainId: string) => domainApi.deleteDomain(domainId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['domains'] });
+      qc.invalidateQueries({ queryKey: ['exams'] });
+      toast.success('Đã xóa lĩnh vực thành công');
+      if (selectedDomainId !== 'all') {
+        setSelectedDomainId('all');
+      }
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  // Update Exam Domain Mutation (Assign / Remove from Domain)
+  const updateDomainMutation = useMutation({
+    mutationFn: ({ examId, domainId }: { examId: string; domainId: string | null }) =>
+      examApi.updateDomain(examId, domainId),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['exams'] });
+      qc.invalidateQueries({ queryKey: ['domains'] });
+      if (variables.domainId) {
+        toast.success(`Đã gắn đề thi vào lĩnh vực "${domainMap.get(variables.domainId) || ''}"`);
+      } else {
+        toast.success('Đã xóa đề thi khỏi lĩnh vực');
+      }
+      setAssignDomainItem(null);
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  const handleDeleteDomain = (domain: any) => {
+    const exCount = domainExamCounts.get(domain.id) || domain.exam_count || 0;
+    const msg = exCount > 0
+      ? `Bạn có chắc muốn xóa lĩnh vực "${domain.name}"? ${exCount} đề thi trong lĩnh vực này sẽ được chuyển về "Chưa phân loại".`
+      : `Bạn có chắc muốn xóa lĩnh vực "${domain.name}"?`;
+    if (confirm(msg)) {
+      deleteDomainMutation.mutate(domain.id);
     }
-    if (sortOrder === 'newest') list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    else if (sortOrder === 'oldest') list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    else if (sortOrder === 'name') list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
-    return list;
-  }, [examList, searchTerm, sortOrder]);
+  };
+
+  const handleRemoveFromDomain = (exam: Exam) => {
+    if (confirm(`Bạn có chắc muốn xóa đề thi "${exam.name}" khỏi lĩnh vực này?`)) {
+      updateDomainMutation.mutate({ examId: exam.id, domainId: null });
+    }
+  };
 
   const sortLabel = { newest: 'Mới nhất', oldest: 'Cũ nhất', name: 'Theo tên' }[sortOrder];
 
@@ -67,44 +181,77 @@ export function ExamsListPage() {
   return (
     <div className="flex h-full min-h-screen bg-gray-50">
       {/* ── Left sidebar: Lĩnh vực ─────────────────────────────── */}
-      <aside className="w-52 shrink-0 border-r border-gray-200 bg-white flex flex-col py-4 gap-1 overflow-y-auto">
-        <p className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Lĩnh vực</p>
+      <aside className="w-56 shrink-0 border-r border-gray-200 bg-white flex flex-col py-4 gap-1 overflow-y-auto">
+        <div className="px-4 flex items-center justify-between mb-2">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Lĩnh vực</p>
+          <button
+            onClick={() => setCreateDomainModalOpen(true)}
+            className="p-1 hover:bg-gray-100 text-gray-500 hover:text-blue-600 rounded-lg transition-colors"
+            title="Thêm lĩnh vực mới"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
 
         {/* Tất cả */}
         <button
           onClick={() => setSelectedDomainId('all')}
           className={`flex items-center justify-between mx-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
             selectedDomainId === 'all'
-              ? 'bg-blue-50 text-blue-700'
+              ? 'bg-blue-50 text-blue-700 font-semibold'
               : 'text-gray-700 hover:bg-gray-100'
           }`}
         >
           <span>Tất cả</span>
-          <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${selectedDomainId === 'all' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${selectedDomainId === 'all' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
             {examList.length}
           </span>
         </button>
 
         {/* Domains */}
-        {domains.map((domain) => (
-          <button
-            key={domain.id}
-            onClick={() => setSelectedDomainId(domain.id)}
-            className={`flex items-center justify-between mx-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              selectedDomainId === domain.id
-                ? 'bg-blue-50 text-blue-700'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <span className="truncate text-left">{domain.name}</span>
-          </button>
-        ))}
+        {domains.map((domain) => {
+          const count = domainExamCounts.get(domain.id) || domain.exam_count || 0;
+          const isSelected = selectedDomainId === domain.id;
+
+          return (
+            <div
+              key={domain.id}
+              className={`group flex items-center justify-between mx-2 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
+                isSelected
+                  ? 'bg-blue-50 text-blue-700 font-semibold'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              onClick={() => setSelectedDomainId(domain.id)}
+            >
+              <span className="truncate text-left flex-1 mr-2">{domain.name}</span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isSelected ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                  {count}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteDomain(domain);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-all"
+                  title="Xóa lĩnh vực"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
 
         <div className="border-t border-gray-100 mx-2 mt-2 pt-2">
-          <a href="/domains" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors font-medium">
-            <Plus className="h-3.5 w-3.5" />
+          <button
+            onClick={() => setCreateDomainModalOpen(true)}
+            className="flex items-center gap-1.5 w-full px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors font-medium"
+          >
+            <Plus className="h-3.5 w-3.5 text-blue-600" />
             Thêm lĩnh vực
-          </a>
+          </button>
         </div>
       </aside>
 
@@ -117,7 +264,21 @@ export function ExamsListPage() {
               <FileText className="h-5 w-5 text-indigo-600" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">Kho Bài Kiểm Tra</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-gray-900">Kho Bài Kiểm Tra</h1>
+                {selectedDomainId !== 'all' && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                    Lĩnh vực: {domainMap.get(selectedDomainId) || 'Đang chọn'}
+                    <button
+                      onClick={() => setSelectedDomainId('all')}
+                      className="ml-1 hover:text-red-600 text-blue-600 font-bold"
+                      title="Bỏ lọc lĩnh vực"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-gray-500">Quản lý các đề thi đã được tạo từ Ma trận hoặc biên soạn thủ công.</p>
             </div>
           </div>
@@ -195,7 +356,7 @@ export function ExamsListPage() {
             </div>
           ) : filteredExams.length === 0 ? (
             <div className="flex items-center justify-center h-40 text-gray-500 text-sm">
-              Không tìm thấy đề thi nào khớp với từ khóa "{searchTerm}"
+              Không tìm thấy đề thi nào{selectedDomainId !== 'all' ? ` thuộc lĩnh vực "${domainMap.get(selectedDomainId)}"` : ''} {searchTerm ? `khớp với từ khóa "${searchTerm}"` : ''}
             </div>
           ) : (
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs">
@@ -206,6 +367,7 @@ export function ExamsListPage() {
                   ? format(new Date(exam.created_at), 'dd/MM/yyyy', { locale: vi })
                   : '—';
                 const isLast = idx === filteredExams.length - 1;
+                const domainName = exam.domain_name || (exam.domain_id ? domainMap.get(exam.domain_id) : undefined);
 
                 return (
                   <div
@@ -240,8 +402,14 @@ export function ExamsListPage() {
                       </div>
                     </div>
 
-                    {/* Tags */}
+                    {/* Tags: Domain Badge + Status + Type */}
                     <div className="flex items-center gap-1.5 shrink-0">
+                      {domainName && (
+                        <span className="px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                          <Tag className="h-3 w-3 text-blue-500" />
+                          {domainName}
+                        </span>
+                      )}
                       <span className={`px-2 py-0.5 rounded-md text-xs font-medium border ${stCls}`}>
                         {stLabel}
                       </span>
@@ -271,7 +439,34 @@ export function ExamsListPage() {
                           <MoreVertical className="h-4 w-4" />
                         </button>
                         {openMenuId === exam.id && (
-                          <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-40">
+                          <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-48">
+                            <button
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                setAssignDomainItem(exam);
+                                setTargetDomainId(exam.domain_id || '');
+                              }}
+                              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                              <Tag className="h-3.5 w-3.5 text-blue-600" />
+                              {exam.domain_id ? 'Đổi lĩnh vực...' : 'Gắn vào lĩnh vực...'}
+                            </button>
+
+                            {exam.domain_id && (
+                              <button
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  handleRemoveFromDomain(exam);
+                                }}
+                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-amber-700 hover:bg-amber-50 transition-colors"
+                              >
+                                <FolderMinus className="h-3.5 w-3.5 text-amber-600" />
+                                Xóa khỏi lĩnh vực
+                              </button>
+                            )}
+
+                            <div className="border-t border-gray-100 my-1" />
+
                             <button
                               onClick={() => {
                                 setOpenMenuId(null);
@@ -295,6 +490,113 @@ export function ExamsListPage() {
           )}
         </div>
       </div>
+
+      {/* ── Modal Thêm lĩnh vực mới ─────────────────────────────── */}
+      <Modal
+        open={createDomainModalOpen}
+        onOpenChange={(v) => {
+          if (!v) {
+            setCreateDomainModalOpen(false);
+            setNewDomainName('');
+            setNewDomainDesc('');
+          }
+        }}
+        title="Thêm lĩnh vực mới"
+        description="Tạo lĩnh vực để phân loại và quản lý các bài kiểm tra"
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button variant="secondary" onClick={() => setCreateDomainModalOpen(false)}>
+              Hủy
+            </Button>
+            <Button
+              loading={createDomainMutation.isPending}
+              disabled={!newDomainName.trim()}
+              onClick={() => createDomainMutation.mutate()}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Tạo lĩnh vực
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-1">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+              Tên lĩnh vực <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              autoFocus
+              value={newDomainName}
+              onChange={(e) => setNewDomainName(e.target.value)}
+              placeholder="Ví dụ: Khoa học tự nhiên, Toán học, Lập trình..."
+              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+              Mô tả ngắn (tùy chọn)
+            </label>
+            <textarea
+              rows={2}
+              value={newDomainDesc}
+              onChange={(e) => setNewDomainDesc(e.target.value)}
+              placeholder="Mô tả phạm vi môn học hoặc lĩnh vực..."
+              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Modal Gắn / Đổi lĩnh vực cho bài kiểm tra ──────────────── */}
+      <Modal
+        open={!!assignDomainItem}
+        onOpenChange={(v) => !v && setAssignDomainItem(null)}
+        title="Gắn lĩnh vực cho đề thi"
+        description={`Chọn lĩnh vực cho: ${assignDomainItem?.name || ''}`}
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button variant="secondary" onClick={() => setAssignDomainItem(null)}>
+              Hủy
+            </Button>
+            <Button
+              loading={updateDomainMutation.isPending}
+              onClick={() => {
+                if (!assignDomainItem) return;
+                updateDomainMutation.mutate({
+                  examId: assignDomainItem.id,
+                  domainId: targetDomainId || null,
+                });
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              Lưu thay đổi
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-1">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+              Chọn lĩnh vực
+            </label>
+            <select
+              value={targetDomainId}
+              onChange={(e) => setTargetDomainId(e.target.value)}
+              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">— Chưa phân loại (Không gắn lĩnh vực) —</option>
+              {domains.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modals */}
       <ExamPreviewModal

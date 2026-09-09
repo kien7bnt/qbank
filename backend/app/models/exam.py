@@ -59,6 +59,7 @@ class Exam(Base):
     type: Mapped[str] = mapped_column(String(20), default="exam")  # "exam" (Đề kiểm tra) | "exercise" (Bộ bài tập)
     matrix_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("exam_matrices.id"), nullable=True)
     class_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("classes.id"), nullable=True)
+    domain_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("chapters.id", ondelete="SET NULL"), nullable=True, index=True)
     
     status: Mapped[str] = mapped_column(String(20), default="draft") # draft, published, active, closed
     
@@ -90,8 +91,18 @@ class Exam(Base):
     # Relationships
     matrix = relationship("ExamMatrix", back_populates="exams")
     creator = relationship("User")
+    domain = relationship("Chapter", foreign_keys=[domain_id], lazy="selectin")
     sections = relationship("ExamSection", back_populates="exam", cascade="all, delete-orphan", lazy="selectin")
     variants = relationship("ExamVariant", back_populates="exam", cascade="all, delete-orphan", lazy="selectin")
+
+    @property
+    def domain_name(self) -> Optional[str]:
+        try:
+            if "domain" in self.__dict__ and self.domain:
+                return self.domain.name
+            return None
+        except Exception:
+            return None
 
     @property
     def total_questions(self) -> int:

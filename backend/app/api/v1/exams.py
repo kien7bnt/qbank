@@ -136,6 +136,7 @@ async def create_exam_from_questions(
         question_ids=data.question_ids,
         user_id=current_user.id,
         class_id=data.class_id,
+        domain_id=data.domain_id,
         duration_minutes=data.duration_minutes,
         points_per_question=data.points_per_question,
         shuffle_questions=data.shuffle_questions,
@@ -146,11 +147,35 @@ async def create_exam_from_questions(
 @router.get("/exams", response_model=List[ExamOut])
 async def list_exams(
     class_id: Optional[uuid.UUID] = None,
+    domain_id: Optional[uuid.UUID] = None,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
     user_id = None if current_user.has_role("admin") else current_user.id
-    return await exam_service.list_exams(db, class_id, user_id=user_id)
+    return await exam_service.list_exams(db, class_id, user_id=user_id, domain_id=domain_id)
+
+
+@router.put("/exams/{exam_id}", response_model=ExamOut)
+@router.patch("/exams/{exam_id}", response_model=ExamOut)
+async def update_exam(
+    exam_id: uuid.UUID,
+    data: ExamUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Cập nhật thông tin / cấu hình đề thi"""
+    if not current_user.has_role("teacher", "admin"):
+        raise HTTPException(status_code=403, detail="Chỉ giáo viên được chỉnh sửa đề thi")
+    exam = await exam_service.get_exam(db, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đề thi")
+
+    for field, val in data.model_dump(exclude_unset=True).items():
+        setattr(exam, field, val)
+
+    await db.commit()
+    await db.refresh(exam)
+    return exam
 
 
 @router.get("/exams/{exam_id}")
@@ -169,6 +194,8 @@ async def get_exam(
         "name": exam.name,
         "matrix_id": exam.matrix_id,
         "class_id": exam.class_id,
+        "domain_id": exam.domain_id,
+        "domain_name": exam.domain_name,
         "status": exam.status,
         "duration_minutes": exam.duration_minutes,
         "start_time": exam.start_time,

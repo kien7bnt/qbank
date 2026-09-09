@@ -51,6 +51,20 @@ async def list_domains_with_topics(db: AsyncSession, user_id: Optional[uuid.UUID
     q_chap_counts_stmt = select(Question.chapter_id, func.count(Question.id)).where(*chap_conds).group_by(Question.chapter_id)
     q_chap_counts = dict((await db.execute(q_chap_counts_stmt)).all())
 
+    # Count exercises and exams per domain
+    from app.models.exam import Exam
+    ex_conds = [Exam.type == "exercise", Exam.domain_id != None]
+    exam_conds = [((Exam.type == "exam") | (Exam.type == None)), Exam.domain_id != None]
+    if user_id:
+        ex_conds.append(Exam.created_by == user_id)
+        exam_conds.append(Exam.created_by == user_id)
+
+    ex_counts_stmt = select(Exam.domain_id, func.count(Exam.id)).where(*ex_conds).group_by(Exam.domain_id)
+    ex_counts = dict((await db.execute(ex_counts_stmt)).all())
+
+    exam_counts_stmt = select(Exam.domain_id, func.count(Exam.id)).where(*exam_conds).group_by(Exam.domain_id)
+    exam_counts = dict((await db.execute(exam_counts_stmt)).all())
+
     stmt = (
         select(Chapter)
         .options(selectinload(Chapter.topics))
@@ -82,6 +96,8 @@ async def list_domains_with_topics(db: AsyncSession, user_id: Optional[uuid.UUID
             "description": ch.description,
             "order_index": ch.order_index,
             "question_count": domain_total_q,
+            "exercise_count": ex_counts.get(ch.id, 0),
+            "exam_count": exam_counts.get(ch.id, 0),
             "topics": topics_data,
         })
 
@@ -99,6 +115,8 @@ async def create_domain(db: AsyncSession, name: str, description: Optional[str] 
         "name": chapter.name,
         "description": chapter.description,
         "question_count": 0,
+        "exercise_count": 0,
+        "exam_count": 0,
         "topics": [],
     }
 
@@ -111,6 +129,8 @@ async def update_domain(db: AsyncSession, domain_id: uuid.UUID, name: str, descr
 
 
 async def delete_domain(db: AsyncSession, domain_id: uuid.UUID) -> bool:
+    from app.models.exam import Exam
+    await db.execute(update(Exam).where(Exam.domain_id == domain_id).values(domain_id=None))
     stmt = delete(Chapter).where(Chapter.id == domain_id)
     res = await db.execute(stmt)
     await db.commit()

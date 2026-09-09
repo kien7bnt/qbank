@@ -78,6 +78,7 @@ async def init_db() -> None:
                 ("question_codings", "test_cases", "JSON", "JSON"),
                 # exams
                 ("exams", "type", "VARCHAR(20) DEFAULT 'exam'", "VARCHAR(20) DEFAULT 'exam'"),
+                ("exams", "domain_id", "UUID", "CHAR(32)"),
                 ("exams", "practice_mode", "VARCHAR(20) DEFAULT 'free'", "VARCHAR(20) DEFAULT 'free'"),
                 ("exams", "allow_retry", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 ("exams", "show_hints", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
