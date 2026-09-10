@@ -586,6 +586,7 @@ export interface ClassSession {
     session_id?: string;
     total_submissions?: number;
   }[];
+  attendance_summary?: AttendanceSummary;
 }
 
 export interface ClassSessionCreate {
@@ -594,6 +595,32 @@ export interface ClassSessionCreate {
   session_date?: string;
   status?: string;
   order_index?: number;
+}
+
+// ─── Attendance ─────────────────────────────────────────────────────────────
+export interface AttendanceSummary {
+  total: number;
+  present: number;
+  absent: number;
+  late: number;
+}
+
+export interface AttendanceOut {
+  id: string;
+  session_id: string;
+  student_id: string;
+  status: 'present' | 'absent' | 'late';
+  note?: string;
+  checked_by: string;
+  checked_at: string;
+  student_name?: string;
+  student_email?: string;
+}
+
+export interface AttendanceRecord {
+  student_id: string;
+  status: 'present' | 'absent' | 'late';
+  note?: string;
 }
 
 // ─── Rubrics & Essay Grading ──────────────────────────────────────────────────

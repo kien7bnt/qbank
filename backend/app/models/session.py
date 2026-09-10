@@ -65,6 +65,9 @@ class ClassSession(Base):
     )
     chapter: Mapped[Optional["Chapter"]] = relationship("Chapter", lazy="selectin")  # type: ignore[name-defined]
     topic: Mapped[Optional["Topic"]] = relationship("Topic", lazy="selectin")  # type: ignore[name-defined]
+    attendance_records: Mapped[List["SessionAttendance"]] = relationship(  # type: ignore[name-defined]
+        "SessionAttendance", back_populates="session", cascade="all, delete-orphan", lazy="selectin"
+    )
 
 
 class SessionMaterial(Base):

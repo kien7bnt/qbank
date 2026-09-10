@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '@/stores/auth.store';
 import {
   Plus,
   Calendar,
@@ -19,13 +20,14 @@ import {
   ClipboardCheck,
   Award,
   Users,
+  UserCheck,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import { sessionApi, assignmentApi, getErrorMessage, getBackendOrigin } from '@/services/api';
+import { sessionApi, assignmentApi, attendanceApi, classApi, getErrorMessage, getBackendOrigin } from '@/services/api';
 import type { ClassSession, SessionMaterial } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -62,7 +64,7 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
   const location = useLocation();
 
   // Tab dropdown state per session: 'content' | 'materials' | 'homework' | 'exam' | null
-  type SessionTab = 'content' | 'materials' | 'homework' | 'exam';
+  type SessionTab = 'content' | 'materials' | 'homework' | 'exam' | 'attendance';
   const [activeSessionTabs, setActiveSessionTabs] = useState<Record<string, SessionTab | null>>({});
 
   const toggleSessionTab = (sessionId: string, tab: SessionTab) => {
@@ -344,6 +346,11 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
             ) || [];
             const hwCount = homeworks.length;
             const examCount = exams.length;
+            const attendanceSummary = session.attendance_summary;
+            const hasAttendance = Boolean(attendanceSummary && attendanceSummary.total > 0);
+            const attendanceCountText = hasAttendance
+              ? `${attendanceSummary!.present}/${attendanceSummary!.total}`
+              : '0';
 
             const rawTitle = session.title?.trim() || (session as any).name?.trim() || '';
             const displayTitle = rawTitle.toLowerCase().startsWith('buổi')
@@ -515,6 +522,34 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
                     </span>
                     {activeTab === 'exam' ? (
                       <ChevronUp className="h-3 w-3 text-purple-600" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3 text-gray-400" />
+                    )}
+                  </button>
+
+                  <span className="text-gray-300 select-none font-light">|</span>
+
+                  {/* Tab Điểm danh */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSessionTab(session.id, 'attendance')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                      activeTab === 'attendance'
+                        ? 'bg-white text-teal-700 font-semibold shadow-2xs border border-teal-200'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
+                    }`}
+                  >
+                    <UserCheck className={`h-3.5 w-3.5 ${activeTab === 'attendance' ? 'text-teal-600' : 'text-gray-400'}`} />
+                    <span>Điểm danh</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[11px] font-semibold ${
+                        hasAttendance ? 'bg-teal-100 text-teal-800' : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      ({attendanceCountText})
+                    </span>
+                    {activeTab === 'attendance' ? (
+                      <ChevronUp className="h-3 w-3 text-teal-600" />
                     ) : (
                       <ChevronDown className="h-3 w-3 text-gray-400" />
                     )}
@@ -900,6 +935,18 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
                         )}
                       </div>
                     )}
+
+                    {/* Attendance Panel */}
+                    {activeTab === 'attendance' && (
+                      <SessionAttendancePanel
+                        sessionId={session.id}
+                        classId={classId}
+                        isTeacher={isTeacher}
+                        onUpdated={() => {
+                          qc.invalidateQueries({ queryKey: ['class-sessions', classId] });
+                        }}
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -1090,6 +1137,368 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
           if (!open) setSelectedSubmissionAssignment(null);
         }}
       />
+    </div>
+  );
+}
+
+// ─── Session Attendance Panel Component ─────────────────────────────────────
+interface SessionAttendancePanelProps {
+  sessionId: string;
+  classId: string;
+  isTeacher: boolean;
+  onUpdated?: () => void;
+}
+
+function SessionAttendancePanel({
+  sessionId,
+  classId,
+  isTeacher,
+  onUpdated,
+}: SessionAttendancePanelProps) {
+  const qc = useQueryClient();
+  const { user } = useAuthStore();
+
+  // 1. Fetch class members to get all students
+  const { data: membersData, isLoading: isLoadingMembers } = useQuery({
+    queryKey: ['class-members', classId],
+    queryFn: () => classApi.members(classId),
+    enabled: !!classId,
+  });
+
+  // 2. Fetch session attendance records
+  const { data: attendanceData, isLoading: isLoadingAttendance } = useQuery({
+    queryKey: ['session-attendance', sessionId],
+    queryFn: () => attendanceApi.list(sessionId),
+    enabled: !!sessionId,
+  });
+
+  const students = useMemo(() => {
+    const list = membersData?.data || [];
+    return list.filter((m: any) => m.role === 'student');
+  }, [membersData]);
+
+  // Local state for editing attendance: studentId -> { status, note }
+  const [attendanceMap, setAttendanceMap] = useState<
+    Record<string, { status: 'present' | 'absent' | 'late'; note: string }>
+  >({});
+  const [isDirty, setIsDirty] = useState(false);
+
+  // Sync attendanceData into local state
+  useEffect(() => {
+    if (attendanceData?.data) {
+      const map: Record<string, { status: 'present' | 'absent' | 'late'; note: string }> = {};
+      attendanceData.data.forEach((rec: any) => {
+        map[rec.student_id] = {
+          status: rec.status,
+          note: rec.note || '',
+        };
+      });
+      setAttendanceMap(map);
+      setIsDirty(false);
+    }
+  }, [attendanceData]);
+
+  // Mutation to save attendance
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      const records = Object.entries(attendanceMap).map(([studentId, data]) => ({
+        student_id: studentId,
+        status: data.status,
+        note: data.note?.trim() || undefined,
+      }));
+      return attendanceApi.save(sessionId, records);
+    },
+    onSuccess: () => {
+      toast.success('Đã lưu dữ liệu điểm danh!');
+      setIsDirty(false);
+      qc.invalidateQueries({ queryKey: ['session-attendance', sessionId] });
+      qc.invalidateQueries({ queryKey: ['class-sessions', classId] });
+      onUpdated?.();
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err));
+    },
+  });
+
+  const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late') => {
+    setAttendanceMap((prev) => ({
+      ...prev,
+      [studentId]: {
+        status,
+        note: prev[studentId]?.note || '',
+      },
+    }));
+    setIsDirty(true);
+  };
+
+  const handleNoteChange = (studentId: string, note: string) => {
+    setAttendanceMap((prev) => ({
+      ...prev,
+      [studentId]: {
+        status: prev[studentId]?.status || 'present',
+        note,
+      },
+    }));
+    setIsDirty(true);
+  };
+
+  const markAllPresent = () => {
+    const updated: Record<string, { status: 'present' | 'absent' | 'late'; note: string }> = {
+      ...attendanceMap,
+    };
+    students.forEach((st: any) => {
+      const sid = st.user_id || st.id;
+      updated[sid] = {
+        status: 'present',
+        note: updated[sid]?.note || '',
+      };
+    });
+    setAttendanceMap(updated);
+    setIsDirty(true);
+    toast.success('Đã chọn Tất cả có mặt');
+  };
+
+  // Stats calculation
+  const totalStudents = students.length;
+  const presentCount = students.filter(
+    (s: any) => attendanceMap[s.user_id || s.id]?.status === 'present'
+  ).length;
+  const absentCount = students.filter(
+    (s: any) => attendanceMap[s.user_id || s.id]?.status === 'absent'
+  ).length;
+  const lateCount = students.filter(
+    (s: any) => attendanceMap[s.user_id || s.id]?.status === 'late'
+  ).length;
+  const unrecordedCount = students.filter(
+    (s: any) => !attendanceMap[s.user_id || s.id]
+  ).length;
+
+  const isLoading = isLoadingMembers || isLoadingAttendance;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8 text-gray-400 text-xs gap-2">
+        <PageSpinner />
+        <span>Đang tải danh sách điểm danh...</span>
+      </div>
+    );
+  }
+
+  // STUDENT VIEW (read-only)
+  if (!isTeacher) {
+    const myRecord = user?.id ? attendanceMap[user.id] : null;
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+            <UserCheck className="h-3.5 w-3.5 text-teal-600" />
+            Trạng thái điểm danh của bạn
+          </h4>
+        </div>
+
+        {myRecord ? (
+          <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-base ${
+                  myRecord.status === 'present'
+                    ? 'bg-green-100 text-green-700'
+                    : myRecord.status === 'late'
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-red-100 text-red-700'
+                }`}
+              >
+                {myRecord.status === 'present' ? '✓' : myRecord.status === 'late' ? '⏰' : '✕'}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">
+                  {myRecord.status === 'present' && 'Có mặt'}
+                  {myRecord.status === 'late' && 'Đi muộn'}
+                  {myRecord.status === 'absent' && 'Vắng mặt'}
+                </p>
+                {myRecord.note && (
+                  <p className="text-xs text-gray-500 mt-0.5">Ghi chú: {myRecord.note}</p>
+                )}
+              </div>
+            </div>
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-semibold self-start sm:self-center ${
+                myRecord.status === 'present'
+                  ? 'bg-green-100 text-green-800'
+                  : myRecord.status === 'late'
+                  ? 'bg-amber-100 text-amber-800'
+                  : 'bg-red-100 text-red-800'
+              }`}
+            >
+              {myRecord.status === 'present'
+                ? 'Đã điểm danh Có mặt'
+                : myRecord.status === 'late'
+                ? 'Ghi nhận Đi muộn'
+                : 'Ghi nhận Vắng'}
+            </span>
+          </div>
+        ) : (
+          <div className="text-center py-6 bg-gray-50/50 rounded-xl border border-dashed border-gray-200 text-gray-500 text-xs">
+            <UserCheck className="h-8 w-8 text-gray-300 mx-auto mb-1.5" />
+            <p>Chưa có dữ liệu điểm danh cho buổi học này.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // TEACHER VIEW
+  return (
+    <div className="space-y-4">
+      {/* Top Header & Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+            <UserCheck className="h-3.5 w-3.5 text-teal-600" />
+            Điểm danh buổi học ({totalStudents} học viên)
+          </h4>
+          {/* Badges */}
+          <div className="flex items-center gap-1.5 text-[11px] font-medium flex-wrap">
+            <span className="px-2 py-0.5 rounded-md bg-green-50 text-green-700 border border-green-200">
+              Có mặt: <strong>{presentCount}</strong>
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+              Muộn: <strong>{lateCount}</strong>
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-red-50 text-red-700 border border-red-200">
+              Vắng: <strong>{absentCount}</strong>
+            </span>
+            {unrecordedCount > 0 && (
+              <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">
+                Chưa chọn: <strong>{unrecordedCount}</strong>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div className="flex items-center gap-2 self-end sm:self-center">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={markAllPresent}
+            className="h-7 text-xs border-green-300 text-green-800 hover:bg-green-50"
+            title="Đánh dấu tất cả học sinh là có mặt"
+          >
+            Tất cả có mặt
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => saveMutation.mutate()}
+            loading={saveMutation.isPending}
+            disabled={!isDirty && Object.keys(attendanceMap).length === 0}
+            className="h-7 text-xs bg-teal-600 hover:bg-teal-700 text-white"
+          >
+            Lưu điểm danh
+          </Button>
+        </div>
+      </div>
+
+      {/* Student List Table */}
+      {totalStudents === 0 ? (
+        <div className="text-center py-6 bg-gray-50/50 rounded-xl border border-dashed border-gray-200 text-gray-500 text-xs">
+          <Users className="h-8 w-8 text-gray-300 mx-auto mb-1.5" />
+          <p>Lớp học chưa có học sinh nào. Hãy thêm học sinh vào lớp trước.</p>
+        </div>
+      ) : (
+        <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+          <div className="divide-y divide-gray-100 max-h-[420px] overflow-y-auto">
+            {students.map((st: any, idx: number) => {
+              const studentId = st.user_id || st.id;
+              const studentName = st.full_name || st.name || st.email || 'Học sinh';
+              const studentEmail = st.email || '';
+              const currentAtt = attendanceMap[studentId];
+              const currentStatus = currentAtt?.status;
+              const currentNote = currentAtt?.note || '';
+
+              return (
+                <div
+                  key={studentId}
+                  className={`p-2.5 sm:p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-colors ${
+                    currentStatus === 'present'
+                      ? 'bg-green-50/20'
+                      : currentStatus === 'late'
+                      ? 'bg-amber-50/20'
+                      : currentStatus === 'absent'
+                      ? 'bg-red-50/20'
+                      : 'hover:bg-gray-50/60'
+                  }`}
+                >
+                  {/* Student Info */}
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-6 text-[11px] font-mono text-gray-400 text-right shrink-0">
+                      {idx + 1}.
+                    </span>
+                    <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-xs shrink-0">
+                      {studentName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-gray-900 truncate">{studentName}</p>
+                      {studentEmail && (
+                        <p className="text-[10px] text-gray-400 truncate">{studentEmail}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Status Selector & Note */}
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap pl-8 sm:pl-0">
+                    {/* Status Radio Buttons */}
+                    <div className="inline-flex rounded-lg p-0.5 bg-gray-100 border border-gray-200 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleStatusChange(studentId, 'present')}
+                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
+                          currentStatus === 'present'
+                            ? 'bg-green-600 text-white shadow-xs'
+                            : 'text-gray-600 hover:text-green-700'
+                        }`}
+                      >
+                        Có mặt
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleStatusChange(studentId, 'late')}
+                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
+                          currentStatus === 'late'
+                            ? 'bg-amber-500 text-white shadow-xs'
+                            : 'text-gray-600 hover:text-amber-700'
+                        }`}
+                      >
+                        Muộn
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleStatusChange(studentId, 'absent')}
+                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
+                          currentStatus === 'absent'
+                            ? 'bg-red-600 text-white shadow-xs'
+                            : 'text-gray-600 hover:text-red-700'
+                        }`}
+                      >
+                        Vắng
+                      </button>
+                    </div>
+
+                    {/* Quick note input */}
+                    <input
+                      type="text"
+                      placeholder="Ghi chú (lý do...)"
+                      value={currentNote}
+                      onChange={(e) => handleNoteChange(studentId, e.target.value)}
+                      className="text-xs px-2.5 py-1 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-500 w-full sm:w-36 text-gray-700 placeholder-gray-400 bg-white"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -29,8 +29,15 @@ async def list_class_sessions(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Lấy danh sách buổi học trong lớp (kèm tài liệu và bài tập)"""
-    return await session_service.list_sessions(db, class_id, current_user)
+    """Lấy danh sách buổi học trong lớp (kèm tài liệu, bài tập và tóm tắt điểm danh)"""
+    from app.services.attendance_service import compute_attendance_summary
+    sessions = await session_service.list_sessions(db, class_id, current_user)
+    result = []
+    for s in sessions:
+        out = ClassSessionOut.model_validate(s)
+        out.attendance_summary = compute_attendance_summary(s.attendance_records)
+        result.append(out)
+    return result
 
 
 @router.post("/classes/{class_id}/sessions", response_model=ClassSessionOut, status_code=status.HTTP_201_CREATED)

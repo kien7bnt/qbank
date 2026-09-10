@@ -1,6 +1,7 @@
 from app.models.user import User, Role, UserRole
 from app.models.class_ import Class, ClassMember
 from app.models.session import ClassSession, SessionMaterial
+from app.models.attendance import SessionAttendance
 from app.models.curriculum import Subject, Chapter, Topic, Lesson, LearningObjective
 from app.models.question import Question, QuestionOption, QuestionEssay, QuestionCoding, QuestionVersion
 from app.models.rubric import Rubric, RubricCriteria, RubricLevel, EssayGrading, EssayGradingReview
@@ -13,6 +14,7 @@ __all__ = [
     "User", "Role", "UserRole",
     "Class", "ClassMember",
     "ClassSession", "SessionMaterial",
+    "SessionAttendance",
     "Subject", "Chapter", "Topic", "Lesson", "LearningObjective",
     "Question", "QuestionOption", "QuestionEssay", "QuestionCoding", "QuestionVersion",
     "Rubric", "RubricCriteria", "RubricLevel", "EssayGrading", "EssayGradingReview",

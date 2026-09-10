@@ -254,6 +254,15 @@ export const sessionApi = {
     apiClient.patch<SessionMaterial>(`/materials/${materialId}/visibility?is_public=${isPublic}`),
 };
 
+// ─── Attendance API ──────────────────────────────────────────────────────────
+export const attendanceApi = {
+  list: (sessionId: string) =>
+    apiClient.get<any[]>(`/sessions/${sessionId}/attendance`),
+
+  save: (sessionId: string, records: { student_id: string; status: string; note?: string }[]) =>
+    apiClient.post<any[]>(`/sessions/${sessionId}/attendance`, { records }),
+};
+
 // ─── Questions API ────────────────────────────────────────────────────────────
 export const questionApi = {
   list: (filters: QuestionFilter) =>

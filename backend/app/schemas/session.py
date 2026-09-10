@@ -117,6 +117,7 @@ class ClassSessionOut(BaseModel):
 
     materials: List[SessionMaterialOut] = []
     assignments: List[SessionAssignmentSummary] = []
+    attendance_summary: Optional[dict] = None
 
     @model_validator(mode="after")
     def populate_title(self):
@@ -125,4 +126,5 @@ class ClassSessionOut(BaseModel):
         elif not self.name and self.title:
             self.name = self.title
         return self
+
 
