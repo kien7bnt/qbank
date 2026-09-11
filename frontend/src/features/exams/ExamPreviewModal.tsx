@@ -9,11 +9,13 @@ import {
   Printer,
   Eye,
   EyeOff,
+  Shuffle,
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { examApi } from '@/services/api';
+import { GenerateVariantsModal } from './GenerateVariantsModal';
 import type { Exam, ExamSectionDetail } from '@/types';
 
 interface ExamPreviewModalProps {
@@ -24,6 +26,7 @@ interface ExamPreviewModalProps {
 
 export function ExamPreviewModal({ examId, open, onOpenChange }: ExamPreviewModalProps) {
   const [showAnswerKey, setShowAnswerKey] = useState(true);
+  const [variantsModalOpen, setVariantsModalOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['exam', examId],
@@ -38,7 +41,8 @@ export function ExamPreviewModal({ examId, open, onOpenChange }: ExamPreviewModa
   };
 
   return (
-    <Modal
+    <>
+      <Modal
       open={open}
       onOpenChange={onOpenChange}
       title={
@@ -69,7 +73,17 @@ export function ExamPreviewModal({ examId, open, onOpenChange }: ExamPreviewModa
             )}
           </Button>
 
-          <div className="flex items-center gap-2 justify-end">
+          <div className="flex items-center gap-2 justify-end flex-wrap">
+            {exam && (
+              <Button
+                size="sm"
+                onClick={() => setVariantsModalOpen(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-medium flex-1 sm:flex-none shadow-sm"
+              >
+                <Shuffle className="h-4 w-4 mr-1.5" />
+                Tạo các mã đề hàng loạt
+              </Button>
+            )}
             <Button
               variant="secondary"
               size="sm"
@@ -192,5 +206,14 @@ export function ExamPreviewModal({ examId, open, onOpenChange }: ExamPreviewModa
         </div>
       )}
     </Modal>
+    {exam && (
+      <GenerateVariantsModal
+        open={variantsModalOpen}
+        onOpenChange={setVariantsModalOpen}
+        examId={exam.id}
+        examName={exam.name}
+      />
+    )}
+    </>
   );
 }

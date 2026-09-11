@@ -10,6 +10,7 @@ import {
   Award,
   BookOpen,
   ArrowRight,
+  Eye,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
@@ -17,12 +18,14 @@ import { PageSpinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { examMatrixApi, curriculumApi, getErrorMessage } from '@/services/api';
 import { ExamMatrixBuilderModal } from './ExamMatrixBuilderModal';
+import { ExamMatrixDetailModal } from './ExamMatrixDetailModal';
 import { ExamPreviewModal } from './ExamPreviewModal';
 import type { ExamMatrix } from '@/types';
 
 export function ExamMatricesPage() {
   const qc = useQueryClient();
   const [builderOpen, setBuilderOpen] = useState(false);
+  const [selectedMatrixForDetail, setSelectedMatrixForDetail] = useState<ExamMatrix | null>(null);
   const [previewExamId, setPreviewExamId] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string>('');
 
@@ -63,6 +66,15 @@ export function ExamMatricesPage() {
   });
 
   const matrixList: ExamMatrix[] = matrices?.data || [];
+
+  const getSubjectName = (subjectId?: string) => {
+    if (!subjectId) return null;
+    const cleanId = subjectId.replace(/-/g, '').toLowerCase();
+    const found = subjects?.data?.find(
+      (s: any) => (s.id || '').replace(/-/g, '').toLowerCase() === cleanId
+    );
+    return found?.name || null;
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -123,10 +135,14 @@ export function ExamMatricesPage() {
             >
               <div className="space-y-3">
                 <div className="flex items-start justify-between">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary-50 text-primary-700 border border-primary-100">
-                    <BookOpen className="h-3 w-3 mr-1" />
-                    Môn học: {matrix.subject_id}
-                  </span>
+                  {getSubjectName(matrix.subject_id) ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary-50 text-primary-700 border border-primary-100">
+                      <BookOpen className="h-3 w-3 mr-1" />
+                      {getSubjectName(matrix.subject_id)}
+                    </span>
+                  ) : (
+                    <div />
+                  )}
                   <button
                     onClick={() => {
                       if (confirm('Bạn có chắc muốn xóa ma trận này?')) {
@@ -180,7 +196,16 @@ export function ExamMatricesPage() {
               {/* Action Buttons */}
               <div className="pt-5 mt-3 border-t border-gray-100 flex items-center gap-2">
                 <Button
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedMatrixForDetail(matrix)}
+                  className="flex-1 text-gray-700 hover:text-primary-600 border-gray-200 hover:border-primary-200"
+                >
+                  <Eye className="h-4 w-4 mr-1.5 text-gray-500" />
+                  Xem cấu trúc
+                </Button>
+                <Button
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
                   size="sm"
                   loading={
                     generateExamMutation.isPending &&
@@ -201,6 +226,18 @@ export function ExamMatricesPage() {
       <ExamMatrixBuilderModal
         open={builderOpen}
         onOpenChange={setBuilderOpen}
+      />
+
+      <ExamMatrixDetailModal
+        matrix={selectedMatrixForDetail}
+        open={!!selectedMatrixForDetail}
+        onOpenChange={(open) => !open && setSelectedMatrixForDetail(null)}
+        onGenerateExam={(m) => {
+          setSelectedMatrixForDetail(null);
+          generateExamMutation.mutate(m);
+        }}
+        isGenerating={generateExamMutation.isPending}
+        subjects={subjects?.data || []}
       />
 
       <ExamPreviewModal

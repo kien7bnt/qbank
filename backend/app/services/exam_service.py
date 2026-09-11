@@ -1,7 +1,7 @@
 import uuid
 from typing import Sequence, Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_, func
 from sqlalchemy.orm import selectinload
 
 from app.models.exam import ExamMatrix, ExamMatrixSection, Exam, ExamSection, ExamQuestion
@@ -24,25 +24,30 @@ async def create_matrix(db: AsyncSession, data: ExamMatrixCreate, user_id: uuid.
     )
     db.add(matrix)
     await db.flush()
-    
-    for sec in data.sections:
-        section = ExamMatrixSection(
+    await db.refresh(matrix)
+
+    for sec_data in data.sections:
+        sec = ExamMatrixSection(
             matrix_id=matrix.id,
-            name=sec.name,
-            question_type=sec.question_type,
-            question_count=sec.question_count,
-            points_per_question=sec.points_per_question,
-            rules=sec.rules
+            name=sec_data.name,
+            question_type=sec_data.question_type,
+            question_count=sec_data.question_count,
+            points_per_question=sec_data.points_per_question,
+            rules=sec_data.rules
         )
-        db.add(section)
-    
+        db.add(sec)
+
     await db.commit()
     await db.refresh(matrix)
-    return matrix
+    return await get_matrix(db, matrix.id)
 
 
 async def get_matrix(db: AsyncSession, matrix_id: uuid.UUID) -> Optional[ExamMatrix]:
-    stmt = select(ExamMatrix).options(selectinload(ExamMatrix.sections)).where(ExamMatrix.id == matrix_id)
+    stmt = (
+        select(ExamMatrix)
+        .options(selectinload(ExamMatrix.sections))
+        .where(ExamMatrix.id == matrix_id)
+    )
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -55,7 +60,14 @@ async def list_matrices(
 ) -> Sequence[ExamMatrix]:
     stmt = select(ExamMatrix).options(selectinload(ExamMatrix.sections)).order_by(ExamMatrix.created_at.desc())
     if subject_id:
-        stmt = stmt.where(ExamMatrix.subject_id == subject_id)
+        clean_sub = subject_id.replace('-', '')
+        stmt = stmt.where(
+            or_(
+                ExamMatrix.subject_id == subject_id,
+                ExamMatrix.subject_id == clean_sub,
+                func.replace(ExamMatrix.subject_id, '-', '') == clean_sub,
+            )
+        )
     if class_id:
         stmt = stmt.where(ExamMatrix.class_id == class_id)
     if user_id:
