@@ -32,7 +32,6 @@ import type { QuestionFilter, QuestionListItem, Question } from '@/types';
 import { AssignTopicModal } from './AssignTopicModal';
 import { CreateExamFromQuestionsModal } from '@/features/exams/CreateExamFromQuestionsModal';
 import { CreateExerciseModal } from '@/features/exercises/CreateExerciseModal';
-import { AutoGenerateModal } from './AutoGenerateModal';
 import { EditQuestionModal } from './EditQuestionModal';
 
 const STATUS_OPTIONS = [
@@ -86,7 +85,6 @@ export function QuestionTable({
   const [assignTopicOpen, setAssignTopicOpen] = useState(false);
   const [createExamOpen, setCreateExamOpen] = useState(false);
   const [createExerciseOpen, setCreateExerciseOpen] = useState(false);
-  const [autoGenerateOpen, setAutoGenerateOpen] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // Row action menu & edit modal
@@ -284,18 +282,6 @@ export function QuestionTable({
               </button>
             )}
           </div>
-
-          {/* Smart Auto Generate Button */}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setAutoGenerateOpen(true)}
-            className="text-amber-800 bg-amber-50/80 border-amber-200 hover:bg-amber-100 font-semibold text-xs whitespace-nowrap shrink-0"
-            leftIcon={<Sparkles className="h-3.5 w-3.5 text-amber-600" />}
-          >
-            <span className="hidden sm:inline">Sinh tự động theo tiêu chí</span>
-            <span className="sm:hidden">Sinh đề/bài</span>
-          </Button>
 
           {/* Mobile Filter Toggle */}
           <button
@@ -955,11 +941,6 @@ export function QuestionTable({
         onClose={() => setCreateExerciseOpen(false)}
         selectedQuestionIds={Array.from(selected)}
         onSuccess={() => setSelected(new Set())}
-      />
-
-      <AutoGenerateModal
-        open={autoGenerateOpen}
-        onClose={() => setAutoGenerateOpen(false)}
       />
 
       {editingQuestion && (
