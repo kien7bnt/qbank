@@ -40,6 +40,9 @@ class Chapter(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
 
     subject: Mapped["Subject"] = relationship(back_populates="chapters")
     topics: Mapped[List["Topic"]] = relationship(
@@ -58,6 +61,9 @@ class Topic(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
 
     chapter: Mapped["Chapter"] = relationship(back_populates="topics")
     lessons: Mapped[List["Lesson"]] = relationship(

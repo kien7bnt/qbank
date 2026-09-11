@@ -49,7 +49,7 @@ async def create_domain(
 ):
     if not current_user.has_role("admin", "teacher"):
         raise HTTPException(status_code=403, detail="Không có quyền tạo lĩnh vực")
-    return await curriculum_service.create_domain(db, data.name, data.description)
+    return await curriculum_service.create_domain(db, data.name, data.description, user_id=current_user.id)
 
 
 @router.put("/domains/{domain_id}")
@@ -61,9 +61,10 @@ async def update_domain(
 ):
     if not current_user.has_role("admin", "teacher"):
         raise HTTPException(status_code=403, detail="Không có quyền sửa lĩnh vực")
-    updated = await curriculum_service.update_domain(db, domain_id, data.name, data.description)
+    user_id = None if current_user.has_role("admin") else current_user.id
+    updated = await curriculum_service.update_domain(db, domain_id, data.name, data.description, user_id=user_id)
     if not updated:
-        raise HTTPException(status_code=404, detail="Không tìm thấy lĩnh vực")
+        raise HTTPException(status_code=404, detail="Không tìm thấy lĩnh vực hoặc không có quyền sửa")
     return {"status": "updated"}
 
 
@@ -75,9 +76,10 @@ async def delete_domain(
 ):
     if not current_user.has_role("admin", "teacher"):
         raise HTTPException(status_code=403, detail="Không có quyền xóa lĩnh vực")
-    deleted = await curriculum_service.delete_domain(db, domain_id)
+    user_id = None if current_user.has_role("admin") else current_user.id
+    deleted = await curriculum_service.delete_domain(db, domain_id, user_id=user_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail="Không tìm thấy lĩnh vực")
+        raise HTTPException(status_code=404, detail="Không tìm thấy lĩnh vực hoặc không có quyền xóa")
 
 
 @router.post("/domains/{domain_id}/topics", status_code=status.HTTP_201_CREATED)
@@ -89,7 +91,7 @@ async def create_topic_under_domain(
 ):
     if not current_user.has_role("admin", "teacher"):
         raise HTTPException(status_code=403, detail="Không có quyền tạo chủ đề")
-    return await curriculum_service.create_topic_under_domain(db, domain_id, data.name)
+    return await curriculum_service.create_topic_under_domain(db, domain_id, data.name, user_id=current_user.id)
 
 
 @router.put("/topics/{topic_id}")
@@ -101,9 +103,10 @@ async def update_topic(
 ):
     if not current_user.has_role("admin", "teacher"):
         raise HTTPException(status_code=403, detail="Không có quyền sửa chủ đề")
-    updated = await curriculum_service.update_topic(db, topic_id, data.name)
+    user_id = None if current_user.has_role("admin") else current_user.id
+    updated = await curriculum_service.update_topic(db, topic_id, data.name, user_id=user_id)
     if not updated:
-        raise HTTPException(status_code=404, detail="Không tìm thấy chủ đề")
+        raise HTTPException(status_code=404, detail="Không tìm thấy chủ đề hoặc không có quyền sửa")
     return {"status": "updated"}
 
 
@@ -115,9 +118,10 @@ async def delete_topic(
 ):
     if not current_user.has_role("admin", "teacher"):
         raise HTTPException(status_code=403, detail="Không có quyền xóa chủ đề")
-    deleted = await curriculum_service.delete_topic(db, topic_id)
+    user_id = None if current_user.has_role("admin") else current_user.id
+    deleted = await curriculum_service.delete_topic(db, topic_id, user_id=user_id)
     if not deleted:
-        raise HTTPException(status_code=404, detail="Không tìm thấy chủ đề")
+        raise HTTPException(status_code=404, detail="Không tìm thấy chủ đề hoặc không có quyền xóa")
 
 
 # ─── Legacy Curriculum Endpoints ─────────────────────────────────────────────

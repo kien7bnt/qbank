@@ -70,6 +70,9 @@ async def list_domains_with_topics(db: AsyncSession, user_id: Optional[uuid.UUID
         .options(selectinload(Chapter.topics))
         .order_by(Chapter.order_index, Chapter.name)
     )
+    if user_id:
+        stmt = stmt.where(Chapter.created_by == user_id)
+
     res = await db.execute(stmt)
     chapters = res.scalars().all()
 
@@ -104,9 +107,9 @@ async def list_domains_with_topics(db: AsyncSession, user_id: Optional[uuid.UUID
     return domains
 
 
-async def create_domain(db: AsyncSession, name: str, description: Optional[str] = None) -> Dict[str, Any]:
+async def create_domain(db: AsyncSession, name: str, description: Optional[str] = None, user_id: Optional[uuid.UUID] = None) -> Dict[str, Any]:
     sub = await get_default_subject(db)
-    chapter = Chapter(subject_id=sub.id, name=name, description=description)
+    chapter = Chapter(subject_id=sub.id, name=name, description=description, created_by=user_id)
     db.add(chapter)
     await db.commit()
     await db.refresh(chapter)
@@ -121,15 +124,25 @@ async def create_domain(db: AsyncSession, name: str, description: Optional[str] 
     }
 
 
-async def update_domain(db: AsyncSession, domain_id: uuid.UUID, name: str, description: Optional[str] = None) -> bool:
-    stmt = update(Chapter).where(Chapter.id == domain_id).values(name=name, description=description)
+async def update_domain(db: AsyncSession, domain_id: uuid.UUID, name: str, description: Optional[str] = None, user_id: Optional[uuid.UUID] = None) -> bool:
+    stmt = update(Chapter).where(Chapter.id == domain_id)
+    if user_id:
+        stmt = stmt.where(Chapter.created_by == user_id)
+    stmt = stmt.values(name=name, description=description)
     res = await db.execute(stmt)
     await db.commit()
     return res.rowcount > 0
 
 
-async def delete_domain(db: AsyncSession, domain_id: uuid.UUID) -> bool:
+async def delete_domain(db: AsyncSession, domain_id: uuid.UUID, user_id: Optional[uuid.UUID] = None) -> bool:
     from app.models.exam import Exam
+    stmt_check = select(Chapter).where(Chapter.id == domain_id)
+    if user_id:
+        stmt_check = stmt_check.where(Chapter.created_by == user_id)
+    res_check = await db.execute(stmt_check)
+    if not res_check.scalar_one_or_none():
+        return False
+
     await db.execute(update(Exam).where(Exam.domain_id == domain_id).values(domain_id=None))
     stmt = delete(Chapter).where(Chapter.id == domain_id)
     res = await db.execute(stmt)
@@ -137,8 +150,8 @@ async def delete_domain(db: AsyncSession, domain_id: uuid.UUID) -> bool:
     return res.rowcount > 0
 
 
-async def create_topic_under_domain(db: AsyncSession, domain_id: uuid.UUID, name: str) -> Dict[str, Any]:
-    topic = Topic(chapter_id=domain_id, name=name)
+async def create_topic_under_domain(db: AsyncSession, domain_id: uuid.UUID, name: str, user_id: Optional[uuid.UUID] = None) -> Dict[str, Any]:
+    topic = Topic(chapter_id=domain_id, name=name, created_by=user_id)
     db.add(topic)
     await db.commit()
     await db.refresh(topic)
@@ -150,15 +163,20 @@ async def create_topic_under_domain(db: AsyncSession, domain_id: uuid.UUID, name
     }
 
 
-async def update_topic(db: AsyncSession, topic_id: uuid.UUID, name: str) -> bool:
-    stmt = update(Topic).where(Topic.id == topic_id).values(name=name)
+async def update_topic(db: AsyncSession, topic_id: uuid.UUID, name: str, user_id: Optional[uuid.UUID] = None) -> bool:
+    stmt = update(Topic).where(Topic.id == topic_id)
+    if user_id:
+        stmt = stmt.where(Topic.created_by == user_id)
+    stmt = stmt.values(name=name)
     res = await db.execute(stmt)
     await db.commit()
     return res.rowcount > 0
 
 
-async def delete_topic(db: AsyncSession, topic_id: uuid.UUID) -> bool:
+async def delete_topic(db: AsyncSession, topic_id: uuid.UUID, user_id: Optional[uuid.UUID] = None) -> bool:
     stmt = delete(Topic).where(Topic.id == topic_id)
+    if user_id:
+        stmt = stmt.where(Topic.created_by == user_id)
     res = await db.execute(stmt)
     await db.commit()
     return res.rowcount > 0

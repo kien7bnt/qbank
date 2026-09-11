@@ -113,6 +113,9 @@ async def init_db() -> None:
                 # student_responses
                 ("student_responses", "code_response", "TEXT", "TEXT"),
                 ("student_responses", "feedback", "TEXT", "TEXT"),
+                # curriculum
+                ("chapters", "created_by", "UUID", "CHAR(32)"),
+                ("topics", "created_by", "UUID", "CHAR(32)"),
             ]
 
             table_columns = {}
@@ -137,6 +140,29 @@ async def init_db() -> None:
                         table_columns[table_name].add(col_name)
                 except Exception:
                     pass
+
+            # Backfill created_by on existing chapters and topics if NULL
+            try:
+                with sync_conn.begin_nested():
+                    sync_conn.execute(text("""
+                        UPDATE chapters
+                        SET created_by = (
+                            SELECT created_by FROM questions
+                            WHERE questions.chapter_id = chapters.id AND questions.created_by IS NOT NULL
+                            LIMIT 1
+                        )
+                        WHERE created_by IS NULL
+                    """))
+                    sync_conn.execute(text("""
+                        UPDATE topics
+                        SET created_by = (
+                            SELECT created_by FROM chapters
+                            WHERE chapters.id = topics.chapter_id
+                        )
+                        WHERE created_by IS NULL
+                    """))
+            except Exception:
+                pass
 
         await conn.run_sync(_run_migrations)
 

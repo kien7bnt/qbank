@@ -254,6 +254,7 @@ export interface ExamMatrixSection {
     bloom_mix?: Record<string, number>;
     difficulty_mix?: Record<string, number>;
     topic_ids?: string[];
+    [key: string]: any;
   };
 }
 
