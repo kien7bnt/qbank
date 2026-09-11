@@ -10,6 +10,11 @@ from app.core.config import settings
 pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
 
 
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 

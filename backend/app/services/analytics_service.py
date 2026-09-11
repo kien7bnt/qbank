@@ -1,9 +1,14 @@
 import math
 import uuid
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import selectinload
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
 
 from app.models.question import Question, QuestionOption
 from app.models.exam import Exam
@@ -314,7 +319,6 @@ async def get_question_psychometrics(db: AsyncSession, question_id: uuid.UUID) -
 
 async def calibrate_questions(db: AsyncSession) -> Dict[str, Any]:
     """Định cỡ lại toàn bộ câu hỏi trong ngân hàng dựa trên CTT và mô hình IRT 3PL (Yêu cầu N >= 10)"""
-    from app.core.security import utcnow
     now = utcnow()
 
     q_stmt = select(Question).options(selectinload(Question.options)).where(Question.status != "archived")
