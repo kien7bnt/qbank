@@ -44,7 +44,11 @@ export function QuestionBankPage() {
   const globalTotalQuestions = allQuestionsData?.data?.total ?? 0;
 
   const handleFilterChange = (updates: Partial<QuestionFilter>) => {
-    setFilter((f) => ({ ...f, ...updates, page: 1 }));
+    setFilter((f) => ({
+      ...f,
+      ...updates,
+      page: updates.page !== undefined ? updates.page : 1,
+    }));
   };
 
   const handleSelectFolder = (folder: SelectedFolder | null) => {

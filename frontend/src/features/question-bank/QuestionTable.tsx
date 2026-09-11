@@ -873,7 +873,7 @@ export function QuestionTable({
             <span className="text-xs text-gray-500 text-center sm:text-left">
               Trang {page} / {totalPages} (Tổng {total} câu)
             </span>
-            <div className="flex justify-center gap-1.5">
+            <div className="flex items-center justify-center gap-1">
               <Button
                 size="sm"
                 variant="ghost"
@@ -884,6 +884,42 @@ export function QuestionTable({
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 Trước
               </Button>
+              <div className="flex items-center gap-1 mx-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                  .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
+                      acc.push('...');
+                    }
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, idx) =>
+                    p === '...' ? (
+                      <span key={`dots-${idx}`} className="px-1 text-xs text-gray-400">
+                        ...
+                      </span>
+                    ) : (
+                      <Button
+                        key={p}
+                        size="sm"
+                        variant={page === p ? 'primary' : 'ghost'}
+                        onClick={() => {
+                          if (page !== p) {
+                            onFilterChange({ page: Number(p) });
+                          }
+                        }}
+                        className={`h-8 w-8 p-0 rounded-lg text-xs ${
+                          page === p
+                            ? 'bg-primary-600 text-white font-medium hover:bg-primary-700'
+                            : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  )}
+              </div>
               <Button
                 size="sm"
                 variant="ghost"
