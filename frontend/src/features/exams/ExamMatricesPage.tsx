@@ -134,30 +134,22 @@ export function ExamMatricesPage() {
               className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
             >
               <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  {getSubjectName(matrix.subject_id) ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary-50 text-primary-700 border border-primary-100">
-                      <BookOpen className="h-3 w-3 mr-1" />
-                      {getSubjectName(matrix.subject_id)}
-                    </span>
-                  ) : (
-                    <div />
-                  )}
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-bold text-gray-900 text-base leading-snug">
+                    {matrix.name}
+                  </h3>
                   <button
                     onClick={() => {
                       if (confirm('Bạn có chắc muốn xóa ma trận này?')) {
                         deleteMutation.mutate(matrix.id);
                       }
                     }}
-                    className="text-gray-400 hover:text-red-500 p-1 rounded-lg hover:bg-gray-50"
+                    className="text-gray-400 hover:text-red-500 p-1 rounded-lg hover:bg-gray-50 shrink-0"
+                    title="Xóa ma trận"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-
-                <h3 className="font-bold text-gray-900 text-base leading-snug">
-                  {matrix.name}
-                </h3>
 
                 <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 bg-gray-50 p-3 rounded-xl">
                   <div className="flex items-center gap-1.5">
