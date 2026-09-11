@@ -148,6 +148,8 @@ export function CreateAssignmentModal({
         shuffle_questions: isHomework ? false : shuffleQuestions,
         shuffle_options: isHomework ? false : shuffleOptions,
         show_results: 'immediately',
+        show_correct_answer: isHomework,
+        show_explanation: isHomework,
         ai_grading: aiGrading,
       });
     },

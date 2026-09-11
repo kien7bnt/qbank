@@ -541,6 +541,7 @@ export interface AttemptResult {
   status: string;
   total_questions: number;
   correct_answers_count: number;
+  can_view_answers?: boolean;
   responses: ResponseDetail[];
 }
 

@@ -19,6 +19,8 @@ class AssignmentBase(BaseModel):
     shuffle_questions: bool = False
     shuffle_options: bool = False
     show_results: str = Field("immediately", max_length=20)
+    show_correct_answer: bool = True
+    show_explanation: bool = True
     ai_grading: bool = True
 
 
@@ -134,4 +136,5 @@ class AttemptResultOut(BaseModel):
     status: str
     total_questions: int
     correct_answers_count: int
+    can_view_answers: bool = True
     responses: List[ResponseDetailOut] = Field(default_factory=list)

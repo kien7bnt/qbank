@@ -274,7 +274,7 @@ async def get_attempt_result(
 ):
     """Xem kết quả và lời giải chi tiết của bài thi"""
     try:
-        return await assignment_service.get_attempt_result(db, attempt_id, current_user.id)
+        return await assignment_service.get_attempt_result(db, attempt_id, current_user)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

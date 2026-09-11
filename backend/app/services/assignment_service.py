@@ -28,6 +28,14 @@ async def create_assignment(db: AsyncSession, data: AssignmentCreate, user_id: u
     if ai_grading is None:
         ai_grading = True
 
+    show_correct_answer = getattr(data, "show_correct_answer", None)
+    if show_correct_answer is None:
+        show_correct_answer = (assignment_type == "homework")
+
+    show_explanation = getattr(data, "show_explanation", None)
+    if show_explanation is None:
+        show_explanation = (assignment_type == "homework")
+
     assignment = Assignment(
         name=data.name,
         exam_id=data.exam_id,
@@ -42,6 +50,8 @@ async def create_assignment(db: AsyncSession, data: AssignmentCreate, user_id: u
         shuffle_questions=data.shuffle_questions,
         shuffle_options=data.shuffle_options,
         show_results=data.show_results,
+        show_correct_answer=show_correct_answer,
+        show_explanation=show_explanation,
         ai_grading=ai_grading,
         created_by=user_id,
         status="published"
@@ -766,7 +776,7 @@ async def submit_and_grade_attempt(db: AsyncSession, attempt_id: uuid.UUID, user
     return await get_attempt_result(db, attempt_id, user_id)
 
 
-async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_id: uuid.UUID) -> AttemptResultOut:
+async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_or_id: Any) -> AttemptResultOut:
     stmt = (
         select(ExamAttempt)
         .options(
@@ -780,6 +790,36 @@ async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_id: u
     attempt = res.scalar_one_or_none()
     if not attempt:
         raise ValueError("Attempt not found")
+
+    if hasattr(user_or_id, "has_role"):
+        is_teacher = user_or_id.has_role("teacher", "admin")
+        req_user_id = user_or_id.id
+    elif isinstance(user_or_id, uuid.UUID):
+        from app.models.user import User
+        user_obj = await db.get(User, user_or_id)
+        is_teacher = user_obj.has_role("teacher", "admin") if user_obj else False
+        req_user_id = user_or_id
+    else:
+        is_teacher = False
+        req_user_id = None
+
+    assignment = attempt.assignment
+    assignment_type = getattr(assignment, "assignment_type", "exam") or "exam"
+    is_homework = (assignment_type == "homework")
+
+    # Quyền xem đáp án:
+    # - Giáo viên / Quản trị viên: Luôn được xem đầy đủ đáp án & lời giải để chấm/duyệt bài.
+    # - Học sinh:
+    #   + Bài tập (homework): Được xem đáp án để rèn luyện (trừ khi cố ý tắt).
+    #   + Bài kiểm tra (exam): TUYỆT ĐỐI KHÔNG cho người học xem đáp án & lời giải.
+    if is_teacher:
+        can_view_answers = True
+    elif is_homework:
+        can_view_answers = getattr(assignment, "show_correct_answer", True)
+        if can_view_answers is None:
+            can_view_answers = True
+    else:
+        can_view_answers = False
 
     resp_map = {r.question_id: r for r in attempt.responses}
     responses_out = []
@@ -795,6 +835,33 @@ async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_id: u
         if resp and resp.is_correct:
             correct_count += 1
 
+        if not can_view_answers:
+            correct_opt_id = None
+            rationale_val = None
+            resp_is_correct = None
+            options_out = [
+                {
+                    "id": str(o.id),
+                    "label": o.label,
+                    "text": o.text,
+                    "is_correct": False,
+                }
+                for o in (q_obj.options if q_obj else [])
+            ]
+        else:
+            correct_opt_id = correct_opt.id if correct_opt else None
+            rationale_val = q_obj.rationale if q_obj else None
+            resp_is_correct = resp.is_correct if resp else None
+            options_out = [
+                {
+                    "id": str(o.id),
+                    "label": o.label,
+                    "text": o.text,
+                    "is_correct": o.is_correct,
+                }
+                for o in (q_obj.options if q_obj else [])
+            ]
+
         responses_out.append(
             ResponseDetailOut(
                 id=resp.id if resp else None,
@@ -803,31 +870,19 @@ async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_id: u
                 stem=q_item["stem"],
                 type=q_item["type"],
                 points=pts,
-                points_earned=resp.points_earned if resp else 0.0,
-                is_correct=resp.is_correct if resp else None,
+                points_earned=resp.points_earned if (resp and can_view_answers) else 0.0,
+                is_correct=resp_is_correct,
                 selected_option_id=resp.selected_option_id if resp else None,
-                correct_option_id=correct_opt.id if correct_opt else None,
+                correct_option_id=correct_opt_id,
                 text_response=resp.text_response if resp else None,
                 code_response=resp.code_response if resp else None,
                 coding_data=q_item.get("coding_data"),
                 essay_data=q_item.get("essay_data"),
-                rationale=q_obj.rationale if q_obj else None,
-                options=[
-                    {
-                        "id": str(o.id),
-                        "label": o.label,
-                        "text": o.text,
-                        "is_correct": o.is_correct,
-                    }
-                    for o in (q_obj.options if q_obj else [])
-                ],
-                feedback=resp.feedback if resp else None
+                rationale=rationale_val,
+                options=options_out,
+                feedback=resp.feedback if (resp and can_view_answers) else None
             )
         )
-
-    assignment = attempt.assignment
-    assignment_type = getattr(assignment, "assignment_type", "exam") or "exam"
-    is_homework = (assignment_type == "homework")
 
     displayed_score = attempt.score if attempt.status == "graded" else None
     displayed_passed = attempt.is_passed if attempt.status == "graded" else None
@@ -850,6 +905,7 @@ async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_id: u
         status=attempt.status,
         total_questions=len(attempt.question_snapshot or []),
         correct_answers_count=correct_count,
+        can_view_answers=can_view_answers,
         responses=responses_out,
     )
 

@@ -23,6 +23,7 @@ import {
   Eye,
   Edit3,
   Users,
+  Lock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
@@ -73,6 +74,8 @@ export function ExamResultPage() {
   const isPendingGrading = result.status === 'submitted';
   const scorePercentage = Math.round(((result.score || 0) / (result.max_score || 10)) * 100);
   const isPassed = result.is_passed;
+  const isExam = result.assignment_type !== 'homework';
+  const canViewAnswers = isTeacherUser || (result.can_view_answers !== undefined ? result.can_view_answers : !isExam);
 
   const targetAssignmentId =
     location.state?.assignmentId ||
@@ -274,7 +277,26 @@ export function ExamResultPage() {
 
         {/* Question by Question Review */}
         <div className="space-y-4">
-          <h2 className="text-base sm:text-lg font-bold text-gray-900">Chi tiết bài làm & Lời giải</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h2 className="text-base sm:text-lg font-bold text-gray-900">
+              {canViewAnswers ? 'Chi tiết bài làm & Lời giải' : 'Chi tiết bài làm đã nộp'}
+            </h2>
+            {!canViewAnswers && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                <Lock className="h-3 w-3 text-blue-600" />
+                Đáp án bài kiểm tra được bảo mật
+              </span>
+            )}
+          </div>
+
+          {!canViewAnswers && (
+            <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-2xl flex items-start sm:items-center gap-2.5 text-xs text-blue-900">
+              <span className="text-base leading-none">ℹ️</span>
+              <p>
+                <strong>Lưu ý:</strong> Để bảo đảm tính công bằng và bảo mật của bài kiểm tra, hệ thống <strong>không hiển thị đáp án đúng và lời giải</strong> đối với người học. Bạn có thể xem lại các phương án mình đã lựa chọn bên dưới.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-4">
             {result.responses.map((resp: ResponseDetail, idx: number) => {
@@ -287,7 +309,9 @@ export function ExamResultPage() {
                 <div
                   key={resp.question_id || idx}
                   className={`bg-white border rounded-2xl p-4 sm:p-6 shadow-xs space-y-4 transition-all ${
-                    isPendingItem
+                    !canViewAnswers
+                      ? 'border-gray-200'
+                      : isPendingItem
                       ? 'border-amber-200 bg-amber-50/10'
                       : isCorrect
                       ? 'border-green-200'
@@ -298,14 +322,18 @@ export function ExamResultPage() {
                     <div className="flex items-center gap-2">
                       <span
                         className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
-                          isPendingItem
+                          !canViewAnswers
+                            ? 'bg-primary-600'
+                            : isPendingItem
                             ? 'bg-amber-500'
                             : isCorrect
                             ? 'bg-green-500'
                             : 'bg-red-500'
                         }`}
                       >
-                        {isPendingItem ? (
+                        {!canViewAnswers ? (
+                          idx + 1
+                        ) : isPendingItem ? (
                           <Clock className="h-3.5 w-3.5 animate-spin" />
                         ) : isCorrect ? (
                           <CheckCircle2 className="h-4 w-4" />
@@ -332,14 +360,18 @@ export function ExamResultPage() {
 
                     <span
                       className={`text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 ${
-                        isPendingItem
+                        !canViewAnswers
+                          ? 'bg-gray-100 text-gray-700 border border-gray-200'
+                          : isPendingItem
                           ? 'bg-amber-50 text-amber-700 border border-amber-200'
                           : isCorrect
                           ? 'bg-green-50 text-green-700 border border-green-200'
                           : 'bg-red-50 text-red-700 border border-red-200'
                       }`}
                     >
-                      {isPendingItem
+                      {!canViewAnswers
+                        ? `${resp.points} điểm`
+                        : isPendingItem
                         ? `-- / ${resp.points} điểm (Chờ chấm)`
                         : `${resp.points_earned} / ${resp.points} điểm`}
                     </span>
@@ -355,13 +387,19 @@ export function ExamResultPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                       {resp.options.map((opt) => {
                         const isStudentChoice = resp.selected_option_id === opt.id;
-                        const isAnswerKey = opt.is_correct;
+                        const isAnswerKey = canViewAnswers && opt.is_correct;
 
                         let style = 'bg-gray-50 border-gray-200 text-gray-700';
-                        if (isAnswerKey) {
-                          style = 'bg-green-50 border-green-400 text-green-900 font-semibold';
-                        } else if (isStudentChoice && !isAnswerKey) {
-                          style = 'bg-red-50 border-red-300 text-red-900 line-through';
+                        if (canViewAnswers) {
+                          if (isAnswerKey) {
+                            style = 'bg-green-50 border-green-400 text-green-900 font-semibold';
+                          } else if (isStudentChoice && !isAnswerKey) {
+                            style = 'bg-red-50 border-red-300 text-red-900 line-through';
+                          }
+                        } else {
+                          if (isStudentChoice) {
+                            style = 'bg-blue-50 border-blue-400 text-blue-950 font-medium shadow-2xs';
+                          }
                         }
 
                         return (
@@ -379,7 +417,11 @@ export function ExamResultPage() {
                               </span>
                             )}
                             {isStudentChoice && (
-                              <span className="text-[10px] bg-primary-100 text-primary-800 font-bold px-1.5 py-0.5 rounded shrink-0">
+                              <span
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                                  canViewAnswers ? 'bg-primary-100 text-primary-800' : 'bg-blue-200 text-blue-900'
+                                }`}
+                              >
                                 Bạn chọn
                               </span>
                             )}
@@ -535,7 +577,7 @@ export function ExamResultPage() {
                   })()}
 
                   {/* Rationale / Explanation */}
-                  {resp.rationale && (
+                  {canViewAnswers && resp.rationale && (
                     <div className="mt-3 p-3.5 bg-blue-50/70 border border-blue-100 rounded-xl text-xs text-blue-900 space-y-1">
                       <span className="font-bold flex items-center gap-1 text-blue-800">
                         <BookOpen className="h-3.5 w-3.5" />
