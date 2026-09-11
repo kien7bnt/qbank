@@ -75,7 +75,15 @@ export function ExamResultPage() {
   const scorePercentage = Math.round(((result.score || 0) / (result.max_score || 10)) * 100);
   const isPassed = result.is_passed;
   const isExam = result.assignment_type !== 'homework';
-  const canViewAnswers = isTeacherUser || (result.can_view_answers !== undefined ? result.can_view_answers : !isExam);
+  
+  // Format score numbers to remove floating point artifacts (e.g. 10.149999999999993 -> 10.15)
+  const formatScore = (val: number | undefined | null) =>
+    val !== undefined && val !== null ? Number(val.toFixed(2)).toString() : '0';
+
+  const isTeacherReviewing = isTeacherUser && Boolean(location.state?.fromSubmissions || location.state?.assignmentId);
+  // For exams: only teachers reviewing submissions can view questions and solutions. Learners ONLY see their score card.
+  const canViewQuestionReview = !isExam || isTeacherReviewing;
+  const canViewAnswers = isTeacherReviewing || (!isExam && result.can_view_answers !== false);
 
   const targetAssignmentId =
     location.state?.assignmentId ||
@@ -239,7 +247,7 @@ export function ExamResultPage() {
                   <div className="flex items-center justify-center gap-2 text-3xl sm:text-5xl font-black text-amber-600 tracking-tight">
                     <Sparkles className="h-7 w-7 sm:h-9 sm:w-9 text-amber-500 animate-pulse" />
                     <span>--</span>
-                    <span className="text-xl sm:text-2xl text-gray-400 font-medium"> / {result.max_score} đ</span>
+                    <span className="text-xl sm:text-2xl text-gray-400 font-medium"> / {formatScore(result.max_score)} đ</span>
                   </div>
                   <p className="text-xs sm:text-sm text-amber-800 font-medium max-w-sm mx-auto bg-amber-50/80 border border-amber-200 rounded-xl py-2 px-3">
                     Bài làm tự luận đang được AI đối chiếu đáp án gợi ý và tiêu chí Rubric để chấm điểm. Vui lòng đợi trong giây lát, kết quả sẽ tự động hiển thị!
@@ -248,8 +256,8 @@ export function ExamResultPage() {
               ) : (
                 <div>
                   <div className="text-4xl sm:text-6xl font-black text-gray-900 tracking-tight">
-                    {result.score?.toFixed(2)}
-                    <span className="text-xl sm:text-2xl text-gray-400 font-medium"> / {result.max_score} đ</span>
+                    {formatScore(result.score)}
+                    <span className="text-xl sm:text-2xl text-gray-400 font-medium"> / {formatScore(result.max_score)} đ</span>
                   </div>
                   <p className="text-xs sm:text-sm text-gray-500 mt-2 font-medium">
                     Đúng {result.correct_answers_count} / {result.total_questions} câu ({scorePercentage}%)
@@ -275,28 +283,29 @@ export function ExamResultPage() {
           </div>
         </div>
 
-        {/* Question by Question Review */}
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <h2 className="text-base sm:text-lg font-bold text-gray-900">
-              {canViewAnswers ? 'Chi tiết bài làm & Lời giải' : 'Chi tiết bài làm đã nộp'}
-            </h2>
-            {!canViewAnswers && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
-                <Lock className="h-3 w-3 text-blue-600" />
-                Đáp án bài kiểm tra được bảo mật
-              </span>
-            )}
-          </div>
-
-          {!canViewAnswers && (
-            <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-2xl flex items-start sm:items-center gap-2.5 text-xs text-blue-900">
-              <span className="text-base leading-none">ℹ️</span>
-              <p>
-                <strong>Lưu ý:</strong> Để bảo đảm tính công bằng và bảo mật của bài kiểm tra, hệ thống <strong>không hiển thị đáp án đúng và lời giải</strong> đối với người học. Bạn có thể xem lại các phương án mình đã lựa chọn bên dưới.
-              </p>
+        {/* Question by Question Review or Exam Protected Completion Banner */}
+        {canViewQuestionReview ? (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-gray-900">
+                {canViewAnswers ? 'Chi tiết bài làm & Lời giải' : 'Chi tiết bài làm đã nộp'}
+              </h2>
+              {!canViewAnswers && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                  <Lock className="h-3 w-3 text-blue-600" />
+                  Đáp án bài kiểm tra được bảo mật
+                </span>
+              )}
             </div>
-          )}
+
+            {!canViewAnswers && (
+              <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-2xl flex items-start sm:items-center gap-2.5 text-xs text-blue-900">
+                <span className="text-base leading-none">ℹ️</span>
+                <p>
+                  <strong>Lưu ý:</strong> Để bảo đảm tính công bằng và bảo mật của bài kiểm tra, hệ thống <strong>không hiển thị đáp án đúng và lời giải</strong> đối với người học. Bạn có thể xem lại các phương án mình đã lựa chọn bên dưới.
+                </p>
+              </div>
+            )}
 
           <div className="space-y-4">
             {result.responses.map((resp: ResponseDetail, idx: number) => {
@@ -591,7 +600,41 @@ export function ExamResultPage() {
             })}
           </div>
         </div>
-      </div>
+      ) : (
+        /* Protected Exam Notice - Students only see their score card */
+        <div className="bg-white border border-gray-200 rounded-3xl p-6 sm:p-8 text-center space-y-4 shadow-xs">
+          <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200">
+            <Lock className="h-6 w-6" />
+          </div>
+          <div className="space-y-2 max-w-lg mx-auto">
+            <h3 className="text-base sm:text-lg font-bold text-gray-900">
+              Bài kiểm tra đã hoàn thành
+            </h3>
+            <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
+              Theo quy chế kiểm tra, học viên chỉ có thể xem điểm số tổng kết. Toàn bộ nội dung câu hỏi, phương án lựa chọn và đáp án bài thi được bảo mật tuyệt đối.
+            </p>
+          </div>
+          <div className="pt-2 flex justify-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (result.class_id) {
+                  navigate(`/classes/${result.class_id}`);
+                } else if (window.history.length > 1) {
+                  navigate(-1);
+                } else {
+                  navigate('/assignments');
+                }
+              }}
+            >
+              <ArrowLeft className="h-4 w-4 mr-1.5" />
+              Quay lại lớp học / bài tập
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
 
       {/* Teacher Essay Grading Modal */}
       {gradingModalData && (

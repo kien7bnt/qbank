@@ -805,84 +805,85 @@ async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_or_id
 
     assignment = attempt.assignment
     assignment_type = getattr(assignment, "assignment_type", "exam") or "exam"
-    is_homework = (assignment_type == "homework")
+    is_self_attempt = (req_user_id == attempt.user_id)
 
     # Quyền xem đáp án:
-    # - Giáo viên / Quản trị viên: Luôn được xem đầy đủ đáp án & lời giải để chấm/duyệt bài.
-    # - Học sinh:
-    #   + Bài tập (homework): Được xem đáp án để rèn luyện (trừ khi cố ý tắt).
-    #   + Bài kiểm tra (exam): TUYỆT ĐỐI KHÔNG cho người học xem đáp án & lời giải.
-    if is_teacher:
-        can_view_answers = True
-    elif is_homework:
+    # - Với Bài tập (homework): Cho phép học viên xem đáp án để học tập và rèn luyện.
+    # - Với Bài kiểm tra (exam):
+    #   + Người làm bài (kể cả giáo viên/admin khi tự làm bài kiểm tra): KHÔNG được xem đáp án.
+    #   + Chỉ khi giáo viên/admin vào chấm/duyệt bài nộp của học sinh khác (req_user_id != attempt.user_id) mới trả về đáp án.
+    if is_homework:
         can_view_answers = getattr(assignment, "show_correct_answer", True)
         if can_view_answers is None:
             can_view_answers = True
+    elif is_teacher and not is_self_attempt:
+        can_view_answers = True
     else:
         can_view_answers = False
 
-    resp_map = {r.question_id: r for r in attempt.responses}
+    correct_count = sum(1 for r in (attempt.responses or []) if r.is_correct)
     responses_out = []
-    correct_count = 0
 
-    for q_item in (attempt.question_snapshot or []):
-        qid = uuid.UUID(q_item["id"])
-        pts = float(q_item.get("points", 1.0))
-        resp = resp_map.get(qid)
-        q_obj = await db.get(Question, qid)
-        correct_opt = next((o for o in (q_obj.options if q_obj else []) if o.is_correct), None)
+    # Yêu cầu: Sau khi làm xong bài kiểm tra, học viên CHỈ CÓ THỂ XEM ĐƯỢC ĐIỂM.
+    # -> Không trả về chi tiết câu hỏi & đáp án cho học viên trên bài kiểm tra.
+    if can_view_answers or is_homework:
+        resp_map = {r.question_id: r for r in attempt.responses}
 
-        if resp and resp.is_correct:
-            correct_count += 1
+        for q_item in (attempt.question_snapshot or []):
+            qid = uuid.UUID(q_item["id"])
+            pts = float(q_item.get("points", 1.0))
+            resp = resp_map.get(qid)
+            q_obj = await db.get(Question, qid)
+            correct_opt = next((o for o in (q_obj.options if q_obj else []) if o.is_correct), None)
 
-        if not can_view_answers:
-            correct_opt_id = None
-            rationale_val = None
-            resp_is_correct = None
-            options_out = [
-                {
-                    "id": str(o.id),
-                    "label": o.label,
-                    "text": o.text,
-                    "is_correct": False,
-                }
-                for o in (q_obj.options if q_obj else [])
-            ]
-        else:
-            correct_opt_id = correct_opt.id if correct_opt else None
-            rationale_val = q_obj.rationale if q_obj else None
-            resp_is_correct = resp.is_correct if resp else None
-            options_out = [
-                {
-                    "id": str(o.id),
-                    "label": o.label,
-                    "text": o.text,
-                    "is_correct": o.is_correct,
-                }
-                for o in (q_obj.options if q_obj else [])
-            ]
+            if not can_view_answers:
+                correct_opt_id = None
+                rationale_val = None
+                resp_is_correct = None
+                options_out = [
+                    {
+                        "id": str(o.id),
+                        "label": o.label,
+                        "text": o.text,
+                        "is_correct": False,
+                    }
+                    for o in (q_obj.options if q_obj else [])
+                ]
+            else:
+                correct_opt_id = correct_opt.id if correct_opt else None
+                rationale_val = q_obj.rationale if q_obj else None
+                resp_is_correct = resp.is_correct if resp else None
+                options_out = [
+                    {
+                        "id": str(o.id),
+                        "label": o.label,
+                        "text": o.text,
+                        "is_correct": o.is_correct,
+                    }
+                    for o in (q_obj.options if q_obj else [])
+                ]
 
-        responses_out.append(
-            ResponseDetailOut(
-                id=resp.id if resp else None,
-                response_id=resp.id if resp else None,
-                question_id=qid,
-                stem=q_item["stem"],
-                type=q_item["type"],
-                points=pts,
-                points_earned=resp.points_earned if (resp and can_view_answers) else 0.0,
-                is_correct=resp_is_correct,
-                selected_option_id=resp.selected_option_id if resp else None,
-                correct_option_id=correct_opt_id,
-                text_response=resp.text_response if resp else None,
-                code_response=resp.code_response if resp else None,
-                coding_data=q_item.get("coding_data"),
-                essay_data=q_item.get("essay_data"),
-                rationale=rationale_val,
-                options=options_out,
-                feedback=resp.feedback if (resp and can_view_answers) else None
+            responses_out.append(
+                ResponseDetailOut(
+                    id=resp.id if resp else None,
+                    response_id=resp.id if resp else None,
+                    question_id=qid,
+                    stem=q_item["stem"],
+                    type=q_item["type"],
+                    points=pts,
+                    points_earned=resp.points_earned if (resp and can_view_answers) else 0.0,
+                    is_correct=resp_is_correct,
+                    selected_option_id=resp.selected_option_id if resp else None,
+                    correct_option_id=correct_opt_id,
+                    text_response=resp.text_response if resp else None,
+                    code_response=resp.code_response if resp else None,
+                    coding_data=q_item.get("coding_data"),
+                    essay_data=q_item.get("essay_data"),
+                    rationale=rationale_val,
+                    options=options_out,
+                    feedback=resp.feedback if (resp and can_view_answers) else None
+                )
             )
-        )
 
     displayed_score = attempt.score if attempt.status == "graded" else None
     displayed_passed = attempt.is_passed if attempt.status == "graded" else None
