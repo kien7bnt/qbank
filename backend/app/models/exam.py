@@ -83,7 +83,7 @@ class Exam(Base):
     show_correct_answers: Mapped[bool] = mapped_column(Boolean, default=True)
     show_explanations: Mapped[bool] = mapped_column(Boolean, default=True)
     show_feedback: Mapped[bool] = mapped_column(Boolean, default=True)
-    ai_grading: Mapped[bool] = mapped_column(Boolean, default=True)
+    ai_grading: Mapped[bool] = mapped_column(Boolean, default=False)
     
     # Random Exam Per Student settings (Question Pool)
     is_random_per_student: Mapped[bool] = mapped_column(Boolean, default=False)

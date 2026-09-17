@@ -208,7 +208,7 @@ async def get_exam(
         "shuffle_questions": exam.shuffle_questions,
         "shuffle_options": exam.shuffle_options,
         "show_results": exam.show_results,
-        "ai_grading": getattr(exam, "ai_grading", True),
+        "ai_grading": getattr(exam, "ai_grading", False),
         "is_random_per_student": getattr(exam, "is_random_per_student", False),
         "questions_per_instance": getattr(exam, "questions_per_instance", None),
         "anti_collision_enabled": getattr(exam, "anti_collision_enabled", True),

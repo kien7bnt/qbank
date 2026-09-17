@@ -62,7 +62,7 @@ export function CreateExerciseModal({
   const [activeTab, setActiveTab] = useState<'picker' | 'create'>('picker');
   const [name, setName] = useState('');
   const [questionIds, setQuestionIds] = useState<string[]>(selectedQuestionIds);
-  const [aiGrading, setAiGrading] = useState(true);
+  const [aiGrading, setAiGrading] = useState(false);
   const [isRandom, setIsRandom] = useState(false);
   const [randomCount, setRandomCount] = useState(30);
 
@@ -86,7 +86,7 @@ export function CreateExerciseModal({
       setQuestionIds(selectedQuestionIds || []);
       setName('');
       setActiveTab('picker');
-      setAiGrading(true);
+      setAiGrading(false);
       setIsRandom(false);
       setRandomCount(Math.min(30, selectedQuestionIds?.length || 30));
     }
@@ -657,14 +657,19 @@ export function CreateExerciseModal({
         </div>
 
         {/* Chế độ chấm AI */}
-        <div className="p-3.5 bg-violet-50/60 rounded-xl border border-violet-200 flex items-center justify-between">
+        <div
+          onClick={() => setAiGrading((prev) => !prev)}
+          className={`p-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition-colors select-none ${
+            aiGrading ? 'bg-violet-50/70 border-violet-300' : 'bg-gray-50/80 border-gray-200 hover:bg-gray-100/70'
+          }`}
+        >
           <div className="pr-4">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">
                 Chế độ chấm bài tự động bằng AI
               </span>
               <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors ${
                   aiGrading ? 'bg-violet-100 text-violet-700' : 'bg-gray-200 text-gray-600'
                 }`}
               >
@@ -677,15 +682,25 @@ export function CreateExerciseModal({
                 : 'Tắt chấm AI: Học sinh nộp bài tự luận sẽ được lưu để giáo viên trực tiếp chấm điểm thủ công.'}
             </p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer shrink-0">
-            <input
-              type="checkbox"
-              checked={aiGrading}
-              onChange={(e) => setAiGrading(e.target.checked)}
-              className="sr-only peer"
+          <button
+            type="button"
+            role="switch"
+            aria-checked={aiGrading}
+            onClick={(e) => {
+              e.stopPropagation();
+              setAiGrading((prev) => !prev);
+            }}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+              aiGrading ? 'bg-violet-600' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                aiGrading ? 'translate-x-5' : 'translate-x-0'
+              }`}
             />
-            <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
-          </label>
+          </button>
         </div>
       </div>
     </Modal>

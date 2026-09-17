@@ -43,7 +43,7 @@ export function CreateExamFromBankModal({
   const [generationMode, setGenerationMode] = useState<'fixed' | 'random_student'>('fixed');
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [shuffleOptions, setShuffleOptions] = useState(true);
-  const [aiGrading, setAiGrading] = useState(true);
+  const [aiGrading, setAiGrading] = useState(false);
   const [isRandomFixed, setIsRandomFixed] = useState(false);
   const [randomFixedCount, setRandomFixedCount] = useState<number | string>(10);
   const [questionsPerInstance, setQuestionsPerInstance] = useState<number | string>(10);
@@ -326,25 +326,37 @@ export function CreateExamFromBankModal({
               </div>
 
               {/* AI Grading Switch */}
-              <div className="flex items-center gap-2">
+              <div 
+                onClick={() => setAiGrading(prev => !prev)}
+                className="flex items-center gap-2 cursor-pointer select-none bg-white px-2.5 py-1.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+              >
                 <span className="text-xs font-semibold text-gray-700">
                   Chấm bài tự động bằng AI:
                 </span>
-                <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={aiGrading}
-                    onChange={(e) => setAiGrading(e.target.checked)}
-                    className="sr-only peer"
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={aiGrading}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAiGrading(prev => !prev);
+                  }}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    aiGrading ? 'bg-primary-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      aiGrading ? 'translate-x-4' : 'translate-x-0'
+                    }`}
                   />
-                  <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-600"></div>
-                </label>
+                </button>
                 <span
                   className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                     aiGrading ? 'bg-primary-100 text-primary-700' : 'bg-gray-200 text-gray-600'
                   }`}
                 >
-                  {aiGrading ? 'BẬT' : 'TẮT'}
+                  {aiGrading ? 'ĐANG BẬT' : 'ĐANG TẮT'}
                 </span>
               </div>
             </div>

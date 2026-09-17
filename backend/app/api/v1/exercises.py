@@ -31,7 +31,7 @@ class CreateExerciseRequest(BaseModel):
     allow_retry: bool = True
     show_hints: bool = True
     points_per_question: Optional[float] = None
-    ai_grading: bool = True
+    ai_grading: bool = False
     random_count: Optional[int] = Field(default=None, ge=1, description="Số câu hỏi ngẫu nhiên lấy từ danh sách question_ids")
 
 
@@ -166,7 +166,7 @@ async def get_exercise(
         "show_correct_answers": exercise.show_correct_answers,
         "show_explanations": exercise.show_explanations,
         "show_feedback": exercise.show_feedback,
-        "ai_grading": getattr(exercise, "ai_grading", True),
+        "ai_grading": getattr(exercise, "ai_grading", False),
         "created_at": exercise.created_at,
         "sections": [
             {

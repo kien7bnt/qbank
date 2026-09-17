@@ -35,7 +35,7 @@ class Assignment(Base):
     allow_review: Mapped[bool] = mapped_column(Boolean, default=True)
     show_correct_answer: Mapped[bool] = mapped_column(Boolean, default=True)
     show_explanation: Mapped[bool] = mapped_column(Boolean, default=True)
-    ai_grading: Mapped[bool] = mapped_column(Boolean, default=True)
+    ai_grading: Mapped[bool] = mapped_column(Boolean, default=False)
     
     # Random Exam Per Student settings (inherited or customized from Exam)
     is_random_per_student: Mapped[bool] = mapped_column(Boolean, default=False)

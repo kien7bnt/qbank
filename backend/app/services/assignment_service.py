@@ -24,9 +24,9 @@ from app.services import compiler_service
 async def create_assignment(db: AsyncSession, data: AssignmentCreate, user_id: uuid.UUID) -> Assignment:
     assignment_type = getattr(data, "assignment_type", "exam") or "exam"
     max_attempts = 999 if assignment_type == "homework" else (data.max_attempts or 1)
-    ai_grading = getattr(data, "ai_grading", True)
+    ai_grading = getattr(data, "ai_grading", False)
     if ai_grading is None:
-        ai_grading = True
+        ai_grading = False
 
     show_correct_answer = getattr(data, "show_correct_answer", None)
     if show_correct_answer is None:
@@ -728,9 +728,9 @@ async def submit_and_grade_attempt(db: AsyncSession, attempt_id: uuid.UUID, user
 
         elif q_type == "essay":
             has_text = bool(resp and resp.text_response and resp.text_response.strip())
-            is_ai = getattr(assignment, "ai_grading", True)
+            is_ai = getattr(assignment, "ai_grading", False)
             if is_ai is None:
-                is_ai = True
+                is_ai = False
 
             if has_text:
                 resp.points_earned = 0.0
@@ -791,9 +791,9 @@ async def submit_and_grade_attempt(db: AsyncSession, attempt_id: uuid.UUID, user
     await db.commit()
 
     # Kích hoạt tác vụ AI chấm tự luận chạy nền chỉ khi bật ai_grading
-    is_ai = getattr(assignment, "ai_grading", True)
+    is_ai = getattr(assignment, "ai_grading", False)
     if is_ai is None:
-        is_ai = True
+        is_ai = False
 
     if has_pending_essay and is_ai:
         asyncio.create_task(_bg_grade_attempt_essays(attempt.id))

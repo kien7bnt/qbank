@@ -21,7 +21,7 @@ class AssignmentBase(BaseModel):
     show_results: str = Field("immediately", max_length=20)
     show_correct_answer: bool = True
     show_explanation: bool = True
-    ai_grading: bool = True
+    ai_grading: bool = False
 
 
 class AssignmentCreate(AssignmentBase):

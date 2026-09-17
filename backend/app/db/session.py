@@ -88,7 +88,7 @@ async def init_db() -> None:
                 ("exams", "show_correct_answers", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 ("exams", "show_explanations", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 ("exams", "show_feedback", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
-                ("exams", "ai_grading", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("exams", "ai_grading", "BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT 0"),
                 ("exams", "is_random_per_student", "BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT 0"),
                 ("exams", "questions_per_instance", "INTEGER", "INTEGER"),
                 ("exams", "anti_collision_enabled", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
@@ -108,7 +108,7 @@ async def init_db() -> None:
                 ("assignments", "show_feedback", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 ("assignments", "show_correct_answer", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
                 ("assignments", "show_explanation", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
-                ("assignments", "ai_grading", "BOOLEAN DEFAULT TRUE", "BOOLEAN DEFAULT 1"),
+                ("assignments", "ai_grading", "BOOLEAN DEFAULT FALSE", "BOOLEAN DEFAULT 0"),
                 # classes
                 ("classes", "expected_start_date", "DATE", "DATE"),
                 ("classes", "expected_end_date", "DATE", "DATE"),

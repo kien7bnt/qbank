@@ -271,7 +271,7 @@ async def create_exam_from_question_ids(
     shuffle_questions: bool = False,
     shuffle_options: bool = False,
     type: str = "exam",
-    ai_grading: bool = True,
+    ai_grading: bool = False,
     random_count: Optional[int] = None,
     is_random_per_student: bool = False,
     questions_per_instance: Optional[int] = None,

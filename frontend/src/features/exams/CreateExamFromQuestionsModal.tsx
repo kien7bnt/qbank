@@ -36,6 +36,7 @@ export function CreateExamFromQuestionsModal({
   const [questionsPerInstance, setQuestionsPerInstance] = useState<number | string>(() => Math.min(10, selectedQuestionIds.length || 10));
   const [antiCollision, setAntiCollision] = useState(true);
   const [maxOverlap, setMaxOverlap] = useState<number | string>(50);
+  const [aiGrading, setAiGrading] = useState(false);
 
   // Fetch classes
   const { data: classesData } = useQuery({
@@ -69,6 +70,7 @@ export function CreateExamFromQuestionsModal({
         points_per_question: numPointsPerQ ?? defaultPoints,
         shuffle_questions: shuffleQuestions,
         shuffle_options: shuffleOptions,
+        ai_grading: aiGrading,
         random_count: generationMode === 'fixed' && isRandomFixed ? effectiveCount : undefined,
         is_random_per_student: generationMode === 'random_student',
         questions_per_instance: generationMode === 'random_student' ? effectiveCount : undefined,
@@ -565,6 +567,43 @@ export function CreateExamFromQuestionsModal({
                 <Shuffle className="h-3.5 w-3.5 text-gray-400" /> Tự động xáo trộn thứ tự phương án A, B, C, D
               </span>
             </label>
+
+            {/* AI Grading Switch */}
+            <div 
+              onClick={() => setAiGrading(prev => !prev)}
+              className="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-700">
+                  Chấm bài tự động bằng AI:
+                </span>
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    aiGrading ? 'bg-primary-100 text-primary-700' : 'bg-gray-200 text-gray-600'
+                  }`}
+                >
+                  {aiGrading ? 'ĐANG BẬT' : 'ĐANG TẮT'}
+                </span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={aiGrading}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAiGrading(prev => !prev);
+                }}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  aiGrading ? 'bg-primary-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    aiGrading ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         </div>
       </div>

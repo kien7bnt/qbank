@@ -57,7 +57,7 @@ export function CreateAssignmentModal({
   const [passScore, setPassScore] = useState<number | string>(5.0);
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [shuffleOptions, setShuffleOptions] = useState(false);
-  const [aiGrading, setAiGrading] = useState(true);
+  const [aiGrading, setAiGrading] = useState(false);
 
   // Fetch Exams (Kho Kiểm Tra)
   const { data: examsData } = useQuery({
@@ -106,18 +106,6 @@ export function CreateAssignmentModal({
 
   // Find selected exercise metadata if any
   const selectedExercise = exerciseList.find((ex: any) => ex.id === examId);
-
-  useEffect(() => {
-    if (examId) {
-      const isHomework = assignmentType === 'homework';
-      const selected = isHomework
-        ? exerciseList.find((ex: any) => ex.id === examId)
-        : examList.find((ex: any) => ex.id === examId);
-      if (selected && selected.ai_grading !== undefined) {
-        setAiGrading(selected.ai_grading);
-      }
-    }
-  }, [examId, assignmentType, exerciseList, examList]);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -181,7 +169,7 @@ export function CreateAssignmentModal({
     setEndTime('');
     setDurationMinutes(45);
     setPassScore(5.0);
-    setAiGrading(true);
+    setAiGrading(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -694,14 +682,19 @@ export function CreateAssignmentModal({
         )}
 
         {/* AI Grading Mode Toggle */}
-        <div className="p-3.5 bg-violet-50/60 rounded-xl border border-violet-200 flex items-center justify-between mt-3">
+        <div
+          onClick={() => setAiGrading((prev) => !prev)}
+          className={`p-3.5 rounded-xl border flex items-center justify-between mt-3 cursor-pointer transition-colors select-none ${
+            aiGrading ? 'bg-violet-50/70 border-violet-300' : 'bg-gray-50/80 border-gray-200 hover:bg-gray-100/70'
+          }`}
+        >
           <div className="pr-4">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">
                 Chế độ chấm bài tự động bằng AI
               </span>
               <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors ${
                   aiGrading ? 'bg-violet-100 text-violet-700' : 'bg-gray-200 text-gray-600'
                 }`}
               >
@@ -714,15 +707,25 @@ export function CreateAssignmentModal({
                 : 'Tắt chấm bằng AI: Bài làm tự luận sẽ được chuyển cho giáo viên xem và cho điểm thủ công.'}
             </p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer shrink-0">
-            <input
-              type="checkbox"
-              checked={aiGrading}
-              onChange={(e) => setAiGrading(e.target.checked)}
-              className="sr-only peer"
+          <button
+            type="button"
+            role="switch"
+            aria-checked={aiGrading}
+            onClick={(e) => {
+              e.stopPropagation();
+              setAiGrading((prev) => !prev);
+            }}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+              aiGrading ? 'bg-violet-600' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                aiGrading ? 'translate-x-5' : 'translate-x-0'
+              }`}
             />
-            <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
-          </label>
+          </button>
         </div>
       </form>
     </Modal>

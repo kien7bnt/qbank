@@ -96,7 +96,7 @@ class ExamBase(BaseModel):
     show_correct_answers: bool = True
     show_explanations: bool = True
     show_feedback: bool = True
-    ai_grading: bool = True
+    ai_grading: bool = False
 
     # Random Exam Per Student settings (Question Pool)
     is_random_per_student: bool = False
@@ -172,7 +172,7 @@ class CreateExamFromQuestionsRequest(BaseModel):
     points_per_question: Optional[float] = None
     shuffle_questions: bool = False
     shuffle_options: bool = False
-    ai_grading: bool = True
+    ai_grading: bool = False
     random_count: Optional[int] = Field(default=None, ge=1, description="Số câu hỏi ngẫu nhiên lấy từ danh sách question_ids")
     is_random_per_student: bool = False
     questions_per_instance: Optional[int] = Field(default=None, ge=1)

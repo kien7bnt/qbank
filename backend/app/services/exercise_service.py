@@ -67,7 +67,7 @@ async def create_exercise_from_question_ids(
     allow_retry: bool = True,
     show_hints: bool = True,
     points_per_question: Optional[float] = None,
-    ai_grading: bool = True,
+    ai_grading: bool = False,
     random_count: Optional[int] = None,
 ) -> Exam:
     """Tạo bộ bài tập mới từ danh sách câu hỏi được chọn trong Ngân hàng câu hỏi"""
