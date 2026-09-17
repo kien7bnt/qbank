@@ -146,6 +146,7 @@ class ExamOut(ExamBase):
     updated_at: datetime
     total_questions: int = 0
     question_count: int = 0
+    pool_question_count: Optional[int] = None
     total_points: float = 0.0
     sections: list[ExamSectionOut] = Field(default_factory=list)
 

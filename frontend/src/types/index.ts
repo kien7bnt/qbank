@@ -324,6 +324,7 @@ export interface Exam {
   end_time?: string;
   total_questions?: number;
   question_count?: number;
+  pool_question_count?: number;
   shuffle_questions: boolean;
   shuffle_options: boolean;
   show_results: string;

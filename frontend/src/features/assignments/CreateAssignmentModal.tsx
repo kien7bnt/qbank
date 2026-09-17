@@ -7,6 +7,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Calendar,
+  Shuffle,
+  Plus,
+  Minus,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Modal } from '@/components/ui/Modal';
@@ -351,12 +354,40 @@ export function CreateAssignmentModal({
               required
             >
               <option value="">— Chọn đề thi có sẵn —</option>
-              {examList.map((ex: any) => (
-                <option key={ex.id} value={ex.id}>
-                  {ex.name} ({ex.duration_minutes} phút, {ex.total_questions || 0} câu)
-                </option>
-              ))}
+              {examList.map((ex: any) => {
+                const poolCount = ex.pool_question_count || ex.sections?.reduce((acc: number, s: any) => acc + (s.questions?.length || s.question_count || 0), 0) || 0;
+                const countText = ex.is_random_per_student && ex.questions_per_instance
+                  ? `${ex.questions_per_instance} câu ngẫu nhiên (từ nguồn ${poolCount || 34} câu)`
+                  : `${ex.total_questions || ex.question_count || 0} câu`;
+                return (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.name} ({ex.duration_minutes} phút, {countText})
+                  </option>
+                );
+              })}
             </select>
+
+            {(() => {
+              const selectedEx = examList.find((x: any) => x.id === examId);
+              if (selectedEx?.is_random_per_student) {
+                const qCount = selectedEx.questions_per_instance || selectedEx.total_questions || 10;
+                const poolCount = selectedEx.pool_question_count || selectedEx.sections?.reduce((acc: number, s: any) => acc + (s.questions?.length || 0), 0) || 0;
+                return (
+                  <div className="mt-2.5 p-3 bg-purple-50 border border-purple-200 rounded-xl flex items-start gap-2.5 text-xs text-purple-900">
+                    <Shuffle className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-purple-950">
+                        Đề thi ngẫu nhiên theo từng học sinh ({qCount} câu / đề)
+                      </p>
+                      <p className="text-[11px] text-purple-700 mt-0.5">
+                        Mỗi học sinh khi vào thi sẽ nhận <strong>{qCount} câu hỏi</strong> được lấy ngẫu nhiên từ tập nguồn <strong>{poolCount} câu</strong>, kèm theo cơ chế chống trùng đề và xáo trộn độc lập.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
         ) : (
           // CHO BÀI TẬP: Chọn bộ bài tập từ Kho Bài Tập
@@ -514,29 +545,123 @@ export function CreateAssignmentModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Thời gian làm bài (Phút) *"
-                type="number"
-                min={5}
-                max={300}
-                value={durationMinutes}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => setDurationMinutes(e.target.value === '' ? '' : Number(e.target.value))}
-                required
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Thời gian làm bài (Phút) *
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cur = Number(durationMinutes) || 45;
+                      setDurationMinutes(Math.max(5, cur - 5));
+                    }}
+                    className="w-8 h-8 rounded-lg border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold flex items-center justify-center transition-colors cursor-pointer active:scale-95"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={durationMinutes}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => setDurationMinutes(e.target.value.replace(/[^0-9]/g, ''))}
+                    onBlur={() => {
+                      const val = Number(durationMinutes);
+                      if (!durationMinutes || isNaN(val) || val < 5) setDurationMinutes(45);
+                      else if (val > 360) setDurationMinutes(360);
+                    }}
+                    className="w-20 text-center font-bold text-sm text-gray-900 border border-gray-300 rounded-lg py-1.5 bg-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cur = Number(durationMinutes) || 45;
+                      setDurationMinutes(Math.min(360, cur + 5));
+                    }}
+                    className="w-8 h-8 rounded-lg border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold flex items-center justify-center transition-colors cursor-pointer active:scale-95"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="text-xs text-gray-500">phút</span>
+                </div>
+                <div className="flex items-center gap-1 pt-1.5 flex-wrap">
+                  {[15, 30, 45, 60, 90, 120].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setDurationMinutes(preset)}
+                      className={`px-1.5 py-0.5 rounded text-[11px] font-medium border transition-colors cursor-pointer ${
+                        Number(durationMinutes) === preset
+                          ? 'bg-primary-600 text-white border-primary-600'
+                          : 'bg-white hover:bg-primary-50 text-gray-700 border-gray-200'
+                      }`}
+                    >
+                      {preset}'
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-              <Input
-                label="Điểm đạt (Pass score) *"
-                type="number"
-                step="0.5"
-                min={0}
-                max={10}
-                value={passScore}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => setPassScore(e.target.value === '' ? '' : Number(e.target.value))}
-                required
-              />
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Điểm đạt (Pass score) *
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cur = Number(passScore) || 5;
+                      setPassScore(Math.max(0, Math.round((cur - 0.5) * 10) / 10));
+                    }}
+                    className="w-8 h-8 rounded-lg border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold flex items-center justify-center transition-colors cursor-pointer active:scale-95"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={passScore}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => setPassScore(e.target.value)}
+                    onBlur={() => {
+                      const val = Number(passScore);
+                      if (isNaN(val) || val < 0) setPassScore(5);
+                      else if (val > 10) setPassScore(10);
+                    }}
+                    className="w-20 text-center font-bold text-sm text-gray-900 border border-gray-300 rounded-lg py-1.5 bg-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cur = Number(passScore) || 5;
+                      setPassScore(Math.min(10, Math.round((cur + 0.5) * 10) / 10));
+                    }}
+                    className="w-8 h-8 rounded-lg border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold flex items-center justify-center transition-colors cursor-pointer active:scale-95"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="text-xs text-gray-500">/ 10 điểm</span>
+                </div>
+                <div className="flex items-center gap-1 pt-1.5 flex-wrap">
+                  {[5, 6, 6.5, 7, 8, 8.5].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setPassScore(preset)}
+                      className={`px-1.5 py-0.5 rounded text-[11px] font-medium border transition-colors cursor-pointer ${
+                        Number(passScore) === preset
+                          ? 'bg-primary-600 text-white border-primary-600'
+                          : 'bg-white hover:bg-primary-50 text-gray-700 border-gray-200'
+                      }`}
+                    >
+                      {preset}đ
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Anti-cheat & Randomization */}

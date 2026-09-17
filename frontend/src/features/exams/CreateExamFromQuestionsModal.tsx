@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { FileCheck, Clock, Layers, Users, CheckCircle2, Shuffle, CheckSquare } from 'lucide-react';
+import { FileCheck, Clock, Layers, Users, CheckCircle2, Shuffle, CheckSquare, Plus, Minus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { examApi, classApi, getErrorMessage } from '@/services/api';
 import { Button } from '@/components/ui/Button';
@@ -25,17 +25,17 @@ export function CreateExamFromQuestionsModal({
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
-  const [durationMinutes, setDurationMinutes] = useState(45);
+  const [durationMinutes, setDurationMinutes] = useState<number | string>(45);
   const [classId, setClassId] = useState('');
   const [generationMode, setGenerationMode] = useState<'fixed' | 'random_student'>('fixed');
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [shuffleOptions, setShuffleOptions] = useState(true);
-  const [pointsPerQuestion, setPointsPerQuestion] = useState<number | undefined>(undefined);
+  const [pointsPerQuestion, setPointsPerQuestion] = useState<number | string | undefined>(undefined);
   const [isRandomFixed, setIsRandomFixed] = useState(false);
-  const [randomFixedCount, setRandomFixedCount] = useState<number>(() => Math.min(30, selectedQuestionIds.length || 1));
-  const [questionsPerInstance, setQuestionsPerInstance] = useState<number>(() => Math.min(30, selectedQuestionIds.length || 1));
+  const [randomFixedCount, setRandomFixedCount] = useState<number | string>(() => Math.min(10, selectedQuestionIds.length || 10));
+  const [questionsPerInstance, setQuestionsPerInstance] = useState<number | string>(() => Math.min(10, selectedQuestionIds.length || 10));
   const [antiCollision, setAntiCollision] = useState(true);
-  const [maxOverlap, setMaxOverlap] = useState<number>(50);
+  const [maxOverlap, setMaxOverlap] = useState<number | string>(50);
 
   // Fetch classes
   const { data: classesData } = useQuery({
@@ -46,12 +46,15 @@ export function CreateExamFromQuestionsModal({
 
   const classes = classesData?.data?.items ?? [];
 
+  const numQuestionsPerInstance = Number(questionsPerInstance) || 1;
+  const numRandomFixedCount = Number(randomFixedCount) || 1;
   const effectiveCount = generationMode === 'random_student'
-    ? Math.max(1, Math.min(questionsPerInstance, selectedQuestionIds.length))
+    ? Math.max(1, Math.min(numQuestionsPerInstance, selectedQuestionIds.length || 1))
     : isRandomFixed
-    ? Math.max(1, Math.min(randomFixedCount, selectedQuestionIds.length))
+    ? Math.max(1, Math.min(numRandomFixedCount, selectedQuestionIds.length || 1))
     : selectedQuestionIds.length;
 
+  const numPointsPerQ = pointsPerQuestion !== undefined && pointsPerQuestion !== '' ? Number(pointsPerQuestion) : undefined;
   const defaultPoints = effectiveCount > 0
     ? Number((10.0 / effectiveCount).toFixed(2))
     : 1.0;
@@ -63,14 +66,14 @@ export function CreateExamFromQuestionsModal({
         question_ids: selectedQuestionIds,
         class_id: classId || undefined,
         duration_minutes: Number(durationMinutes) || 45,
-        points_per_question: pointsPerQuestion ?? defaultPoints,
+        points_per_question: numPointsPerQ ?? defaultPoints,
         shuffle_questions: shuffleQuestions,
         shuffle_options: shuffleOptions,
         random_count: generationMode === 'fixed' && isRandomFixed ? effectiveCount : undefined,
         is_random_per_student: generationMode === 'random_student',
         questions_per_instance: generationMode === 'random_student' ? effectiveCount : undefined,
         anti_collision_enabled: antiCollision,
-        max_question_overlap: maxOverlap / 100.0,
+        max_question_overlap: (Number(maxOverlap) || 50) / 100.0,
       }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['exams'] });
@@ -118,7 +121,9 @@ export function CreateExamFromQuestionsModal({
             }}
           >
             <CheckCircle2 className="h-4 w-4 mr-1.5" />
-            Tạo đề thi ({effectiveCount} câu)
+            {generationMode === 'random_student'
+              ? `Tạo đề thi (${effectiveCount} câu / học sinh)`
+              : `Tạo đề thi (${effectiveCount} câu)`}
           </Button>
         </>
       }
@@ -141,13 +146,60 @@ export function CreateExamFromQuestionsModal({
             <label className="block text-xs font-semibold text-gray-700 mb-1">
               Thời gian làm bài (Phút)
             </label>
-            <Input
-              type="number"
-              min={5}
-              max={300}
-              value={durationMinutes}
-              onChange={(e) => setDurationMinutes(Number(e.target.value))}
-            />
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  const cur = Number(durationMinutes) || 45;
+                  setDurationMinutes(Math.max(5, cur - 5));
+                }}
+                className="w-8 h-8 rounded-lg border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold flex items-center justify-center transition-colors cursor-pointer active:scale-95"
+              >
+                <Minus className="h-3.5 w-3.5" />
+              </button>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={durationMinutes}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setDurationMinutes(e.target.value.replace(/[^0-9]/g, ''))}
+                onBlur={() => {
+                  const val = Number(durationMinutes);
+                  if (!durationMinutes || isNaN(val) || val < 5) setDurationMinutes(45);
+                  else if (val > 360) setDurationMinutes(360);
+                }}
+                className="w-20 text-center font-bold text-sm text-gray-900 border border-gray-300 rounded-lg py-1.5 bg-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const cur = Number(durationMinutes) || 45;
+                  setDurationMinutes(Math.min(360, cur + 5));
+                }}
+                className="w-8 h-8 rounded-lg border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold flex items-center justify-center transition-colors cursor-pointer active:scale-95"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+              <span className="text-xs text-gray-500">phút</span>
+            </div>
+            <div className="flex items-center gap-1 pt-1.5 flex-wrap">
+              <span className="text-[11px] text-gray-400">Gợi ý:</span>
+              {[15, 30, 45, 60, 90, 120].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setDurationMinutes(preset)}
+                  className={`px-1.5 py-0.5 rounded text-[11px] font-medium border transition-colors cursor-pointer ${
+                    Number(durationMinutes) === preset
+                      ? 'bg-primary-600 text-white border-primary-600'
+                      : 'bg-white hover:bg-primary-50 text-gray-700 border-gray-200'
+                  }`}
+                >
+                  {preset}'
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -237,17 +289,81 @@ export function CreateExamFromQuestionsModal({
                   <label className="block text-gray-700 font-semibold mb-1">
                     Số câu hỏi cho mỗi đề học sinh:
                   </label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={selectedQuestionIds.length}
-                    value={questionsPerInstance}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      setQuestionsPerInstance(val > 0 ? Math.min(selectedQuestionIds.length, val) : 1);
-                    }}
-                    className="bg-white font-bold text-purple-900 border-purple-300"
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = Number(questionsPerInstance) || 1;
+                        setQuestionsPerInstance(Math.max(1, cur - 1));
+                      }}
+                      className="w-8 h-8 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold flex items-center justify-center transition-all cursor-pointer active:scale-95"
+                    >
+                      <Minus className="h-3.5 w-3.5" />
+                    </button>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={questionsPerInstance}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setQuestionsPerInstance(e.target.value.replace(/[^0-9]/g, ''))}
+                      onBlur={() => {
+                        const val = Number(questionsPerInstance);
+                        const maxVal = selectedQuestionIds.length > 0 ? selectedQuestionIds.length : 1000;
+                        if (!questionsPerInstance || isNaN(val) || val < 1) {
+                          setQuestionsPerInstance(Math.min(10, maxVal));
+                        } else if (val > maxVal) {
+                          setQuestionsPerInstance(maxVal);
+                        }
+                      }}
+                      className="w-20 text-center font-black text-sm text-purple-900 border border-purple-300 rounded-lg py-1.5 bg-white shadow-xs focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = Number(questionsPerInstance) || 0;
+                        const maxVal = selectedQuestionIds.length > 0 ? selectedQuestionIds.length : 1000;
+                        setQuestionsPerInstance(Math.min(maxVal, cur + 1));
+                      }}
+                      className="w-8 h-8 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold flex items-center justify-center transition-all cursor-pointer active:scale-95"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="text-xs text-gray-500 font-medium">câu / HS</span>
+                  </div>
+
+                  {/* Quick presets */}
+                  <div className="flex flex-wrap items-center gap-1 pt-1.5">
+                    <span className="text-[11px] text-gray-400">Chọn nhanh:</span>
+                    {[5, 10, 15, 20, 25, 30, 40].filter(n => selectedQuestionIds.length === 0 || n <= selectedQuestionIds.length).map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setQuestionsPerInstance(preset)}
+                        className={`px-1.5 py-0.5 rounded text-[11px] font-semibold border transition-all cursor-pointer ${
+                          Number(questionsPerInstance) === preset
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                            : 'bg-white hover:bg-purple-50 text-purple-700 border-purple-200'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                    {selectedQuestionIds.length > 0 && (
+                      <button
+                        key="all"
+                        type="button"
+                        onClick={() => setQuestionsPerInstance(selectedQuestionIds.length)}
+                        className={`px-1.5 py-0.5 rounded text-[11px] font-semibold border transition-all cursor-pointer ${
+                          Number(questionsPerInstance) === selectedQuestionIds.length
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                            : 'bg-white hover:bg-purple-50 text-purple-800 border-purple-300'
+                        }`}
+                      >
+                        Tất cả ({selectedQuestionIds.length})
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -264,18 +380,61 @@ export function CreateExamFromQuestionsModal({
                 </label>
 
                 {antiCollision && (
-                  <div className="flex items-center gap-3 pl-6">
-                    <span className="text-xs text-gray-600">Tỷ lệ trùng tối đa cho phép:</span>
-                    <div className="flex items-center gap-1.5">
-                      <Input
-                        type="number"
-                        min={10}
-                        max={100}
+                  <div className="flex flex-wrap items-center gap-3 pl-6">
+                    <span className="text-xs text-gray-600">Tỷ lệ trùng tối đa:</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const cur = Number(maxOverlap) || 50;
+                          setMaxOverlap(Math.max(10, cur - 5));
+                        }}
+                        className="w-7 h-7 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold flex items-center justify-center transition-all cursor-pointer active:scale-95"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={maxOverlap}
-                        onChange={(e) => setMaxOverlap(Math.min(100, Math.max(10, Number(e.target.value))))}
-                        className="w-20 text-center font-bold text-purple-900"
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => setMaxOverlap(e.target.value.replace(/[^0-9]/g, ''))}
+                        onBlur={() => {
+                          const val = Number(maxOverlap);
+                          if (!maxOverlap || isNaN(val) || val < 10) setMaxOverlap(10);
+                          else if (val > 100) setMaxOverlap(100);
+                        }}
+                        className="w-14 text-center font-bold text-xs text-purple-900 border border-purple-300 rounded-lg py-1 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
                       />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const cur = Number(maxOverlap) || 50;
+                          setMaxOverlap(Math.min(100, cur + 5));
+                        }}
+                        className="w-7 h-7 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold flex items-center justify-center transition-all cursor-pointer active:scale-95"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
                       <span className="text-xs font-semibold text-gray-700">%</span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      {[30, 40, 50, 60, 70, 80].map((pct) => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => setMaxOverlap(pct)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-all cursor-pointer ${
+                            Number(maxOverlap) === pct
+                              ? 'bg-purple-600 text-white border-purple-600'
+                              : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200'
+                          }`}
+                        >
+                          {pct}%
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -286,7 +445,7 @@ export function CreateExamFromQuestionsModal({
 
               {/* Preview Box */}
               <div className="p-2.5 bg-purple-100/60 rounded-lg text-center text-xs text-purple-900 font-medium">
-                {selectedQuestionIds.length} câu nguồn &rarr; {effectiveCount} câu / học sinh &rarr; Tự động sinh đề thi riêng biệt cho từng em khi vào thi
+                Nguồn: {selectedQuestionIds.length} câu đã chọn &rarr; Mỗi đề HS: <strong>{effectiveCount} câu ngẫu nhiên</strong> &rarr; Tự động sinh đề riêng biệt cho từng em khi vào thi
               </div>
             </div>
           ) : (
@@ -298,8 +457,8 @@ export function CreateExamFromQuestionsModal({
                   checked={isRandomFixed}
                   onChange={(e) => {
                     setIsRandomFixed(e.target.checked);
-                    if (e.target.checked && (!randomFixedCount || randomFixedCount > selectedQuestionIds.length)) {
-                      setRandomFixedCount(Math.min(30, selectedQuestionIds.length));
+                    if (e.target.checked && (!randomFixedCount || Number(randomFixedCount) > selectedQuestionIds.length)) {
+                      setRandomFixedCount(Math.min(10, selectedQuestionIds.length));
                     }
                   }}
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
@@ -311,19 +470,46 @@ export function CreateExamFromQuestionsModal({
               </label>
 
               {isRandomFixed && (
-                <div className="flex items-center gap-2 pl-6">
+                <div className="flex flex-wrap items-center gap-2 pl-6">
                   <span className="text-xs text-gray-600">Lấy ngẫu nhiên:</span>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={selectedQuestionIds.length}
-                    value={randomFixedCount}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      setRandomFixedCount(val > 0 ? Math.min(selectedQuestionIds.length, val) : 1);
-                    }}
-                    className="w-24 font-bold"
-                  />
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = Number(randomFixedCount) || 1;
+                        setRandomFixedCount(Math.max(1, cur - 1));
+                      }}
+                      className="w-7 h-7 rounded-lg border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold flex items-center justify-center cursor-pointer active:scale-95"
+                    >
+                      <Minus className="h-3 w-3" />
+                    </button>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={randomFixedCount}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => setRandomFixedCount(e.target.value.replace(/[^0-9]/g, ''))}
+                      onBlur={() => {
+                        const val = Number(randomFixedCount);
+                        const maxVal = selectedQuestionIds.length > 0 ? selectedQuestionIds.length : 1000;
+                        if (!randomFixedCount || isNaN(val) || val < 1) setRandomFixedCount(Math.min(10, maxVal));
+                        else if (val > maxVal) setRandomFixedCount(maxVal);
+                      }}
+                      className="w-16 text-center font-bold text-xs text-gray-900 border border-gray-300 rounded-lg py-1 bg-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = Number(randomFixedCount) || 0;
+                        const maxVal = selectedQuestionIds.length > 0 ? selectedQuestionIds.length : 1000;
+                        setRandomFixedCount(Math.min(maxVal, cur + 1));
+                      }}
+                      className="w-7 h-7 rounded-lg border border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 font-bold flex items-center justify-center cursor-pointer active:scale-95"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
+                  </div>
                   <span className="text-xs text-gray-600">
                     / {selectedQuestionIds.length} câu (cả lớp làm chung bộ này)
                   </span>
@@ -338,15 +524,20 @@ export function CreateExamFromQuestionsModal({
             <label className="block text-xs font-semibold text-gray-700 mb-1">
               Điểm mỗi câu hỏi
             </label>
-            <Input
-              type="number"
-              step="0.1"
-              min="0.1"
-              value={pointsPerQuestion ?? defaultPoints}
-              onChange={(e) => setPointsPerQuestion(Number(e.target.value))}
+            <input
+              type="text"
+              inputMode="decimal"
+              value={pointsPerQuestion !== undefined ? pointsPerQuestion : defaultPoints}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => setPointsPerQuestion(e.target.value)}
+              onBlur={() => {
+                const val = Number(pointsPerQuestion);
+                if (isNaN(val) || val <= 0) setPointsPerQuestion(defaultPoints);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
             />
             <span className="text-[11px] text-gray-400">
-              Tổng điểm: {((pointsPerQuestion ?? defaultPoints) * effectiveCount).toFixed(1)} điểm
+              Tổng điểm: {((numPointsPerQ ?? defaultPoints) * effectiveCount).toFixed(1)} điểm
             </span>
           </div>
 

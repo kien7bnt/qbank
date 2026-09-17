@@ -116,6 +116,21 @@ class Exam(Base):
     @property
     def total_questions(self) -> int:
         try:
+            if getattr(self, "is_random_per_student", False) and getattr(self, "questions_per_instance", None):
+                return self.questions_per_instance
+            if "sections" not in self.__dict__ or not self.sections:
+                return 0
+            count = 0
+            for s in self.sections:
+                if "questions" in s.__dict__ and s.questions:
+                    count += len(s.questions)
+            return count
+        except Exception:
+            return 0
+
+    @property
+    def pool_question_count(self) -> int:
+        try:
             if "sections" not in self.__dict__ or not self.sections:
                 return 0
             count = 0

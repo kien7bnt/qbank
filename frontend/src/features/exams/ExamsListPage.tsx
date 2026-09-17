@@ -486,7 +486,12 @@ export function ExamsListPage() {
                         {exam.is_random_per_student && (
                           <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 inline-flex items-center gap-1">
                             <Shuffle className="h-3 w-3 text-purple-600" />
-                            Đề ngẫu nhiên ({exam.questions_per_instance || exam.question_count} câu)
+                            Đề ngẫu nhiên: {exam.questions_per_instance || exam.question_count} câu
+                            {((exam.pool_question_count || exam.sections?.reduce((acc: number, s: any) => acc + (s.questions?.length || 0), 0) || 0) > 0) && (
+                              <span className="text-purple-500 font-normal">
+                                (nguồn {exam.pool_question_count || exam.sections?.reduce((acc: number, s: any) => acc + (s.questions?.length || 0), 0)} câu)
+                              </span>
+                            )}
                           </span>
                         )}
                         <span className={`px-2 py-0.5 rounded-md text-xs font-medium border ${stCls}`}>
