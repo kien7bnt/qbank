@@ -968,6 +968,10 @@ async def list_assignment_submissions(db: AsyncSession, assignment_id: uuid.UUID
                         att = parsed.get("attachment")
                         if att and isinstance(att, dict) and att.get("url"):
                             url = att.get("url")
+                            if url.startswith("/uploads/"):
+                                url = f"/api/v1{url}"
+                            elif url.startswith("uploads/"):
+                                url = f"/api/v1/{url}"
                             if url not in seen_urls:
                                 seen_urls.add(url)
                                 attachments.append({
@@ -985,7 +989,7 @@ async def list_assignment_submissions(db: AsyncSession, assignment_id: uuid.UUID
         if sub_dir.exists() and sub_dir.is_dir():
             for f in sub_dir.iterdir():
                 if f.is_file():
-                    file_url = f"/uploads/submissions/{a.id}/{f.name}"
+                    file_url = f"/api/v1/uploads/submissions/{a.id}/{f.name}"
                     if file_url not in seen_urls:
                         seen_urls.add(file_url)
                         ext = f.suffix.lstrip(".").lower()

@@ -15,7 +15,7 @@ import {
 import * as XLSX from 'xlsx';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { getBackendOrigin } from '@/services/api';
+import { getBackendOrigin, getAttachmentUrl } from '@/services/api';
 
 interface DocumentPreviewModalProps {
   open: boolean;
@@ -47,9 +47,59 @@ export function DocumentPreviewModal({
 
   // Normalize absolute URL: if relative (e.g. /uploads/..., /api/...), route to backend origin
   const backendOrigin = getBackendOrigin();
-  const absoluteUrl = url.startsWith('http')
-    ? url
-    : `${backendOrigin}${url.startsWith('/') ? '' : '/'}${url}`;
+  const absoluteUrl = getAttachmentUrl(url);
+
+  // Helper to construct candidate URLs to try in order
+  const getCandidateUrls = (targetUrl: string): string[] => {
+    const list: string[] = [];
+    const add = (u: string) => {
+      if (!u) return;
+      const full = getAttachmentUrl(u);
+      if (!list.includes(full)) list.push(full);
+    };
+
+    // 1. Primary: normalized URL (routes through /api/v1/uploads/ which Nginx proxies to FastAPI)
+    add(targetUrl);
+
+    // 2. Fallbacks: try alternative paths
+    if (targetUrl.includes('/api/v1/uploads/')) {
+      const p1 = targetUrl.replace('/api/v1/uploads/', '/uploads/');
+      const full1 = p1.startsWith('http') ? p1 : `${backendOrigin}${p1.startsWith('/') ? '' : '/'}${p1}`;
+      if (!list.includes(full1)) list.push(full1);
+
+      const p2 = targetUrl.replace('/api/v1/uploads/', '/api/uploads/');
+      const full2 = p2.startsWith('http') ? p2 : `${backendOrigin}${p2.startsWith('/') ? '' : '/'}${p2}`;
+      if (!list.includes(full2)) list.push(full2);
+    } else if (targetUrl.includes('/uploads/')) {
+      const p = targetUrl.replace('/uploads/', '/api/v1/uploads/');
+      const full = p.startsWith('http') ? p : `${backendOrigin}${p.startsWith('/') ? '' : '/'}${p}`;
+      if (!list.includes(full)) list.push(full);
+    }
+
+    return list;
+  };
+
+  const fetchWithFallback = async <T,>(
+    candidates: string[],
+    parser: (res: Response) => Promise<T>
+  ): Promise<T> => {
+    const token = localStorage.getItem('access_token');
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+    let lastError: Error | null = null;
+    for (const u of candidates) {
+      try {
+        const res = await fetch(u, { headers });
+        if (res.ok) {
+          return await parser(res);
+        }
+        lastError = new Error(`Không thể tải tệp (Mã lỗi ${res.status})`);
+      } catch (err: any) {
+        lastError = err;
+      }
+    }
+    throw lastError || new Error('Không thể tải tệp từ máy chủ.');
+  };
 
   // Deduce extension & type
   const extension = url.split('?')[0].split('#')[0].split('.').pop()?.toLowerCase() || '';
@@ -82,10 +132,7 @@ export function DocumentPreviewModal({
       setDocError(null);
 
       Promise.all([
-        fetch(absoluteUrl).then(async (res) => {
-          if (!res.ok) throw new Error(`Không thể tải tệp (Mã lỗi ${res.status})`);
-          return res.blob();
-        }),
+        fetchWithFallback(getCandidateUrls(absoluteUrl), (res) => res.blob()),
         import('docx-preview').catch((err) => {
           console.error('Failed to load docx-preview package:', err);
           throw new Error('Thư viện xem file Word chưa sẵn sàng. Vui lòng tải file về máy.');
@@ -123,11 +170,7 @@ export function DocumentPreviewModal({
       setLoadingDoc(true);
       setDocError(null);
 
-      fetch(absoluteUrl)
-        .then(async (res) => {
-          if (!res.ok) throw new Error(`Không thể tải bảng tính (Mã lỗi ${res.status})`);
-          return res.arrayBuffer();
-        })
+      fetchWithFallback(getCandidateUrls(absoluteUrl), (res) => res.arrayBuffer())
         .then((buffer) => {
           if (isCancelled) return;
           const workbook = XLSX.read(buffer, { type: 'array' });

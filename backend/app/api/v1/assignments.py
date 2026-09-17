@@ -242,7 +242,7 @@ async def upload_essay_attachment(
     with open(target_path, "wb") as f:
         f.write(content)
 
-    file_url = f"/uploads/submissions/{attempt_id}/{safe_name}"
+    file_url = f"/api/v1/uploads/submissions/{attempt_id}/{safe_name}"
 
     return {
         "file_url": file_url,

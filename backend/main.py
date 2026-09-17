@@ -37,11 +37,38 @@ app.add_middleware(
 
 # Mount uploads directory for static access (attachments, document previews)
 from pathlib import Path
+import mimetypes
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from fastapi import HTTPException
 
 UPLOAD_DIR = Path(__file__).parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+@app.get("/api/v1/uploads/{file_path:path}")
+@app.get("/api/uploads/{file_path:path}")
+@app.get("/uploads/{file_path:path}")
+async def serve_uploaded_file(file_path: str):
+    safe_path = (UPLOAD_DIR / file_path).resolve()
+    upload_root = UPLOAD_DIR.resolve()
+    if not str(safe_path).startswith(str(upload_root)):
+        raise HTTPException(status_code=403, detail="Truy cập bị từ chối")
+    if not safe_path.is_file():
+        raise HTTPException(status_code=404, detail="Tệp không tồn tại")
+
+    mime_type, _ = mimetypes.guess_type(str(safe_path))
+    if not mime_type:
+        mime_type = "application/octet-stream"
+
+    return FileResponse(
+        path=str(safe_path),
+        media_type=mime_type,
+        filename=safe_path.name,
+    )
+
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+app.mount("/api/v1/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="api_v1_uploads")
+app.mount("/api/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="api_uploads")
 
 # Routers
 PREFIX = "/api/v1"

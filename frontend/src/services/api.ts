@@ -50,6 +50,26 @@ export function getBackendOrigin(): string {
   }
 }
 
+export function getAttachmentUrl(url?: string): string {
+  if (!url) return '';
+  const backendOrigin = getBackendOrigin();
+  let normalized = url.trim();
+
+  // Route /uploads/ through /api/v1/uploads/ to ensure reverse proxies (Nginx) forward requests to backend
+  if (normalized.startsWith('/uploads/')) {
+    normalized = `/api/v1${normalized}`;
+  } else if (normalized.startsWith('uploads/')) {
+    normalized = `/api/v1/${normalized}`;
+  } else if (normalized.includes('/uploads/') && !normalized.includes('/api/v1/uploads/')) {
+    normalized = normalized.replace('/uploads/', '/api/v1/uploads/');
+  }
+
+  if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+    return normalized;
+  }
+  return `${backendOrigin}${normalized.startsWith('/') ? '' : '/'}${normalized}`;
+}
+
 export const apiClient = axios.create({
   baseURL: BASE_URL,
   timeout: 60000,
