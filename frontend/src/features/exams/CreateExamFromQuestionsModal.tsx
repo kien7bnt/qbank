@@ -30,6 +30,8 @@ export function CreateExamFromQuestionsModal({
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [shuffleOptions, setShuffleOptions] = useState(true);
   const [pointsPerQuestion, setPointsPerQuestion] = useState<number | undefined>(undefined);
+  const [isRandom, setIsRandom] = useState(false);
+  const [randomCount, setRandomCount] = useState<number>(() => Math.min(30, selectedQuestionIds.length || 1));
 
   // Fetch classes
   const { data: classesData } = useQuery({
@@ -40,8 +42,12 @@ export function CreateExamFromQuestionsModal({
 
   const classes = classesData?.data?.items ?? [];
 
-  const defaultPoints = selectedQuestionIds.length > 0
-    ? Number((10.0 / selectedQuestionIds.length).toFixed(2))
+  const effectiveCount = isRandom
+    ? Math.max(1, Math.min(randomCount, selectedQuestionIds.length))
+    : selectedQuestionIds.length;
+
+  const defaultPoints = effectiveCount > 0
+    ? Number((10.0 / effectiveCount).toFixed(2))
     : 1.0;
 
   const createMutation = useMutation({
@@ -54,6 +60,7 @@ export function CreateExamFromQuestionsModal({
         points_per_question: pointsPerQuestion ?? defaultPoints,
         shuffle_questions: shuffleQuestions,
         shuffle_options: shuffleOptions,
+        random_count: isRandom ? effectiveCount : undefined,
       }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['exams'] });
@@ -101,7 +108,7 @@ export function CreateExamFromQuestionsModal({
             }}
           >
             <CheckCircle2 className="h-4 w-4 mr-1.5" />
-            Tạo đề thi ({selectedQuestionIds.length} câu)
+            Tạo đề thi ({effectiveCount} câu)
           </Button>
         </>
       }
@@ -152,6 +159,67 @@ export function CreateExamFromQuestionsModal({
           </div>
         </div>
 
+        {/* Random Question Sampling Option */}
+        <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3.5 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isRandom}
+                onChange={(e) => {
+                  setIsRandom(e.target.checked);
+                  if (e.target.checked && (!randomCount || randomCount > selectedQuestionIds.length)) {
+                    setRandomCount(Math.min(30, selectedQuestionIds.length));
+                  }
+                }}
+                className="rounded border-purple-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+              />
+              <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                <Shuffle className="h-3.5 w-3.5 text-purple-600" />
+                Chọn ngẫu nhiên câu hỏi vào đề thi
+              </span>
+            </label>
+            {isRandom && (
+              <span className="text-[11px] font-semibold text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-full border border-purple-200">
+                {effectiveCount} / {selectedQuestionIds.length} câu
+              </span>
+            )}
+          </div>
+
+          {isRandom ? (
+            <div className="space-y-2 pt-2 border-t border-purple-100">
+              <div>
+                <label className="block text-xs font-semibold text-purple-900 mb-1">
+                  Số lượng câu hỏi lấy ngẫu nhiên vào đề thi:
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={selectedQuestionIds.length}
+                    value={randomCount}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setRandomCount(val > 0 ? Math.min(selectedQuestionIds.length, val) : 1);
+                    }}
+                    className="w-32 bg-white font-bold text-purple-900 border-purple-300 focus:ring-purple-500"
+                  />
+                  <span className="text-xs text-purple-700">
+                    câu (từ <strong>{selectedQuestionIds.length}</strong> câu đã chọn)
+                  </span>
+                </div>
+              </div>
+              <p className="text-[11px] text-purple-600 italic">
+                Ví dụ: Đã chọn 60 câu, nhập 30 để hệ thống bốc ngẫu nhiên 30 câu vào đề thi.
+              </p>
+            </div>
+          ) : (
+            <p className="text-[11px] text-gray-500">
+              Mặc định đề thi sẽ bao gồm toàn bộ {selectedQuestionIds.length} câu đã chọn. Bật tùy chọn trên nếu muốn bốc ngẫu nhiên số lượng câu ít hơn.
+            </p>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">
@@ -165,7 +233,7 @@ export function CreateExamFromQuestionsModal({
               onChange={(e) => setPointsPerQuestion(Number(e.target.value))}
             />
             <span className="text-[11px] text-gray-400">
-              Tổng điểm: {((pointsPerQuestion ?? defaultPoints) * selectedQuestionIds.length).toFixed(1)} điểm
+              Tổng điểm: {((pointsPerQuestion ?? defaultPoints) * effectiveCount).toFixed(1)} điểm
             </span>
           </div>
 

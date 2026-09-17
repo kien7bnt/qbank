@@ -27,6 +27,7 @@ export function GenerateVariantsModal({
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [shuffleOptions, setShuffleOptions] = useState(true);
   const [codePrefix, setCodePrefix] = useState('10');
+  const [questionsPerVariant, setQuestionsPerVariant] = useState<number | ''>('');
 
   // Fetch existing variants
   const { data: variantsData, isLoading } = useQuery({
@@ -45,6 +46,7 @@ export function GenerateVariantsModal({
         shuffle_questions: shuffleQuestions,
         shuffle_options: shuffleOptions,
         code_prefix: codePrefix,
+        questions_per_variant: questionsPerVariant ? Number(questionsPerVariant) : undefined,
       }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['exam-variants', examId] });
@@ -93,6 +95,24 @@ export function GenerateVariantsModal({
             value={codePrefix}
             onChange={(e) => setCodePrefix(e.target.value)}
           />
+        </div>
+
+        <div className="p-3.5 rounded-xl border border-purple-200 bg-purple-50/50 space-y-2">
+          <label className="text-sm font-semibold text-purple-900 flex items-center gap-1.5">
+            <Shuffle className="h-4 w-4 text-purple-600" />
+            Số câu hỏi bốc ngẫu nhiên mỗi mã đề (Tùy chọn)
+          </label>
+          <Input
+            type="number"
+            min={1}
+            placeholder="Để trống nếu lấy toàn bộ câu hỏi của đề gốc"
+            value={questionsPerVariant}
+            onChange={(e) => setQuestionsPerVariant(e.target.value === '' ? '' : Number(e.target.value))}
+            className="bg-white"
+          />
+          <p className="text-xs text-purple-700">
+            Ví dụ: Đề gốc có 60 câu, nhập 30 để mỗi mã đề tự động bốc ngẫu nhiên 30 câu.
+          </p>
         </div>
 
         <div className="space-y-3 p-4 rounded-xl border border-gray-200 bg-white">

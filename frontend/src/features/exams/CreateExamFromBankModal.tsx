@@ -41,6 +41,8 @@ export function CreateExamFromBankModal({
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [shuffleOptions, setShuffleOptions] = useState(true);
   const [aiGrading, setAiGrading] = useState(true);
+  const [isRandom, setIsRandom] = useState(false);
+  const [randomCount, setRandomCount] = useState(30);
 
   // Filter state for questions
   const [search, setSearch] = useState('');
@@ -49,6 +51,10 @@ export function CreateExamFromBankModal({
   const [bloomLevel, setBloomLevel] = useState('');
   const [difficulty, setDifficulty] = useState('');
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+
+  const effectiveCount = isRandom
+    ? Math.max(1, Math.min(randomCount, selectedQuestionIds.length || 1))
+    : selectedQuestionIds.length;
 
   // Fetch Domains
   const { data: domainsData } = useQuery({
@@ -112,6 +118,7 @@ export function CreateExamFromBankModal({
         shuffle_questions: shuffleQuestions,
         shuffle_options: shuffleOptions,
         ai_grading: aiGrading,
+        random_count: isRandom ? effectiveCount : undefined,
       }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['exams'] });
@@ -147,6 +154,11 @@ export function CreateExamFromBankModal({
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
           <div className="text-xs text-gray-500 font-medium text-center sm:text-left">
             Đã chọn: <strong className="text-primary-700 text-sm">{selectedQuestionIds.length}</strong> câu hỏi
+            {isRandom && (
+              <span className="ml-2 text-purple-700 font-bold bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md">
+                (Lấy ngẫu nhiên: {effectiveCount} câu)
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 justify-end">
             <Button variant="secondary" onClick={onClose} size="sm" className="flex-1 sm:flex-none">
@@ -170,7 +182,7 @@ export function CreateExamFromBankModal({
               }}
             >
               <CheckCircle2 className="h-4 w-4 mr-1.5" />
-              Tạo đề thi ({selectedQuestionIds.length} câu)
+              Tạo đề thi ({effectiveCount} câu)
             </Button>
           </div>
         </div>
@@ -270,6 +282,68 @@ export function CreateExamFromBankModal({
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Random Question Sampling Option */}
+        <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isRandom}
+                onChange={(e) => {
+                  setIsRandom(e.target.checked);
+                  if (e.target.checked && (!randomCount || randomCount > selectedQuestionIds.length)) {
+                    setRandomCount(Math.min(30, selectedQuestionIds.length || 30));
+                  }
+                }}
+                className="rounded border-purple-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+              />
+              <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                <Shuffle className="h-3.5 w-3.5 text-purple-600" />
+                Chọn ngẫu nhiên câu hỏi vào đề thi
+              </span>
+            </label>
+            {isRandom && selectedQuestionIds.length > 0 && (
+              <span className="text-[11px] font-semibold text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-full border border-purple-200">
+                {effectiveCount} / {selectedQuestionIds.length} câu
+              </span>
+            )}
+          </div>
+
+          {isRandom ? (
+            <div className="space-y-1.5 pt-1.5 border-t border-purple-100">
+              <div>
+                <label className="block text-xs font-semibold text-purple-900 mb-1">
+                  Số lượng câu hỏi lấy ngẫu nhiên vào đề thi:
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={selectedQuestionIds.length || 1000}
+                    value={randomCount}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      const maxVal = selectedQuestionIds.length > 0 ? selectedQuestionIds.length : 1000;
+                      setRandomCount(val > 0 ? Math.min(maxVal, val) : 1);
+                    }}
+                    className="w-28 bg-white font-bold text-purple-900 border-purple-300 focus:ring-purple-500 text-xs py-1"
+                  />
+                  <span className="text-xs text-purple-700">
+                    câu {selectedQuestionIds.length > 0 && <span>(từ <strong>{selectedQuestionIds.length}</strong> câu đã chọn)</span>}
+                  </span>
+                </div>
+              </div>
+              <p className="text-[11px] text-purple-600 italic">
+                Ví dụ: Đã chọn 60 câu, nhập 30 để hệ thống bốc ngẫu nhiên 30 câu vào đề thi.
+              </p>
+            </div>
+          ) : (
+            <p className="text-[11px] text-gray-500">
+              Mặc định đề thi sẽ lấy tất cả câu hỏi được chọn. Bật tùy chọn trên nếu bạn muốn bốc ngẫu nhiên số câu nhất định (ví dụ chọn 30 từ 60 câu).
+            </p>
+          )}
         </div>
 
         {/* Filter bar for Question Selection */}

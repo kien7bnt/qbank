@@ -68,8 +68,13 @@ async def create_exercise_from_question_ids(
     show_hints: bool = True,
     points_per_question: Optional[float] = None,
     ai_grading: bool = True,
+    random_count: Optional[int] = None,
 ) -> Exam:
     """Tạo bộ bài tập mới từ danh sách câu hỏi được chọn trong Ngân hàng câu hỏi"""
+    if random_count and 1 <= random_count < len(question_ids):
+        import random
+        question_ids = random.sample(question_ids, random_count)
+
     pts = points_per_question if points_per_question is not None else (10.0 / len(question_ids) if question_ids else 1.0)
 
     exercise = Exam(

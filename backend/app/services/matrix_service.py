@@ -130,11 +130,12 @@ async def generate_exam_variants(
         else:
             code_str = f"{prefix[:-1] if len(prefix) > 1 else ''}{i}"
 
-        # 1. Shuffle question order if requested
+        # 1. Select / Shuffle question order if requested
         q_order = [str(eq.question_id) for eq in all_exam_questions]
-        if data.shuffle_questions:
-            # Seed with variant index to ensure reproducible and distinct permutations
-            rng = random.Random(f"{exam_id}_{code_str}")
+        rng = random.Random(f"{exam_id}_{code_str}")
+        if data.questions_per_variant and 1 <= data.questions_per_variant < len(q_order):
+            q_order = rng.sample(q_order, data.questions_per_variant)
+        elif data.shuffle_questions:
             rng.shuffle(q_order)
 
         # 2. Shuffle options per question if requested

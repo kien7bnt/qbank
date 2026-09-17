@@ -142,6 +142,7 @@ async def create_exam_from_questions(
         shuffle_questions=data.shuffle_questions,
         shuffle_options=data.shuffle_options,
         ai_grading=data.ai_grading,
+        random_count=data.random_count,
     )
 
 

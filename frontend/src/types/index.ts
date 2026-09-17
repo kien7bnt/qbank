@@ -765,6 +765,7 @@ export interface GenerateVariantsRequest {
   shuffle_questions?: boolean;
   shuffle_options?: boolean;
   code_prefix?: string;
+  questions_per_variant?: number;
 }
 
 // ─── Exam Analytics & Reports ─────────────────────────────────────────────────

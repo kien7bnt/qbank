@@ -160,6 +160,7 @@ class CreateExamFromQuestionsRequest(BaseModel):
     shuffle_questions: bool = False
     shuffle_options: bool = False
     ai_grading: bool = True
+    random_count: Optional[int] = Field(default=None, ge=1, description="Số câu hỏi ngẫu nhiên lấy từ danh sách question_ids")
 
 
 # ─── 2D Grid Matrix & Multi-Variant Schemas ──────────────────────────────────
@@ -202,6 +203,7 @@ class GenerateVariantsRequest(BaseModel):
     code_prefix: str = Field("00", description="Tiền tố mã đề (ví dụ 00 -> 001, 002...)")
     shuffle_questions: bool = True
     shuffle_options: bool = True
+    questions_per_variant: Optional[int] = Field(default=None, ge=1, description="Số câu hỏi ngẫu nhiên cho mỗi mã đề (lấy ngẫu nhiên từ đề gốc)")
 
 
 class ExamVariantOut(BaseModel):

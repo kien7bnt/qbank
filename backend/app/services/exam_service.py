@@ -272,7 +272,12 @@ async def create_exam_from_question_ids(
     shuffle_options: bool = False,
     type: str = "exam",
     ai_grading: bool = True,
+    random_count: Optional[int] = None,
 ) -> Exam:
+    if random_count and 1 <= random_count < len(question_ids):
+        import random
+        question_ids = random.sample(question_ids, random_count)
+
     pts = points_per_question if points_per_question is not None else (10.0 / len(question_ids) if question_ids else 1.0)
 
     exam = Exam(

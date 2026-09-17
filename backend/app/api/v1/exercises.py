@@ -32,6 +32,7 @@ class CreateExerciseRequest(BaseModel):
     show_hints: bool = True
     points_per_question: Optional[float] = None
     ai_grading: bool = True
+    random_count: Optional[int] = Field(default=None, ge=1, description="Số câu hỏi ngẫu nhiên lấy từ danh sách question_ids")
 
 
 class AddQuestionsToExerciseRequest(BaseModel):
@@ -73,6 +74,7 @@ async def create_exercise(
         show_hints=data.show_hints,
         points_per_question=data.points_per_question,
         ai_grading=data.ai_grading,
+        random_count=data.random_count,
     )
 
 
