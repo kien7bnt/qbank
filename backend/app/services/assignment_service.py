@@ -830,6 +830,7 @@ async def get_attempt_result(db: AsyncSession, attempt_id: uuid.UUID, user_or_id
 
     assignment = attempt.assignment
     assignment_type = getattr(assignment, "assignment_type", "exam") or "exam"
+    is_homework = (assignment_type == "homework")
     is_self_attempt = (req_user_id == attempt.user_id)
 
     # Quyền xem đáp án:
