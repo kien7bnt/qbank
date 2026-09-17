@@ -85,6 +85,13 @@ class Exam(Base):
     show_feedback: Mapped[bool] = mapped_column(Boolean, default=True)
     ai_grading: Mapped[bool] = mapped_column(Boolean, default=True)
     
+    # Random Exam Per Student settings (Question Pool)
+    is_random_per_student: Mapped[bool] = mapped_column(Boolean, default=False)
+    questions_per_instance: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    anti_collision_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    max_question_overlap: Mapped[float] = mapped_column(Float, default=0.5)  # 0.5 = 50%
+    random_seed_strategy: Mapped[str] = mapped_column(String(50), default="student_attempt")
+
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -95,6 +102,7 @@ class Exam(Base):
     domain = relationship("Chapter", foreign_keys=[domain_id], lazy="selectin")
     sections = relationship("ExamSection", back_populates="exam", cascade="all, delete-orphan", lazy="selectin")
     variants = relationship("ExamVariant", back_populates="exam", cascade="all, delete-orphan", lazy="selectin")
+    instances = relationship("ExamInstance", back_populates="exam", cascade="all, delete-orphan", lazy="selectin")
 
     @property
     def domain_name(self) -> Optional[str]:
@@ -221,3 +229,39 @@ class ExamQuestion(Base):
     exam = relationship("Exam")
     question = relationship("Question")
     question_version = relationship("QuestionVersion")
+
+
+class ExamInstance(Base):
+    """Đề thi cụ thể sinh riêng cho từng học sinh trong bài thi ngẫu nhiên (Question Pool)"""
+    __tablename__ = "exam_instances"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    exam_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("exams.id", ondelete="CASCADE"), index=True)
+    assignment_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("assignments.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    attempt_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("exam_attempts.id", ondelete="SET NULL"), nullable=True, index=True)
+    attempt_number: Mapped[int] = mapped_column(Integer, default=1)
+
+    instance_code: Mapped[str] = mapped_column(String(50))  # e.g. "A001", "A002", "INST-101"...
+    random_seed: Mapped[str] = mapped_column(String(100))
+
+    # List of question UUID strings selected for this instance
+    question_ids: Mapped[list] = mapped_column(JSON, default=list)
+
+    # Snapshot of questions in display order with shuffled options & points
+    question_snapshot: Mapped[list] = mapped_column(JSON, default=list)
+
+    # Mapping of question_id -> list of option_ids in shuffled order
+    option_orders: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    # Overlap stats compared to other instances at generation time
+    max_overlap_ratio: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    generation_attempts: Mapped[int] = mapped_column(Integer, default=1)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    # Relationships
+    exam = relationship("Exam", back_populates="instances")
+    assignment = relationship("Assignment", lazy="selectin")
+    user = relationship("User", lazy="selectin")
+

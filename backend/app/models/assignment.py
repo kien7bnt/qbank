@@ -37,6 +37,11 @@ class Assignment(Base):
     show_explanation: Mapped[bool] = mapped_column(Boolean, default=True)
     ai_grading: Mapped[bool] = mapped_column(Boolean, default=True)
     
+    # Random Exam Per Student settings (inherited or customized from Exam)
+    is_random_per_student: Mapped[bool] = mapped_column(Boolean, default=False)
+    questions_per_instance: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    max_question_overlap: Mapped[Optional[float]] = mapped_column(Float, default=0.5)
+
     status: Mapped[str] = mapped_column(String(20), default="published")  # draft, published, closed
     
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
@@ -76,6 +81,7 @@ class ExamAttempt(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     assignment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assignments.id", ondelete="CASCADE"))
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    instance_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("exam_instances.id", ondelete="SET NULL"), nullable=True, index=True)
     
     attempt_number: Mapped[int] = mapped_column(Integer, default=1)
     
@@ -95,6 +101,7 @@ class ExamAttempt(Base):
     # Relationships
     assignment = relationship("Assignment", back_populates="attempts")
     user = relationship("User")
+    instance = relationship("ExamInstance", foreign_keys=[instance_id], lazy="selectin")
     responses = relationship("StudentResponse", back_populates="attempt", cascade="all, delete-orphan", lazy="selectin")
 
 

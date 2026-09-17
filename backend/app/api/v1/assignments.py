@@ -320,3 +320,69 @@ async def get_student_history(
         }
         for att in attempts
     ]
+
+
+@router.get("/assignments/{assignment_id}/instances")
+async def get_assignment_instances_endpoint(
+    assignment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Giáo viên xem danh sách các đề thi ngẫu nhiên đã cấp cho học sinh trong đợt kiểm tra"""
+    if not current_user.has_role("teacher", "admin"):
+        raise HTTPException(status_code=403, detail="Chỉ giáo viên xem được danh sách đề học sinh")
+    from app.services import random_exam_service
+    return await random_exam_service.list_exam_instances(db, assignment_id=assignment_id)
+
+
+@router.post("/assignments/{assignment_id}/pre-generate-instances")
+async def pre_generate_assignment_instances(
+    assignment_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Giáo viên sinh trước đề thi độc lập cho toàn bộ học sinh trong lớp"""
+    if not current_user.has_role("teacher", "admin"):
+        raise HTTPException(status_code=403, detail="Chỉ giáo viên được thực hiện thao tác này")
+    from app.models.assignment import Assignment
+    from app.models.class_ import ClassMember
+    from app.services import random_exam_service
+    from sqlalchemy import select
+
+    assignment = await db.get(Assignment, assignment_id)
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đợt kiểm tra")
+
+    # Get class members
+    cm_stmt = select(ClassMember.user_id).where(ClassMember.class_id == assignment.class_id)
+    cm_res = await db.execute(cm_stmt)
+    student_ids = cm_res.scalars().all()
+
+    if not student_ids:
+        raise HTTPException(status_code=400, detail="Lớp học chưa có học sinh nào để sinh đề.")
+
+    generated = []
+    errors = []
+    for sid in student_ids:
+        try:
+            inst = await random_exam_service.generate_student_exam_instance(
+                db=db,
+                exam_id=assignment.exam_id,
+                user_id=sid,
+                assignment_id=assignment.id,
+                attempt_number=1,
+            )
+            generated.append(inst.instance_code)
+        except Exception as e:
+            errors.append(str(e))
+
+    if errors and not generated:
+        raise HTTPException(status_code=400, detail=errors[0])
+
+    return {
+        "message": f"Đã sinh thành công {len(generated)}/{len(student_ids)} đề thi cho học sinh.",
+        "generated_count": len(generated),
+        "total_students": len(student_ids),
+        "errors": errors,
+    }
+

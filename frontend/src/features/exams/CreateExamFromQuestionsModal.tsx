@@ -27,11 +27,15 @@ export function CreateExamFromQuestionsModal({
   const [name, setName] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(45);
   const [classId, setClassId] = useState('');
+  const [generationMode, setGenerationMode] = useState<'fixed' | 'random_student'>('fixed');
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [shuffleOptions, setShuffleOptions] = useState(true);
   const [pointsPerQuestion, setPointsPerQuestion] = useState<number | undefined>(undefined);
-  const [isRandom, setIsRandom] = useState(false);
-  const [randomCount, setRandomCount] = useState<number>(() => Math.min(30, selectedQuestionIds.length || 1));
+  const [isRandomFixed, setIsRandomFixed] = useState(false);
+  const [randomFixedCount, setRandomFixedCount] = useState<number>(() => Math.min(30, selectedQuestionIds.length || 1));
+  const [questionsPerInstance, setQuestionsPerInstance] = useState<number>(() => Math.min(30, selectedQuestionIds.length || 1));
+  const [antiCollision, setAntiCollision] = useState(true);
+  const [maxOverlap, setMaxOverlap] = useState<number>(50);
 
   // Fetch classes
   const { data: classesData } = useQuery({
@@ -42,8 +46,10 @@ export function CreateExamFromQuestionsModal({
 
   const classes = classesData?.data?.items ?? [];
 
-  const effectiveCount = isRandom
-    ? Math.max(1, Math.min(randomCount, selectedQuestionIds.length))
+  const effectiveCount = generationMode === 'random_student'
+    ? Math.max(1, Math.min(questionsPerInstance, selectedQuestionIds.length))
+    : isRandomFixed
+    ? Math.max(1, Math.min(randomFixedCount, selectedQuestionIds.length))
     : selectedQuestionIds.length;
 
   const defaultPoints = effectiveCount > 0
@@ -60,11 +66,15 @@ export function CreateExamFromQuestionsModal({
         points_per_question: pointsPerQuestion ?? defaultPoints,
         shuffle_questions: shuffleQuestions,
         shuffle_options: shuffleOptions,
-        random_count: isRandom ? effectiveCount : undefined,
+        random_count: generationMode === 'fixed' && isRandomFixed ? effectiveCount : undefined,
+        is_random_per_student: generationMode === 'random_student',
+        questions_per_instance: generationMode === 'random_student' ? effectiveCount : undefined,
+        anti_collision_enabled: antiCollision,
+        max_question_overlap: maxOverlap / 100.0,
       }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ['exams'] });
-      toast.success('Đã tạo đề thi từ câu hỏi thành công!');
+      toast.success('Đã tạo đề thi thành công!');
       onSuccess?.();
       onClose();
       if (res?.data?.id) {
@@ -159,64 +169,167 @@ export function CreateExamFromQuestionsModal({
           </div>
         </div>
 
-        {/* Random Question Sampling Option */}
-        <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3.5 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
+        {/* Phương thức tạo đề: Cố định vs Ngẫu nhiên theo từng học sinh */}
+        <div className="space-y-3 p-4 rounded-xl border border-purple-200 bg-purple-50/40">
+          <label className="block text-xs font-bold uppercase tracking-wider text-purple-950">
+            Phương thức tạo đề thi
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label
+              className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
+                generationMode === 'fixed'
+                  ? 'bg-white border-purple-600 shadow-sm ring-1 ring-purple-600'
+                  : 'bg-white/60 border-gray-200 hover:bg-white'
+              }`}
+            >
               <input
-                type="checkbox"
-                checked={isRandom}
-                onChange={(e) => {
-                  setIsRandom(e.target.checked);
-                  if (e.target.checked && (!randomCount || randomCount > selectedQuestionIds.length)) {
-                    setRandomCount(Math.min(30, selectedQuestionIds.length));
-                  }
-                }}
-                className="rounded border-purple-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+                type="radio"
+                name="genMode"
+                checked={generationMode === 'fixed'}
+                onChange={() => setGenerationMode('fixed')}
+                className="mt-0.5 text-purple-600 focus:ring-purple-500"
               />
-              <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
-                <Shuffle className="h-3.5 w-3.5 text-purple-600" />
-                Chọn ngẫu nhiên câu hỏi vào đề thi
-              </span>
+              <div>
+                <div className="text-xs font-bold text-gray-900">Một đề cố định</div>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Tất cả học sinh làm chung một tập câu hỏi (hoặc bốc cố định 1 lần).
+                </p>
+              </div>
             </label>
-            {isRandom && (
-              <span className="text-[11px] font-semibold text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-full border border-purple-200">
-                {effectiveCount} / {selectedQuestionIds.length} câu
-              </span>
-            )}
+
+            <label
+              className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
+                generationMode === 'random_student'
+                  ? 'bg-white border-purple-600 shadow-sm ring-1 ring-purple-600'
+                  : 'bg-white/60 border-gray-200 hover:bg-white'
+              }`}
+            >
+              <input
+                type="radio"
+                name="genMode"
+                checked={generationMode === 'random_student'}
+                onChange={() => setGenerationMode('random_student')}
+                className="mt-0.5 text-purple-600 focus:ring-purple-500"
+              />
+              <div>
+                <div className="text-xs font-bold text-purple-900 flex items-center gap-1">
+                  <Shuffle className="h-3.5 w-3.5 text-purple-600" />
+                  Sinh đề ngẫu nhiên theo từng HS
+                </div>
+                <p className="text-[11px] text-purple-700 mt-0.5">
+                  Mỗi học sinh nhận một tổ hợp câu hỏi riêng biệt từ Question Pool.
+                </p>
+              </div>
+            </label>
           </div>
 
-          {isRandom ? (
-            <div className="space-y-2 pt-2 border-t border-purple-100">
-              <div>
-                <label className="block text-xs font-semibold text-purple-900 mb-1">
-                  Số lượng câu hỏi lấy ngẫu nhiên vào đề thi:
-                </label>
-                <div className="flex items-center gap-2">
+          {/* Configuration when Random Per Student is selected */}
+          {generationMode === 'random_student' ? (
+            <div className="pt-3 border-t border-purple-200/80 space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-2.5 bg-white rounded-lg border border-purple-200 text-xs">
+                  <span className="text-gray-500">Tập câu hỏi nguồn (Question Pool):</span>
+                  <p className="text-sm font-bold text-purple-900 mt-0.5">
+                    {selectedQuestionIds.length} câu hỏi đã chọn
+                  </p>
+                </div>
+                <div className="p-2.5 bg-white rounded-lg border border-purple-200 text-xs">
+                  <label className="block text-gray-700 font-semibold mb-1">
+                    Số câu hỏi cho mỗi đề học sinh:
+                  </label>
                   <Input
                     type="number"
                     min={1}
                     max={selectedQuestionIds.length}
-                    value={randomCount}
+                    value={questionsPerInstance}
                     onChange={(e) => {
                       const val = Number(e.target.value);
-                      setRandomCount(val > 0 ? Math.min(selectedQuestionIds.length, val) : 1);
+                      setQuestionsPerInstance(val > 0 ? Math.min(selectedQuestionIds.length, val) : 1);
                     }}
-                    className="w-32 bg-white font-bold text-purple-900 border-purple-300 focus:ring-purple-500"
+                    className="bg-white font-bold text-purple-900 border-purple-300"
                   />
-                  <span className="text-xs text-purple-700">
-                    câu (từ <strong>{selectedQuestionIds.length}</strong> câu đã chọn)
-                  </span>
                 </div>
               </div>
-              <p className="text-[11px] text-purple-600 italic">
-                Ví dụ: Đã chọn 60 câu, nhập 30 để hệ thống bốc ngẫu nhiên 30 câu vào đề thi.
-              </p>
+
+              {/* Anti-collision and overlap config */}
+              <div className="p-3 bg-white rounded-xl border border-purple-200 space-y-2.5">
+                <label className="flex items-center gap-2 text-xs font-semibold text-gray-800 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={antiCollision}
+                    onChange={(e) => setAntiCollision(e.target.checked)}
+                    className="rounded border-purple-300 text-purple-600 focus:ring-purple-500 h-4 w-4"
+                  />
+                  <span>Hạn chế trùng câu giữa các đề (Cơ chế chống trùng đề)</span>
+                </label>
+
+                {antiCollision && (
+                  <div className="flex items-center gap-3 pl-6">
+                    <span className="text-xs text-gray-600">Tỷ lệ trùng tối đa cho phép:</span>
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="number"
+                        min={10}
+                        max={100}
+                        value={maxOverlap}
+                        onChange={(e) => setMaxOverlap(Math.min(100, Math.max(10, Number(e.target.value))))}
+                        className="w-20 text-center font-bold text-purple-900"
+                      />
+                      <span className="text-xs font-semibold text-gray-700">%</span>
+                    </div>
+                  </div>
+                )}
+                <p className="text-[11px] text-gray-500 pl-6 italic">
+                  Nếu 2 học sinh có trên {maxOverlap}% số câu giống nhau, hệ thống sẽ tự động bốc lại tổ hợp khác (tối đa 100 lần thử).
+                </p>
+              </div>
+
+              {/* Preview Box */}
+              <div className="p-2.5 bg-purple-100/60 rounded-lg text-center text-xs text-purple-900 font-medium">
+                {selectedQuestionIds.length} câu nguồn &rarr; {effectiveCount} câu / học sinh &rarr; Tự động sinh đề thi riêng biệt cho từng em khi vào thi
+              </div>
             </div>
           ) : (
-            <p className="text-[11px] text-gray-500">
-              Mặc định đề thi sẽ bao gồm toàn bộ {selectedQuestionIds.length} câu đã chọn. Bật tùy chọn trên nếu muốn bốc ngẫu nhiên số lượng câu ít hơn.
-            </p>
+            /* Configuration when Fixed Mode is selected */
+            <div className="pt-2 border-t border-purple-100 space-y-2">
+              <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isRandomFixed}
+                  onChange={(e) => {
+                    setIsRandomFixed(e.target.checked);
+                    if (e.target.checked && (!randomFixedCount || randomFixedCount > selectedQuestionIds.length)) {
+                      setRandomFixedCount(Math.min(30, selectedQuestionIds.length));
+                    }
+                  }}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
+                />
+                <span className="flex items-center gap-1">
+                  <Shuffle className="h-3.5 w-3.5 text-gray-500" />
+                  Bốc ngẫu nhiên một số lượng câu hỏi cho đề này
+                </span>
+              </label>
+
+              {isRandomFixed && (
+                <div className="flex items-center gap-2 pl-6">
+                  <span className="text-xs text-gray-600">Lấy ngẫu nhiên:</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={selectedQuestionIds.length}
+                    value={randomFixedCount}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setRandomFixedCount(val > 0 ? Math.min(selectedQuestionIds.length, val) : 1);
+                    }}
+                    className="w-24 font-bold"
+                  />
+                  <span className="text-xs text-gray-600">
+                    / {selectedQuestionIds.length} câu (cả lớp làm chung bộ này)
+                  </span>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

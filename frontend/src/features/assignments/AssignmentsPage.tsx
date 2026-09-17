@@ -16,6 +16,7 @@ import {
   BookOpen,
   AlertCircle,
   Lock,
+  Shuffle,
 } from 'lucide-react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -28,6 +29,7 @@ import { assignmentApi, getErrorMessage } from '@/services/api';
 import { useAuthStore } from '@/stores/auth.store';
 import { CreateAssignmentModal } from './CreateAssignmentModal';
 import { AssignmentSubmissionsModal } from './AssignmentSubmissionsModal';
+import { ExamInstancesModal } from '@/features/exams/ExamInstancesModal';
 import type { Assignment } from '@/types';
 
 export function AssignmentsPage() {
@@ -41,6 +43,7 @@ export function AssignmentsPage() {
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [submissionsModalAssignment, setSubmissionsModalAssignment] = useState<Assignment | null>(null);
+  const [instancesAssignment, setInstancesAssignment] = useState<Assignment | null>(null);
 
   const isHomework = (t?: string) => t === 'homework' || t === 'assignment';
   const isExam = (t?: string) => !isHomework(t);
@@ -340,15 +343,27 @@ export function AssignmentsPage() {
                 {/* Actions */}
                 <div className="pt-4 mt-3 border-t border-gray-100">
                   {isTeacher ? (
-                    <Button
-                      variant="outline"
-                      className="w-full text-xs font-semibold"
-                      size="sm"
-                      onClick={() => setSubmissionsModalAssignment(assignment)}
-                    >
-                      <Users className="h-3.5 w-3.5 mr-1.5" />
-                      Xem bài nộp học sinh ({assignment.total_submissions ?? 0})
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1 text-xs font-semibold"
+                        size="sm"
+                        onClick={() => setSubmissionsModalAssignment(assignment)}
+                      >
+                        <Users className="h-3.5 w-3.5 mr-1.5" />
+                        Bài nộp ({assignment.total_submissions ?? 0})
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        className="text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200"
+                        size="sm"
+                        onClick={() => setInstancesAssignment(assignment)}
+                        title="Quản lý đề thi ngẫu nhiên từng học sinh"
+                      >
+                        <Shuffle className="h-3.5 w-3.5 mr-1 text-purple-600" />
+                        Đề HS
+                      </Button>
+                    </div>
                   ) : isCompleted ? (
                     isHomework(assignment.assignment_type) ? (
                       <div className="flex gap-2">
@@ -440,6 +455,18 @@ export function AssignmentsPage() {
           if (!open) setSubmissionsModalAssignment(null);
         }}
       />
+
+      {instancesAssignment && (
+        <ExamInstancesModal
+          open={!!instancesAssignment}
+          onOpenChange={(open) => !open && setInstancesAssignment(null)}
+          examId={instancesAssignment.exam_id}
+          examName={instancesAssignment.exam_name || instancesAssignment.name}
+          assignmentId={instancesAssignment.id}
+          assignmentName={instancesAssignment.name}
+          isRandomPerStudent={true}
+        />
+      )}
     </div>
   );
 }

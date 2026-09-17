@@ -318,68 +318,86 @@ async def start_or_resume_attempt(
         if not exam:
             raise ValueError("Exam not found for assignment")
 
-        # Flatten questions
-        question_items = []
-        total_max_points = 0.0
-        for sec in exam.sections:
-            for eq in sec.questions:
-                if eq.question:
-                    options_data = [
-                        {
-                            "id": str(opt.id),
-                            "label": opt.label,
-                            "text": opt.text,
-                        }
-                        for opt in (eq.question.options or [])
-                    ]
-                    if assignment.shuffle_options:
-                        random.shuffle(options_data)
-
-                    coding_info = None
-                    if eq.question.type == "coding":
-                        cd = eq.question.coding_data
-                        coding_info = {
-                            "problem_statement": cd.problem_statement if cd else eq.question.stem,
-                            "input_format": cd.input_format if cd else None,
-                            "output_format": cd.output_format if cd else None,
-                            "constraints": cd.constraints if cd else None,
-                            "sample_input": cd.sample_input if cd else None,
-                            "sample_output": cd.sample_output if cd else None,
-                            "time_limit_ms": cd.time_limit_ms if cd else 1000,
-                            "allowed_languages": cd.allowed_languages if cd and cd.allowed_languages else ["python", "cpp", "c", "java", "javascript"],
-                            "starter_code": getattr(cd, "starter_code", "") or "" if cd else "",
-                            "test_cases": getattr(cd, "test_cases", []) or [] if cd else [],
-                        }
-
-                    essay_info = None
-                    if eq.question.type == "essay" and eq.question.essay_data:
-                        ed = eq.question.essay_data
-                        essay_info = {
-                            "sample_answer": ed.sample_answer,
-                            "max_points": ed.max_points or eq.points,
-                        }
-
-                    question_items.append({
-                        "id": str(eq.question.id),
-                        "stem": eq.question.stem,
-                        "type": eq.question.type,
-                        "order_index": eq.order_index,
-                        "points": eq.points,
-                        "bloom_level": eq.question.bloom_level,
-                        "options": options_data,
-                        "coding_data": coding_info,
-                        "essay_data": essay_info,
-                    })
-                    total_max_points += eq.points
-
-        if assignment.shuffle_questions:
-            random.shuffle(question_items)
-
         attempt_number = len(past_attempts) + 1
+
+        # Check if Exam or Assignment uses Random Per Student (Question Pool)
+        is_random = bool(getattr(assignment, "is_random_per_student", False) or getattr(exam, "is_random_per_student", False))
+        instance_id = None
+
+        if is_random:
+            from app.services import random_exam_service
+            instance = await random_exam_service.generate_student_exam_instance(
+                db=db,
+                exam_id=exam.id,
+                user_id=user_id,
+                assignment_id=assignment.id,
+                attempt_number=attempt_number,
+            )
+            question_items = instance.question_snapshot
+            instance_id = instance.id
+            total_max_points = sum(float(q.get("points", 1.0)) for q in question_items)
+        else:
+            # Flatten questions from standard Exam
+            question_items = []
+            total_max_points = 0.0
+            for sec in exam.sections:
+                for eq in sec.questions:
+                    if eq.question:
+                        options_data = [
+                            {
+                                "id": str(opt.id),
+                                "label": opt.label,
+                                "text": opt.text,
+                            }
+                            for opt in (eq.question.options or [])
+                        ]
+                        if assignment.shuffle_options:
+                            random.shuffle(options_data)
+
+                        coding_info = None
+                        if eq.question.type == "coding":
+                            cd = eq.question.coding_data
+                            coding_info = {
+                                "problem_statement": cd.problem_statement if cd else eq.question.stem,
+                                "input_format": cd.input_format if cd else None,
+                                "output_format": cd.output_format if cd else None,
+                                "constraints": cd.constraints if cd else None,
+                                "sample_input": cd.sample_input if cd else None,
+                                "sample_output": cd.sample_output if cd else None,
+                                "time_limit_ms": cd.time_limit_ms if cd else 1000,
+                                "allowed_languages": cd.allowed_languages if cd and cd.allowed_languages else ["python", "cpp", "c", "java", "javascript"],
+                                "starter_code": getattr(cd, "starter_code", "") or "" if cd else "",
+                                "test_cases": getattr(cd, "test_cases", []) or [] if cd else [],
+                            }
+
+                        essay_info = None
+                        if eq.question.type == "essay" and eq.question.essay_data:
+                            ed = eq.question.essay_data
+                            essay_info = {
+                                "sample_answer": ed.sample_answer,
+                                "max_points": ed.max_points or eq.points,
+                            }
+
+                        question_items.append({
+                            "id": str(eq.question.id),
+                            "stem": eq.question.stem,
+                            "type": eq.question.type,
+                            "order_index": eq.order_index,
+                            "points": eq.points,
+                            "bloom_level": eq.question.bloom_level,
+                            "options": options_data,
+                            "coding_data": coding_info,
+                            "essay_data": essay_info,
+                        })
+                        total_max_points += eq.points
+
+            if assignment.shuffle_questions:
+                random.shuffle(question_items)
 
         attempt = ExamAttempt(
             assignment_id=assignment.id,
             user_id=user_id,
+            instance_id=instance_id,
             attempt_number=attempt_number,
             start_time=datetime.utcnow(),
             max_score=total_max_points or 10.0,
@@ -389,6 +407,13 @@ async def start_or_resume_attempt(
         db.add(attempt)
         await db.commit()
         await db.refresh(attempt)
+
+        if instance_id:
+            from app.models.exam import ExamInstance
+            inst_record = await db.get(ExamInstance, instance_id)
+            if inst_record:
+                inst_record.attempt_id = attempt.id
+                await db.commit()
 
     # 3. Calculate remaining seconds
     now = datetime.utcnow()

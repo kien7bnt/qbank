@@ -435,6 +435,10 @@ export const examApi = {
     shuffle_options?: boolean;
     ai_grading?: boolean;
     random_count?: number;
+    is_random_per_student?: boolean;
+    questions_per_instance?: number;
+    anti_collision_enabled?: boolean;
+    max_question_overlap?: number;
   }) => apiClient.post('/exams/from-questions', data),
 
   delete: (id: string) => apiClient.delete(`/exams/${id}`),
@@ -444,6 +448,12 @@ export const examApi = {
 
   getVariants: (examId: string) =>
     apiClient.get<ExamVariant[]>(`/exams/${examId}/variants`),
+
+  getInstances: (examId: string) =>
+    apiClient.get<any[]>(`/exams/${examId}/instances`),
+
+  simulateInstances: (examId: string, data: { num_students?: number; sample_size?: number; max_overlap?: number }) =>
+    apiClient.post<any>(`/exams/${examId}/simulate-instances`, data),
 
   addQuestions: (examId: string, questionIds: string[]) =>
     apiClient.post<Exam>(`/exams/${examId}/questions`, { question_ids: questionIds }),
@@ -522,6 +532,14 @@ export const assignmentApi = {
   delete: (id: string) => apiClient.delete(`/assignments/${id}`),
 
   submissions: (id: string) => apiClient.get(`/assignments/${id}/submissions`),
+
+  getInstances: (assignmentId: string) =>
+    apiClient.get<any[]>(`/assignments/${assignmentId}/instances`),
+
+  preGenerateInstances: (assignmentId: string) =>
+    apiClient.post<{ message: string; generated_count: number; total_students: number; errors: string[] }>(
+      `/assignments/${assignmentId}/pre-generate-instances`
+    ),
 
   start: (assignmentId: string) => apiClient.post(`/assignments/${assignmentId}/start`),
 

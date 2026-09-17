@@ -273,12 +273,18 @@ async def create_exam_from_question_ids(
     type: str = "exam",
     ai_grading: bool = True,
     random_count: Optional[int] = None,
+    is_random_per_student: bool = False,
+    questions_per_instance: Optional[int] = None,
+    anti_collision_enabled: bool = True,
+    max_question_overlap: float = 0.5,
 ) -> Exam:
-    if random_count and 1 <= random_count < len(question_ids):
+    # If not random per student, but fixed random_count requested: sample once for the whole exam
+    if not is_random_per_student and random_count and 1 <= random_count < len(question_ids):
         import random
         question_ids = random.sample(question_ids, random_count)
 
-    pts = points_per_question if points_per_question is not None else (10.0 / len(question_ids) if question_ids else 1.0)
+    effective_count = questions_per_instance or len(question_ids)
+    pts = points_per_question if points_per_question is not None else (10.0 / effective_count if effective_count else 1.0)
 
     exam = Exam(
         name=name,
@@ -289,6 +295,10 @@ async def create_exam_from_question_ids(
         shuffle_questions=shuffle_questions,
         shuffle_options=shuffle_options,
         ai_grading=ai_grading,
+        is_random_per_student=is_random_per_student,
+        questions_per_instance=questions_per_instance or (random_count if is_random_per_student else None),
+        anti_collision_enabled=anti_collision_enabled,
+        max_question_overlap=max_question_overlap,
         created_by=user_id,
         status="draft",
     )

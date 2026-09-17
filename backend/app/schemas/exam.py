@@ -98,6 +98,13 @@ class ExamBase(BaseModel):
     show_feedback: bool = True
     ai_grading: bool = True
 
+    # Random Exam Per Student settings (Question Pool)
+    is_random_per_student: bool = False
+    questions_per_instance: Optional[int] = None
+    anti_collision_enabled: bool = True
+    max_question_overlap: float = 0.5
+    random_seed_strategy: str = "student_attempt"
+
 
 class ExamCreate(ExamBase):
     pass
@@ -124,6 +131,11 @@ class ExamUpdate(BaseModel):
     show_explanations: Optional[bool] = None
     show_feedback: Optional[bool] = None
     ai_grading: Optional[bool] = None
+    is_random_per_student: Optional[bool] = None
+    questions_per_instance: Optional[int] = None
+    anti_collision_enabled: Optional[bool] = None
+    max_question_overlap: Optional[float] = None
+    random_seed_strategy: Optional[str] = None
 
 
 class ExamOut(ExamBase):
@@ -161,6 +173,43 @@ class CreateExamFromQuestionsRequest(BaseModel):
     shuffle_options: bool = False
     ai_grading: bool = True
     random_count: Optional[int] = Field(default=None, ge=1, description="Số câu hỏi ngẫu nhiên lấy từ danh sách question_ids")
+    is_random_per_student: bool = False
+    questions_per_instance: Optional[int] = Field(default=None, ge=1)
+    anti_collision_enabled: bool = True
+    max_question_overlap: float = 0.5
+
+
+class ExamInstanceOut(BaseModel):
+    id: uuid.UUID
+    exam_id: uuid.UUID
+    assignment_id: Optional[uuid.UUID] = None
+    user_id: uuid.UUID
+    student_name: str = "Học sinh"
+    student_email: str = ""
+    instance_code: str
+    question_count: int = 0
+    question_ids: list[str] = []
+    random_seed: str = ""
+    max_overlap_ratio: Optional[float] = None
+    generation_attempts: int = 1
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class SimulateInstancesRequest(BaseModel):
+    num_students: int = Field(5, ge=2, le=50)
+    sample_size: Optional[int] = Field(None, ge=1)
+    max_overlap: Optional[float] = Field(None, ge=0.0, le=1.0)
+
+
+class SimulateInstancesResponse(BaseModel):
+    pool_size: int
+    sample_size: int
+    max_overlap_configured: float
+    max_overlap_observed: float
+    average_overlap_observed: float
+    students: list[dict[str, Any]]
+    overlap_matrix: list[list[float]]
 
 
 # ─── 2D Grid Matrix & Multi-Variant Schemas ──────────────────────────────────

@@ -10,7 +10,7 @@ from app.schemas.exam import (
     ExamMatrixCreate, ExamMatrixOut, ExamMatrixUpdate,
     ExamCreate, ExamOut, ExamUpdate, GenerateExamRequest, AutoSelectRequest,
     CreateExamFromQuestionsRequest, MatrixGridValidateRequest, MatrixGridValidateResult,
-    GenerateVariantsRequest, ExamVariantOut
+    GenerateVariantsRequest, ExamVariantOut, ExamInstanceOut, SimulateInstancesRequest, SimulateInstancesResponse
 )
 from app.services import exam_service, matrix_service
 
@@ -143,6 +143,10 @@ async def create_exam_from_questions(
         shuffle_options=data.shuffle_options,
         ai_grading=data.ai_grading,
         random_count=data.random_count,
+        is_random_per_student=data.is_random_per_student,
+        questions_per_instance=data.questions_per_instance,
+        anti_collision_enabled=data.anti_collision_enabled,
+        max_question_overlap=data.max_question_overlap,
     )
 
 
@@ -205,6 +209,11 @@ async def get_exam(
         "shuffle_options": exam.shuffle_options,
         "show_results": exam.show_results,
         "ai_grading": getattr(exam, "ai_grading", True),
+        "is_random_per_student": getattr(exam, "is_random_per_student", False),
+        "questions_per_instance": getattr(exam, "questions_per_instance", None),
+        "anti_collision_enabled": getattr(exam, "anti_collision_enabled", True),
+        "max_question_overlap": getattr(exam, "max_question_overlap", 0.5),
+        "random_seed_strategy": getattr(exam, "random_seed_strategy", "student_attempt"),
         "created_at": exam.created_at,
         "sections": [
             {
@@ -317,5 +326,38 @@ async def add_questions_to_exam_endpoint(
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/exams/{exam_id}/instances", response_model=List[ExamInstanceOut])
+async def get_exam_instances_endpoint(
+    exam_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Lấy danh sách các đề thi đã sinh theo từng học sinh cho đề thi này"""
+    from app.services import random_exam_service
+    return await random_exam_service.list_exam_instances(db, exam_id=exam_id)
+
+
+@router.post("/exams/{exam_id}/simulate-instances", response_model=SimulateInstancesResponse)
+async def simulate_exam_instances_endpoint(
+    exam_id: uuid.UUID,
+    data: SimulateInstancesRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Chạy mô phỏng thử nghiệm sinh ngẫu nhiên đề cho nhiều học sinh và thống kê tỷ lệ trùng"""
+    from app.services import random_exam_service
+    try:
+        return await random_exam_service.simulate_random_instances(
+            db,
+            exam_id=exam_id,
+            num_students=data.num_students,
+            sample_size=data.sample_size,
+            max_overlap=data.max_overlap,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 

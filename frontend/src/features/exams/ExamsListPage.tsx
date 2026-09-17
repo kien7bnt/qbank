@@ -14,6 +14,7 @@ import {
   BookOpen,
   Tag,
   FolderMinus,
+  Shuffle,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -26,11 +27,13 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { examApi, domainApi, getErrorMessage } from '@/services/api';
 import { ExamPreviewModal } from './ExamPreviewModal';
 import { CreateExamFromBankModal } from './CreateExamFromBankModal';
+import { ExamInstancesModal } from './ExamInstancesModal';
 import type { Exam } from '@/types';
 
 export function ExamsListPage() {
   const qc = useQueryClient();
   const [previewExamId, setPreviewExamId] = useState<string | null>(null);
+  const [instancesModalExam, setInstancesModalExam] = useState<Exam | null>(null);
   const [createFromBankOpen, setCreateFromBankOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDomainId, setSelectedDomainId] = useState<string>('all');
@@ -473,11 +476,17 @@ export function ExamsListPage() {
 
                     <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t border-gray-50 sm:border-0">
                       {/* Tags: Domain Badge (desktop only) + Status + Type */}
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                         {domainName && (
                           <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 items-center gap-1">
                             <Tag className="h-3 w-3 text-blue-500" />
                             {domainName}
+                          </span>
+                        )}
+                        {exam.is_random_per_student && (
+                          <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 inline-flex items-center gap-1">
+                            <Shuffle className="h-3 w-3 text-purple-600" />
+                            Đề ngẫu nhiên ({exam.questions_per_instance || exam.question_count} câu)
                           </span>
                         )}
                         <span className={`px-2 py-0.5 rounded-md text-xs font-medium border ${stCls}`}>
@@ -490,6 +499,18 @@ export function ExamsListPage() {
 
                       {/* Actions */}
                       <div className="flex items-center gap-1.5 shrink-0">
+                        {exam.is_random_per_student && (
+                          <button
+                            type="button"
+                            onClick={() => setInstancesModalExam(exam)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+                            title="Xem đề học sinh & mô phỏng"
+                          >
+                            <Shuffle className="h-3.5 w-3.5 text-purple-600" />
+                            <span className="hidden sm:inline">Đề học sinh</span>
+                          </button>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => setPreviewExamId(exam.id)}
@@ -510,6 +531,18 @@ export function ExamsListPage() {
                           </button>
                           {openMenuId === exam.id && (
                             <div className={`absolute right-0 ${isNearBottom ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} z-50 bg-white border border-gray-200 rounded-xl shadow-xl py-1 w-48`}>
+                              {exam.is_random_per_student && (
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    setInstancesModalExam(exam);
+                                  }}
+                                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-purple-700 hover:bg-purple-50 transition-colors"
+                                >
+                                  <Shuffle className="h-4 w-4 text-purple-600" />
+                                  Xem đề từng học sinh
+                                </button>
+                              )}
                               <button
                                 onClick={() => {
                                   setOpenMenuId(null);
@@ -680,6 +713,17 @@ export function ExamsListPage() {
         open={createFromBankOpen}
         onClose={() => setCreateFromBankOpen(false)}
       />
+
+      {instancesModalExam && (
+        <ExamInstancesModal
+          open={!!instancesModalExam}
+          onOpenChange={(v) => !v && setInstancesModalExam(null)}
+          examId={instancesModalExam.id}
+          examName={instancesModalExam.name}
+          isRandomPerStudent={instancesModalExam.is_random_per_student}
+          questionsPerInstance={instancesModalExam.questions_per_instance}
+        />
+      )}
 
       {/* ── Modal Quản lý lĩnh vực (Hỗ trợ Mobile) ───────────────── */}
       <Modal

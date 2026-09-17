@@ -337,8 +337,46 @@ export interface Exam {
   show_explanations?: boolean;
   show_feedback?: boolean;
   ai_grading?: boolean;
+  is_random_per_student?: boolean;
+  questions_per_instance?: number;
+  anti_collision_enabled?: boolean;
+  max_question_overlap?: number;
+  random_seed_strategy?: string;
   created_at: string;
   sections?: ExamSectionDetail[];
+}
+
+export interface ExamInstance {
+  id: string;
+  exam_id: string;
+  assignment_id?: string;
+  user_id: string;
+  student_name: string;
+  student_email?: string;
+  instance_code: string;
+  question_count: number;
+  question_ids: string[];
+  random_seed: string;
+  max_overlap_ratio?: number;
+  generation_attempts: number;
+  created_at: string;
+}
+
+export interface SimulateInstancesResponse {
+  pool_size: number;
+  sample_size: number;
+  max_overlap_configured: number;
+  max_overlap_observed: number;
+  average_overlap_observed: number;
+  students: {
+    student_index: number;
+    student_label: string;
+    instance_code: string;
+    question_count: number;
+    question_ids: string[];
+    sample_questions: string[];
+  }[];
+  overlap_matrix: number[][];
 }
 
 // ─── Question Usage & Assessment Operations ──────────────────────────────────
