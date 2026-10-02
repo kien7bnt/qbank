@@ -131,16 +131,25 @@ export interface EssayData {
   max_points: number;
 }
 
+export interface CodingTestCase {
+  input: string;
+  output: string;
+  is_hidden?: boolean;
+  explanation?: string;
+}
+
 export interface CodingData {
-  problem_statement: string;
+  problem_statement?: string;
   input_format?: string;
   output_format?: string;
   constraints?: string;
   sample_input?: string;
   sample_output?: string;
-  time_limit_ms: number;
-  memory_limit_mb: number;
-  allowed_languages: string[];
+  time_limit_ms?: number;
+  memory_limit_mb?: number;
+  allowed_languages?: string[];
+  starter_code?: string;
+  test_cases?: CodingTestCase[];
 }
 
 export interface Question {

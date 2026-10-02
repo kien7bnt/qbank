@@ -374,6 +374,18 @@ async def update_question(
             )
             db.add(essay)
 
+    # Update Coding Data
+    if data.coding_data is not None:
+        if question.coding_data:
+            for k, v in data.coding_data.model_dump(exclude_unset=True).items():
+                setattr(question.coding_data, k, v)
+        else:
+            coding = QuestionCoding(
+                question_id=question.id,
+                **data.coding_data.model_dump(),
+            )
+            db.add(coding)
+
     # Increment version and save snapshot
     question.version += 1
     snapshot: dict[str, Any] = data.model_dump(mode="json")

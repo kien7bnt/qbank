@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, CheckCircle, BarChart2, Sparkles, Edit3, Trash2, BookOpen, FileText, Layers, Activity } from 'lucide-react';
+import { X, CheckCircle, BarChart2, Sparkles, Edit3, Trash2, BookOpen, FileText, Layers, Activity, Code2, Terminal } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import toast from 'react-hot-toast';
@@ -168,6 +168,126 @@ export function QuestionDetailDrawer({ questionId, onClose }: QuestionDetailDraw
                     {q.essay_data.sample_answer ?? 'Chưa có đáp án mẫu'}
                   </div>
                   <p className="text-xs text-gray-400">Điểm tối đa: {q.essay_data.max_points}đ</p>
+                </div>
+              )}
+
+              {/* Coding Question Details */}
+              {q.type === 'coding' && q.coding_data && (
+                <div className="min-w-0 space-y-3 rounded-xl border border-blue-200 bg-blue-50/20 p-3.5">
+                  <div className="flex items-center justify-between border-b border-blue-200/70 pb-2">
+                    <div className="flex items-center gap-1.5 text-blue-800 font-bold text-xs sm:text-sm">
+                      <Code2 className="h-4 w-4 text-blue-600" />
+                      Chi tiết bài toán lập trình
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] text-gray-500 font-mono">
+                      <span>⏱️ {q.coding_data.time_limit_ms ?? 1000}ms</span>
+                      <span>💾 {q.coding_data.memory_limit_mb ?? 256}MB</span>
+                    </div>
+                  </div>
+
+                  {/* Languages */}
+                  {q.coding_data.allowed_languages && q.coding_data.allowed_languages.length > 0 && (
+                    <div>
+                      <span className="text-[11px] font-semibold text-gray-500 block mb-1">
+                        Ngôn ngữ cho phép:
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {q.coding_data.allowed_languages.map((lang: string) => (
+                          <span
+                            key={lang}
+                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-white text-blue-700 border border-blue-200 uppercase font-mono"
+                          >
+                            {lang}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Input / Output Format */}
+                  {(q.coding_data.input_format || q.coding_data.output_format) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                      {q.coding_data.input_format && (
+                        <div className="rounded-lg bg-white border border-gray-200 p-2.5">
+                          <span className="font-bold text-gray-700 block mb-1">Đầu vào (Input Format):</span>
+                          <p className="text-gray-600 whitespace-pre-wrap">{q.coding_data.input_format}</p>
+                        </div>
+                      )}
+                      {q.coding_data.output_format && (
+                        <div className="rounded-lg bg-white border border-gray-200 p-2.5">
+                          <span className="font-bold text-gray-700 block mb-1">Đầu ra (Output Format):</span>
+                          <p className="text-gray-600 whitespace-pre-wrap">{q.coding_data.output_format}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Constraints */}
+                  {q.coding_data.constraints && (
+                    <div className="rounded-lg bg-white border border-gray-200 p-2.5 text-xs">
+                      <span className="font-bold text-gray-700 block mb-1">Ràng buộc (Constraints):</span>
+                      <p className="font-mono text-gray-600 whitespace-pre-wrap">{q.coding_data.constraints}</p>
+                    </div>
+                  )}
+
+                  {/* Sample I/O */}
+                  {(q.coding_data.sample_input || q.coding_data.sample_output) && (
+                    <div className="rounded-lg bg-white border border-gray-200 p-3 space-y-2">
+                      <span className="font-bold text-xs text-gray-800 flex items-center gap-1">
+                        <Terminal className="h-3.5 w-3.5 text-gray-600" />
+                        Ví dụ mẫu (Sample):
+                      </span>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 font-mono text-xs">
+                        <div className="bg-gray-50 rounded p-2 border border-gray-200">
+                          <span className="text-[10px] font-bold text-gray-400 block mb-1">Sample Input:</span>
+                          <pre className="whitespace-pre-wrap text-gray-800">{q.coding_data.sample_input || '(Trống)'}</pre>
+                        </div>
+                        <div className="bg-gray-50 rounded p-2 border border-gray-200">
+                          <span className="text-[10px] font-bold text-gray-400 block mb-1">Sample Output:</span>
+                          <pre className="whitespace-pre-wrap text-gray-800">{q.coding_data.sample_output || '(Trống)'}</pre>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Test cases summary */}
+                  {q.coding_data.test_cases && q.coding_data.test_cases.length > 0 && (
+                    <div className="rounded-lg bg-white border border-gray-200 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-gray-800 flex items-center gap-1">
+                          <Terminal className="h-3.5 w-3.5 text-emerald-600" />
+                          Bộ kiểm thử (Test Cases):
+                        </span>
+                        <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          {q.coding_data.test_cases.length} test cases
+                        </span>
+                      </div>
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        {q.coding_data.test_cases.map((tc: any, i: number) => (
+                          <div key={i} className="text-xs border rounded p-2 bg-gray-50/50 flex flex-col gap-1">
+                            <div className="flex items-center justify-between font-bold text-[11px] text-gray-700">
+                              <span>Test #{i + 1}</span>
+                              <span className={tc.is_hidden ? 'text-amber-600 text-[10px]' : 'text-blue-600 text-[10px]'}>
+                                {tc.is_hidden ? '🔒 Test ẩn' : '👁️ Công khai'}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
+                              <div><span className="text-gray-400">In: </span><span className="text-gray-800">{tc.input || '—'}</span></div>
+                              <div><span className="text-gray-400">Out: </span><span className="text-gray-800">{tc.output || '—'}</span></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Starter Code */}
+                  {q.coding_data.starter_code && (
+                    <div className="rounded-lg bg-gray-900 text-gray-100 p-3 text-xs font-mono">
+                      <span className="text-[10px] text-gray-400 block mb-1">// Mã khởi tạo (Starter Code):</span>
+                      <pre className="whitespace-pre-wrap">{q.coding_data.starter_code}</pre>
+                    </div>
+                  )}
                 </div>
               )}
 
