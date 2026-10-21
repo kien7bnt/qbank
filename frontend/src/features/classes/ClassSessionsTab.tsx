@@ -23,6 +23,7 @@ import {
   UserCheck,
   ChevronDown,
   ChevronUp,
+  Loader2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -35,6 +36,7 @@ import { Modal } from '@/components/ui/Modal';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { CreateAssignmentModal } from '@/features/assignments/CreateAssignmentModal';
 import { AssignmentSubmissionsModal } from '@/features/assignments/AssignmentSubmissionsModal';
+import { DocumentPreviewModal } from '@/components/ui/DocumentPreviewModal';
 
 interface ClassSessionsTabProps {
   classId: string;
@@ -81,6 +83,51 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
   const [materialDesc, setMaterialDesc] = useState('');
   const [materialFile, setMaterialFile] = useState<File | null>(null);
   const [materialIsPublic, setMaterialIsPublic] = useState(true);
+
+  // Material download & preview state
+  const [downloadingMaterialId, setDownloadingMaterialId] = useState<string | null>(null);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewTitle, setPreviewTitle] = useState('');
+  const [previewFileType, setPreviewFileType] = useState('');
+
+  const handleDownloadMaterial = async (mat: SessionMaterial) => {
+    if (downloadingMaterialId) return;
+    setDownloadingMaterialId(mat.id);
+    const toastId = toast.loading(`Đang tải xuống: ${mat.title || mat.file_name}...`);
+    try {
+      await sessionApi.downloadMaterial(mat.id, mat.file_name);
+      toast.success('Tải xuống tài liệu thành công!', { id: toastId });
+    } catch (err: any) {
+      console.error('Download error:', err);
+      // Fallback: trigger direct link download with token
+      try {
+        const directUrl = sessionApi.getMaterialDownloadUrl(mat.id);
+        const link = document.createElement('a');
+        link.href = directUrl;
+        link.download = mat.file_name;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+        toast.dismiss(toastId);
+      } catch (fallbackErr) {
+        toast.error('Không thể tải tệp: ' + getErrorMessage(err), { id: toastId });
+      }
+    } finally {
+      setDownloadingMaterialId(null);
+    }
+  };
+
+  const handlePreviewMaterial = (mat: SessionMaterial) => {
+    const targetUrl = mat.id
+      ? sessionApi.getMaterialDownloadUrl(mat.id, true)
+      : getAttachmentUrl(mat.file_path);
+    setPreviewUrl(targetUrl);
+    setPreviewTitle(mat.title || mat.file_name);
+    setPreviewFileType(mat.file_type || '');
+    setPreviewModalOpen(true);
+  };
 
   // Fetch sessions
   const { data: sessionsData, isLoading } = useQuery({
@@ -664,20 +711,27 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
                                   </div>
 
                                   <div className="flex items-center gap-1 shrink-0">
-                                    <a
-                                      href={
-                                        mat.id
-                                          ? `${getBackendOrigin()}/api/v1/materials/${mat.id}/download`
-                                          : getAttachmentUrl(mat.file_path)
-                                      }
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      download={mat.file_name}
-                                      className="p-1.5 text-primary-600 hover:text-primary-800 hover:bg-white rounded-lg transition-colors"
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePreviewMaterial(mat)}
+                                      className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                      title="Xem trước tài liệu"
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDownloadMaterial(mat)}
+                                      disabled={downloadingMaterialId === mat.id}
+                                      className="p-1.5 text-primary-600 hover:text-primary-800 hover:bg-primary-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                                       title="Tải xuống tài liệu"
                                     >
-                                      <FileDown className="h-4 w-4" />
-                                    </a>
+                                      {downloadingMaterialId === mat.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin text-primary-600" />
+                                      ) : (
+                                        <FileDown className="h-4 w-4" />
+                                      )}
+                                    </button>
                                     {isTeacher && (
                                       <>
                                         <button
@@ -1134,6 +1188,15 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
         onOpenChange={(open) => {
           if (!open) setSelectedSubmissionAssignment(null);
         }}
+      />
+
+      {/* Document Preview Modal */}
+      <DocumentPreviewModal
+        open={previewModalOpen}
+        onOpenChange={setPreviewModalOpen}
+        url={previewUrl}
+        title={previewTitle}
+        fileType={previewFileType}
       />
     </div>
   );

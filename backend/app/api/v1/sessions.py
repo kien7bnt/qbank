@@ -4,12 +4,18 @@ API Routers for Class Sessions and Session Materials
 from __future__ import annotations
 import os
 import uuid
+import mimetypes
+from urllib.parse import quote
 from typing import List, Optional
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Query, status
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPAuthorizationCredentials
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_db, get_current_user
+from app.core.dependencies import get_db, get_current_user, bearer_scheme
+from app.core.security import decode_token
+from app.models.user import User
 from app.schemas.session import (
     ClassSessionCreate,
     ClassSessionUpdate,
@@ -112,18 +118,65 @@ async def upload_material(
 @router.get("/materials/{material_id}/download")
 async def download_material(
     material_id: uuid.UUID,
+    token: Optional[str] = Query(None),
+    inline: bool = Query(False),
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
 ):
-    """Tải tài liệu (có xác thực quyền truy cập lớp học)"""
-    material = await session_service.get_material(db, material_id, current_user)
-    if not os.path.exists(material.file_path):
+    """
+    Tải hoặc xem trước tài liệu buổi học.
+    Hỗ trợ cả Bearer header (từ frontend axios) và token trong Query Param (từ thẻ <a> / tab mới).
+    """
+    # 1. Xác thực người dùng qua Header hoặc Query Param
+    raw_token = credentials.credentials if credentials else token
+    user = None
+    if raw_token:
+        try:
+            payload = decode_token(raw_token)
+            if payload and payload.get("type") == "access":
+                user_id_str = payload.get("sub")
+                if user_id_str:
+                    u_id = uuid.UUID(user_id_str)
+                    stmt = select(User).where(User.id == u_id)
+                    res = await db.execute(stmt)
+                    user = res.scalar_one_or_none()
+        except Exception:
+            user = None
+
+    # 2. Lấy thông tin tài liệu & kiểm tra quyền
+    if user is not None:
+        material = await session_service.get_material(db, material_id, user)
+    else:
+        material = await session_service.get_material_raw(db, material_id)
+        if not material.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Vui lòng đăng nhập để tải tài liệu này",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+    # 3. Định vị file thực tế trên hệ thống lưu trữ
+    file_path = session_service.resolve_material_file_path(material)
+    if not file_path or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File không tồn tại trên hệ thống lưu trữ")
 
+    # 4. Xác định mime_type
+    mime_type, _ = mimetypes.guess_type(material.file_name)
+    if not mime_type:
+        mime_type = "application/octet-stream"
+
+    # 5. Header Content-Disposition an toàn UTF-8 RFC 5987
+    disposition = "inline" if inline else "attachment"
+    encoded_filename = quote(material.file_name)
+    headers = {
+        "Content-Disposition": f"{disposition}; filename=\"{material.file_name}\"; filename*=UTF-8''{encoded_filename}"
+    }
+
     return FileResponse(
-        path=material.file_path,
+        path=str(file_path),
         filename=material.file_name,
-        media_type="application/octet-stream",
+        media_type=mime_type,
+        headers=headers,
     )
 
 

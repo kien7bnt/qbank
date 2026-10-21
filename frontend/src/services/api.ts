@@ -53,7 +53,7 @@ export function getBackendOrigin(): string {
 export function getAttachmentUrl(url?: string): string {
   if (!url) return '';
   const backendOrigin = getBackendOrigin();
-  let normalized = url.trim();
+  let normalized = url.trim().replace(/\\/g, '/');
 
   // Route /uploads/ through /api/v1/uploads/ to ensure reverse proxies (Nginx) forward requests to backend
   if (normalized.startsWith('/uploads/')) {
@@ -272,6 +272,32 @@ export const sessionApi = {
 
   toggleMaterialVisibility: (materialId: string, isPublic: boolean) =>
     apiClient.patch<SessionMaterial>(`/materials/${materialId}/visibility?is_public=${isPublic}`),
+
+  downloadMaterial: async (materialId: string, filename?: string) => {
+    const res = await apiClient.get(`/materials/${materialId}/download`, {
+      responseType: 'blob',
+    });
+    const contentType = (res.headers['content-type'] as string) || 'application/octet-stream';
+    const blob = new Blob([res.data], { type: contentType });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename || 'tai-lieu');
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
+    setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+  },
+
+  getMaterialDownloadUrl: (materialId: string, inline = false) => {
+    const token = localStorage.getItem('access_token');
+    const base = `${getBackendOrigin()}/api/v1/materials/${materialId}/download`;
+    const params = new URLSearchParams();
+    if (token) params.set('token', token);
+    if (inline) params.set('inline', 'true');
+    const qs = params.toString();
+    return qs ? `${base}?${qs}` : base;
+  },
 };
 
 // ─── Attendance API ──────────────────────────────────────────────────────────

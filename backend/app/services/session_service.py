@@ -17,7 +17,8 @@ from app.models.session import ClassSession, SessionMaterial
 from app.models.class_ import Class, ClassMember
 from app.schemas.session import ClassSessionCreate, ClassSessionUpdate, SessionMaterialCreate
 
-UPLOAD_DIR = Path("uploads/sessions")
+BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+UPLOAD_DIR = BACKEND_DIR / "uploads" / "sessions"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_MATERIAL_EXTENSIONS = {
@@ -204,7 +205,7 @@ async def upload_session_material(
         session_id=session_id,
         title=title.strip() if title else original_filename,
         description=description.strip() if description else None,
-        file_path=str(save_path),
+        file_path=f"uploads/sessions/{session_id}/{material_id}.{ext}",
         file_name=original_filename,
         file_type=ext,
         file_size=len(content),
@@ -218,13 +219,69 @@ async def upload_session_material(
     return material
 
 
-async def get_material(db: AsyncSession, material_id: uuid.UUID, user) -> SessionMaterial:
+def resolve_material_file_path(material: SessionMaterial) -> Optional[Path]:
+    """
+    Xác định đường dẫn file thực tế trên ổ cứng, hỗ trợ:
+    - Đường dẫn tuyệt đối
+    - Đường dẫn tương đối từ backend/
+    - Cấu trúc chuẩn uploads/sessions/{session_id}/{material_id}.{ext}
+    - Tìm kiếm theo ID file trong thư mục uploads/sessions
+    """
+    if not material:
+        return None
+
+    raw_path_str = (material.file_path or "").replace("\\", "/")
+    raw_p = Path(raw_path_str)
+
+    # 1. Thử trực tiếp raw_path
+    if raw_p.is_file():
+        return raw_p
+
+    # 2. Thử tương đối từ BACKEND_DIR
+    backend_p = (BACKEND_DIR / raw_path_str).resolve()
+    if backend_p.is_file():
+        return backend_p
+
+    # 3. Thử cấu trúc chuẩn uploads/sessions/{session_id}/{material_id}.ext
+    ext = material.file_type or (material.file_name.rsplit(".", 1)[-1].lower() if "." in material.file_name else "")
+    std_p = UPLOAD_DIR / str(material.session_id) / f"{material.id}.{ext}"
+    if std_p.is_file():
+        return std_p
+
+    # 4. Thử theo tên file gốc trong session_id
+    orig_p = UPLOAD_DIR / str(material.session_id) / material.file_name
+    if orig_p.is_file():
+        return orig_p
+
+    # 5. Thử tên file trực tiếp trong UPLOAD_DIR
+    if raw_p.name:
+        direct_name_p = UPLOAD_DIR / raw_p.name
+        if direct_name_p.is_file():
+            return direct_name_p
+
+    # 6. Tìm kiếm đệ quy theo material.id trong UPLOAD_DIR
+    try:
+        for found in UPLOAD_DIR.rglob(f"{material.id}*"):
+            if found.is_file():
+                return found
+    except Exception:
+        pass
+
+    return None
+
+
+async def get_material_raw(db: AsyncSession, material_id: uuid.UUID) -> SessionMaterial:
+    """Lấy thông tin tài liệu không cần user (để kiểm tra is_public)"""
     stmt = select(SessionMaterial).where(SessionMaterial.id == material_id)
     res = await db.execute(stmt)
     material = res.scalar_one_or_none()
     if not material:
         raise HTTPException(status_code=404, detail="Không tìm thấy tài liệu")
-        
+    return material
+
+
+async def get_material(db: AsyncSession, material_id: uuid.UUID, user) -> SessionMaterial:
+    material = await get_material_raw(db, material_id)
     session = await get_session(db, material.session_id, user)
     return material
 
@@ -245,9 +302,10 @@ async def delete_material(db: AsyncSession, material_id: uuid.UUID, user) -> Non
     session = await get_session(db, material.session_id, user)
     await check_class_access(db, session.class_id, user, require_teacher=True)
     
-    if os.path.exists(material.file_path):
+    file_on_disk = resolve_material_file_path(material)
+    if file_on_disk and file_on_disk.is_file():
         try:
-            os.remove(material.file_path)
+            file_on_disk.unlink(missing_ok=True)
         except Exception:
             pass
             
