@@ -9,12 +9,13 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import List, Optional
 from fastapi import HTTPException, UploadFile, status
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.session import ClassSession, SessionMaterial
 from app.models.class_ import Class, ClassMember
+from app.models.document import UserDocument
 from app.schemas.session import ClassSessionCreate, ClassSessionUpdate, SessionMaterialCreate
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
@@ -217,6 +218,105 @@ async def upload_session_material(
     await db.commit()
     await db.refresh(material)
     return material
+
+
+async def add_materials_from_library(
+    db: AsyncSession,
+    session_id: uuid.UUID,
+    document_ids: List[uuid.UUID],
+    is_public: bool,
+    user,
+) -> List[SessionMaterial]:
+    """
+    Đính kèm tài liệu từ Kho tài liệu cá nhân vào buổi học.
+    Sao chép tệp tin vào thư mục buổi học để đảm bảo tính độc lập dữ liệu lớp học.
+    """
+    session = await get_session(db, session_id, user)
+    await check_class_access(db, session.class_id, user, require_teacher=True)
+
+    if not document_ids:
+        raise HTTPException(status_code=400, detail="Vui lòng chọn ít nhất một tài liệu")
+
+    # Lấy danh sách tài liệu từ user_documents
+    stmt = select(UserDocument).where(
+        UserDocument.id.in_(document_ids),
+        UserDocument.status == "active",
+    )
+    res = await db.execute(stmt)
+    docs = res.scalars().all()
+    if not docs:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài liệu nào hợp lệ trong kho")
+
+    session_dir = UPLOAD_DIR / str(session_id)
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    # Lấy order_index lớn nhất hiện có
+    order_stmt = select(func.coalesce(func.max(SessionMaterial.order_index), 0)).where(
+        SessionMaterial.session_id == session_id
+    )
+    max_order = (await db.execute(order_stmt)).scalar() or 0
+
+    added_materials: List[SessionMaterial] = []
+    for doc in docs:
+        material_id = uuid.uuid4()
+        ext = (doc.file_type or "bin").lower().strip()
+        save_path = session_dir / f"{material_id}.{ext}"
+
+        # Tìm và sao chép tệp gốc
+        file_copied = False
+        doc_raw_p = Path(doc.file_path) if doc.file_path else None
+        if doc_raw_p and doc_raw_p.is_file():
+            shutil.copy2(doc_raw_p, save_path)
+            file_copied = True
+        else:
+            # Thử đường dẫn tương đối từ backend
+            if doc.file_path:
+                backend_doc_p = (BACKEND_DIR / str(doc.file_path).replace("\\", "/")).resolve()
+                if backend_doc_p.is_file():
+                    shutil.copy2(backend_doc_p, save_path)
+                    file_copied = True
+
+            if not file_copied:
+                # Thử tìm trong uploads/doc_user_id
+                doc_uploads_dir = BACKEND_DIR / "uploads" / str(doc.user_id)
+                cand = doc_uploads_dir / f"{doc.id}.{ext}"
+                if cand.is_file():
+                    shutil.copy2(cand, save_path)
+                    file_copied = True
+
+        # Nếu không có tệp nhị phân nhưng có extracted_text thì tạo file txt/md dự phòng
+        if not file_copied:
+            if doc.extracted_text:
+                with open(save_path, "w", encoding="utf-8") as f:
+                    f.write(doc.extracted_text)
+            else:
+                with open(save_path, "wb") as f:
+                    f.write(b"")
+
+        file_size = save_path.stat().st_size if save_path.is_file() else (doc.file_size or 0)
+        max_order += 1
+
+        material = SessionMaterial(
+            id=material_id,
+            session_id=session_id,
+            title=doc.title,
+            description=doc.description,
+            file_path=f"uploads/sessions/{session_id}/{material_id}.{ext}",
+            file_name=doc.original_filename or f"{doc.title}.{ext}",
+            file_type=ext,
+            file_size=file_size,
+            order_index=max_order,
+            is_public=is_public,
+            uploaded_by=user.id,
+        )
+        db.add(material)
+        added_materials.append(material)
+
+    await db.commit()
+    for mat in added_materials:
+        await db.refresh(mat)
+
+    return added_materials
 
 
 def resolve_material_file_path(material: SessionMaterial) -> Optional[Path]:

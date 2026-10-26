@@ -24,11 +24,14 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  BookMarked,
+  Search,
+  Tag,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import { sessionApi, assignmentApi, attendanceApi, classApi, getErrorMessage, getBackendOrigin, getAttachmentUrl } from '@/services/api';
+import { sessionApi, assignmentApi, attendanceApi, classApi, documentApi, getErrorMessage, getBackendOrigin, getAttachmentUrl } from '@/services/api';
 import type { ClassSession, SessionMaterial } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -76,13 +79,48 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
     }));
   };
 
-  // Material upload state
-  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  // Material upload & library state
+  const [materialModalOpen, setMaterialModalOpen] = useState(false);
+  const [materialSourceTab, setMaterialSourceTab] = useState<'library' | 'upload'>('library');
   const [targetSessionId, setTargetSessionId] = useState<string | null>(null);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
+  const [librarySearch, setLibrarySearch] = useState('');
+  const [librarySelectedTopic, setLibrarySelectedTopic] = useState<string | null>(null);
+
   const [materialTitle, setMaterialTitle] = useState('');
   const [materialDesc, setMaterialDesc] = useState('');
   const [materialFile, setMaterialFile] = useState<File | null>(null);
   const [materialIsPublic, setMaterialIsPublic] = useState(true);
+
+  // Fetch documents from user's Document Library
+  const { data: libraryDocsData, isLoading: isLoadingLibraryDocs } = useQuery({
+    queryKey: ['my-documents-for-sessions'],
+    queryFn: () => documentApi.list(),
+    enabled: materialModalOpen && isTeacher,
+  });
+  const libraryDocuments = useMemo(() => {
+    return (libraryDocsData?.data as any[]) || [];
+  }, [libraryDocsData]);
+
+  const libraryTopics = useMemo(() => {
+    const set = new Set<string>();
+    libraryDocuments.forEach((doc) => {
+      if (doc.topic_tag) set.add(doc.topic_tag);
+    });
+    return Array.from(set);
+  }, [libraryDocuments]);
+
+  const filteredLibraryDocs = useMemo(() => {
+    return libraryDocuments.filter((doc) => {
+      const matchSearch =
+        !librarySearch.trim() ||
+        doc.title?.toLowerCase().includes(librarySearch.toLowerCase()) ||
+        (doc.original_filename && doc.original_filename.toLowerCase().includes(librarySearch.toLowerCase())) ||
+        (doc.topic_tag && doc.topic_tag.toLowerCase().includes(librarySearch.toLowerCase()));
+      const matchTopic = !librarySelectedTopic || doc.topic_tag === librarySelectedTopic;
+      return matchSearch && matchTopic;
+    });
+  }, [libraryDocuments, librarySearch, librarySelectedTopic]);
 
   // Material download & preview state
   const [downloadingMaterialId, setDownloadingMaterialId] = useState<string | null>(null);
@@ -243,7 +281,23 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['class-sessions', classId] });
       toast.success('Đã tải lên tài liệu thành công!');
-      closeUploadModal();
+      closeMaterialModal();
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+
+  // Add from Library Mutation
+  const addFromLibraryMutation = useMutation({
+    mutationFn: () => {
+      if (!targetSessionId || selectedDocumentIds.length === 0) {
+        throw new Error('Vui lòng chọn ít nhất một tài liệu từ kho');
+      }
+      return sessionApi.addMaterialsFromLibrary(targetSessionId, selectedDocumentIds, materialIsPublic);
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['class-sessions', classId] });
+      toast.success(`Đã thêm ${res.data?.length || selectedDocumentIds.length} tài liệu vào buổi học!`);
+      closeMaterialModal();
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
@@ -295,22 +349,32 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
     setSessionDate('');
   };
 
-  const openUploadModal = (sessionId: string) => {
+  const openAddMaterialModal = (sessionId: string, initialTab: 'library' | 'upload' = 'library') => {
     setTargetSessionId(sessionId);
+    setMaterialSourceTab(initialTab);
+    setSelectedDocumentIds([]);
+    setLibrarySearch('');
+    setLibrarySelectedTopic(null);
     setMaterialTitle('');
     setMaterialDesc('');
     setMaterialFile(null);
     setMaterialIsPublic(true);
-    setUploadModalOpen(true);
+    setMaterialModalOpen(true);
   };
 
-  const closeUploadModal = () => {
-    setUploadModalOpen(false);
+  const closeMaterialModal = () => {
+    setMaterialModalOpen(false);
     setTargetSessionId(null);
+    setSelectedDocumentIds([]);
+    setLibrarySearch('');
+    setLibrarySelectedTopic(null);
     setMaterialTitle('');
     setMaterialDesc('');
     setMaterialFile(null);
   };
+
+  const openUploadModal = (sessionId: string) => openAddMaterialModal(sessionId, 'upload');
+  const closeUploadModal = closeMaterialModal;
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -654,29 +718,54 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
                             Tài liệu đính kèm ({matCount})
                           </h4>
                           {isTeacher && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openUploadModal(session.id)}
-                              className="h-7 text-xs border-amber-200 text-amber-800 hover:bg-amber-50"
-                            >
-                              <Upload className="h-3 w-3 mr-1 text-amber-600" />
-                              Tải tài liệu mới
-                            </Button>
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openAddMaterialModal(session.id, 'library')}
+                                className="h-7 text-xs border-amber-300 text-amber-800 bg-amber-50/50 hover:bg-amber-100"
+                              >
+                                <BookMarked className="h-3 w-3 mr-1 text-amber-600" />
+                                Lấy từ Kho tài liệu
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openAddMaterialModal(session.id, 'upload')}
+                                className="h-7 text-xs border-primary-200 text-primary-800 hover:bg-primary-50"
+                              >
+                                <Upload className="h-3 w-3 mr-1 text-primary-600" />
+                                Tải tệp lên
+                              </Button>
+                            </div>
                           )}
                         </div>
 
                         {matCount === 0 ? (
-                          <div className="text-center py-5 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                          <div className="text-center py-6 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
                             <Paperclip className="h-8 w-8 text-gray-300 mx-auto mb-1.5" />
                             <p className="text-xs text-gray-500">Chưa có tài liệu đính kèm cho buổi này.</p>
                             {isTeacher && (
-                              <button
-                                onClick={() => openUploadModal(session.id)}
-                                className="mt-2 inline-flex items-center gap-1 text-xs text-primary-600 font-medium hover:underline"
-                              >
-                                <Upload className="h-3 w-3" /> Tải tài liệu ngay
-                              </button>
+                              <div className="mt-3 flex items-center justify-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openAddMaterialModal(session.id, 'library')}
+                                  className="h-7 text-xs border-amber-300 text-amber-800 bg-amber-50/60 hover:bg-amber-100"
+                                >
+                                  <BookMarked className="h-3.5 w-3.5 mr-1 text-amber-600" />
+                                  Chọn từ Kho tài liệu
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openAddMaterialModal(session.id, 'upload')}
+                                  className="h-7 text-xs border-primary-200 text-primary-800 hover:bg-primary-50"
+                                >
+                                  <Upload className="h-3.5 w-3.5 mr-1 text-primary-600" />
+                                  Tải tệp lên từ máy
+                                </Button>
+                              </div>
                             )}
                           </div>
                         ) : (
@@ -1082,84 +1171,293 @@ export function ClassSessionsTab({ classId, isTeacher }: ClassSessionsTabProps) 
         </div>
       </Modal>
 
-      {/* Upload Material Modal */}
+      {/* Add Material Modal (From Library OR Upload New) */}
       <Modal
-        open={uploadModalOpen}
-        onOpenChange={setUploadModalOpen}
+        open={materialModalOpen}
+        onOpenChange={setMaterialModalOpen}
         title={
           <div className="flex items-center gap-2">
-            <Upload className="h-5 w-5 text-primary-600" />
-            <span>Tải lên tài liệu học tập</span>
+            <Paperclip className="h-5 w-5 text-primary-600" />
+            <span>Thêm tài liệu vào buổi học</span>
           </div>
         }
         footer={
           <>
-            <Button variant="secondary" onClick={closeUploadModal}>
+            <Button variant="secondary" onClick={closeMaterialModal}>
               Hủy
             </Button>
-            <Button
-              loading={uploadMaterialMutation.isPending}
-              onClick={() => {
-                if (!materialFile) {
-                  toast.error('Vui lòng chọn tệp tin cần tải lên');
-                  return;
-                }
-                uploadMaterialMutation.mutate();
-              }}
-            >
-              <Upload className="h-4 w-4 mr-1.5" />
-              Bắt đầu tải lên
-            </Button>
+            {materialSourceTab === 'library' ? (
+              <Button
+                loading={addFromLibraryMutation.isPending}
+                disabled={selectedDocumentIds.length === 0}
+                onClick={() => addFromLibraryMutation.mutate()}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                <BookMarked className="h-4 w-4 mr-1.5" />
+                {selectedDocumentIds.length > 0
+                  ? `Thêm ${selectedDocumentIds.length} tài liệu đã chọn`
+                  : 'Chọn tài liệu để thêm'}
+              </Button>
+            ) : (
+              <Button
+                loading={uploadMaterialMutation.isPending}
+                disabled={!materialFile}
+                onClick={() => {
+                  if (!materialFile) {
+                    toast.error('Vui lòng chọn tệp tin cần tải lên');
+                    return;
+                  }
+                  uploadMaterialMutation.mutate();
+                }}
+              >
+                <Upload className="h-4 w-4 mr-1.5" />
+                Bắt đầu tải lên
+              </Button>
+            )}
           </>
         }
       >
         <div className="space-y-4">
-          <Input
-            label="Tên tài liệu / Tiêu đề"
-            placeholder="Ví dụ: Bài giảng Slide Chương 1 (PDF)"
-            value={materialTitle}
-            onChange={(e) => setMaterialTitle(e.target.value)}
-          />
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả ngắn</label>
-            <textarea
-              rows={2}
-              placeholder="Ghi chú thêm về tài liệu này..."
-              value={materialDesc}
-              onChange={(e) => setMaterialDesc(e.target.value)}
-              className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            />
+          {/* Source Tabs */}
+          <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setMaterialSourceTab('library')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                materialSourceTab === 'library'
+                  ? 'bg-white text-amber-700 shadow-xs'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <BookMarked className="h-4 w-4 text-amber-600" />
+              Lấy từ Kho tài liệu {libraryDocuments.length > 0 ? `(${libraryDocuments.length})` : ''}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMaterialSourceTab('upload')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                materialSourceTab === 'upload'
+                  ? 'bg-white text-primary-700 shadow-xs'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Upload className="h-4 w-4 text-primary-600" />
+              Tải tệp mới từ máy
+            </button>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Chọn tệp tin (PDF, Word, Slide, Zip...)</label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  const file = e.target.files[0];
-                  setMaterialFile(file);
-                  if (!materialTitle) {
-                    setMaterialTitle(file.name);
-                  }
-                }
-              }}
-              className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer"
-            />
-          </div>
+          {/* TAB 1: Pick from Document Library */}
+          {materialSourceTab === 'library' && (
+            <div className="space-y-3">
+              {/* Search & Topic Filters */}
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Tìm theo tên tài liệu, chủ đề..."
+                    value={librarySearch}
+                    onChange={(e) => setLibrarySearch(e.target.value)}
+                    className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border border-gray-200 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 bg-white"
+                  />
+                </div>
 
-          <div className="flex items-center gap-2 pt-2">
+                {libraryTopics.length > 0 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto py-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setLibrarySelectedTopic(null)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors shrink-0 cursor-pointer ${
+                        !librarySelectedTopic
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Tất cả chủ đề
+                    </button>
+                    {libraryTopics.map((topic) => (
+                      <button
+                        key={topic}
+                        type="button"
+                        onClick={() => setLibrarySelectedTopic(topic === librarySelectedTopic ? null : topic)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors shrink-0 cursor-pointer ${
+                          topic === librarySelectedTopic
+                            ? 'bg-amber-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        #{topic}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Selection Bar */}
+              <div className="flex items-center justify-between text-xs text-gray-500 px-1">
+                <span>
+                  Đã chọn: <strong className="text-amber-700">{selectedDocumentIds.length}</strong> / {filteredLibraryDocs.length} tài liệu
+                </span>
+                {filteredLibraryDocs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedDocumentIds.length === filteredLibraryDocs.length) {
+                        setSelectedDocumentIds([]);
+                      } else {
+                        setSelectedDocumentIds(filteredLibraryDocs.map((d: any) => d.id));
+                      }
+                    }}
+                    className="text-amber-700 hover:underline font-medium cursor-pointer"
+                  >
+                    {selectedDocumentIds.length === filteredLibraryDocs.length
+                      ? 'Bỏ chọn tất cả'
+                      : 'Chọn tất cả'}
+                  </button>
+                )}
+              </div>
+
+              {/* Documents List */}
+              {isLoadingLibraryDocs ? (
+                <div className="py-8 flex flex-col items-center justify-center text-gray-400 gap-2">
+                  <Loader2 className="h-6 w-6 animate-spin text-amber-600" />
+                  <span className="text-xs">Đang tải kho tài liệu...</span>
+                </div>
+              ) : libraryDocuments.length === 0 ? (
+                <div className="text-center py-8 px-4 bg-amber-50/40 rounded-xl border border-dashed border-amber-200">
+                  <BookMarked className="h-10 w-10 text-amber-400 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-gray-800">Kho tài liệu của bạn chưa có tệp nào</p>
+                  <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+                    Bạn có thể chuyển sang tab "Tải tệp mới từ máy tính" ở trên để tải trực tiếp vào buổi học.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setMaterialSourceTab('upload')}
+                    className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-medium cursor-pointer"
+                  >
+                    <Upload className="h-3.5 w-3.5" /> Chuyển sang tải tệp ngay
+                  </button>
+                </div>
+              ) : filteredLibraryDocs.length === 0 ? (
+                <div className="text-center py-6 text-gray-400 text-xs">
+                  Không tìm thấy tài liệu phù hợp với tìm kiếm.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {filteredLibraryDocs.map((doc: any) => {
+                    const isSelected = selectedDocumentIds.includes(doc.id);
+                    const isPdf = doc.file_type === 'pdf';
+                    const isWord = doc.file_type === 'docx';
+                    return (
+                      <div
+                        key={doc.id}
+                        onClick={() => {
+                          setSelectedDocumentIds((prev) =>
+                            prev.includes(doc.id) ? prev.filter((id) => id !== doc.id) : [...prev, doc.id]
+                          );
+                        }}
+                        className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-amber-400 bg-amber-50/70 shadow-xs ring-1 ring-amber-400'
+                            : 'border-gray-200 bg-white hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer pointer-events-none"
+                          />
+                          <div
+                            className={`p-2 rounded-lg shrink-0 ${
+                              isPdf ? 'bg-red-100 text-red-600' : isWord ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-gray-900 truncate" title={doc.title}>
+                              {doc.title}
+                            </p>
+                            <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5">
+                              <span>{formatFileSize(doc.file_size)}</span>
+                              {doc.topic_tag && (
+                                <span className="px-1.5 py-0.2 rounded bg-gray-100 text-gray-600 font-medium">
+                                  #{doc.topic_tag}
+                                </span>
+                              )}
+                              {doc.original_filename && doc.original_filename !== doc.title && (
+                                <span className="truncate max-w-[130px]">{doc.original_filename}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <span className="text-[11px] font-bold text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-full shrink-0">
+                            Đã chọn
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: Upload New from Computer */}
+          {materialSourceTab === 'upload' && (
+            <div className="space-y-3.5">
+              <Input
+                label="Tên tài liệu / Tiêu đề *"
+                placeholder="Ví dụ: Bài giảng Slide Chương 1 (PDF)"
+                value={materialTitle}
+                onChange={(e) => setMaterialTitle(e.target.value)}
+              />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả ngắn</label>
+                <textarea
+                  rows={2}
+                  placeholder="Ghi chú thêm về tài liệu này..."
+                  value={materialDesc}
+                  onChange={(e) => setMaterialDesc(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Chọn tệp tin (PDF, Word, Slide, Zip...)</label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      const file = e.target.files[0];
+                      setMaterialFile(file);
+                      if (!materialTitle) {
+                        setMaterialTitle(file.name);
+                      }
+                    }
+                  }}
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Visibility toggle for both tabs */}
+          <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
             <input
               type="checkbox"
-              id="mat-public"
+              id="mat-public-modal"
               checked={materialIsPublic}
               onChange={(e) => setMaterialIsPublic(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
             />
-            <label htmlFor="mat-public" className="text-sm font-medium text-gray-700 cursor-pointer">
-              Công khai cho học sinh xem và tải về ngay
+            <label htmlFor="mat-public-modal" className="text-xs font-medium text-gray-700 cursor-pointer select-none">
+              Công khai cho học sinh trong lớp xem và tải về
             </label>
           </div>
         </div>

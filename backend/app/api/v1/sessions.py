@@ -21,6 +21,7 @@ from app.schemas.session import (
     ClassSessionUpdate,
     ClassSessionOut,
     SessionMaterialOut,
+    MaterialsFromLibraryIn,
 )
 from app.services import session_service
 
@@ -111,6 +112,23 @@ async def upload_material(
         description=description,
         is_public=is_public,
         order_index=order_index,
+        user=current_user,
+    )
+
+
+@router.post("/sessions/{session_id}/materials/from-library", response_model=List[SessionMaterialOut], status_code=status.HTTP_201_CREATED)
+async def add_materials_from_library(
+    session_id: uuid.UUID,
+    data: MaterialsFromLibraryIn,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Chọn và đính kèm tài liệu từ Kho tài liệu cá nhân vào buổi học"""
+    return await session_service.add_materials_from_library(
+        db,
+        session_id=session_id,
+        document_ids=data.document_ids,
+        is_public=data.is_public,
         user=current_user,
     )
 

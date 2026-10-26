@@ -31,6 +31,11 @@ class SessionMaterialCreate(BaseModel):
     order_index: int = 1
 
 
+class MaterialsFromLibraryIn(BaseModel):
+    document_ids: List[uuid.UUID]
+    is_public: bool = True
+
+
 class SessionAssignmentSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

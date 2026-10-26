@@ -268,6 +268,12 @@ export const sessionApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
 
+  addMaterialsFromLibrary: (sessionId: string, documentIds: string[], isPublic = true) =>
+    apiClient.post<SessionMaterial[]>(`/sessions/${sessionId}/materials/from-library`, {
+      document_ids: documentIds,
+      is_public: isPublic,
+    }),
+
   deleteMaterial: (materialId: string) => apiClient.delete(`/materials/${materialId}`),
 
   toggleMaterialVisibility: (materialId: string, isPublic: boolean) =>
