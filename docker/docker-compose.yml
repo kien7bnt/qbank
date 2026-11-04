@@ -5,15 +5,15 @@ services:
     image: postgres:16-alpine
     container_name: qbank_db
     environment:
-      POSTGRES_USER: qbank
-      POSTGRES_PASSWORD: qbank
-      POSTGRES_DB: qbank
+      POSTGRES_USER: ${POSTGRES_USER:-qbank}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qbank}
+      POSTGRES_DB: ${POSTGRES_DB:-qbank}
     ports:
-      - "5433:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U qbank"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-qbank}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,7 +22,7 @@ services:
     image: redis:7-alpine
     container_name: qbank_redis
     ports:
-      - "6380:6379"
+      - "${REDIS_PORT:-6380}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -37,16 +37,16 @@ services:
       dockerfile: ../docker/Dockerfile.backend
     container_name: qbank_backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://qbank:qbank@db:5432/qbank
-      SECRET_KEY: dev-secret-key-change-in-production-32chars
-      ALGORITHM: HS256
-      ACCESS_TOKEN_EXPIRE_MINUTES: 10080
-      REFRESH_TOKEN_EXPIRE_DAYS: 30
-      REDIS_URL: redis://redis:6379/0
-      CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000","https://edumate.com.vn"]'
-      DEBUG: "true"
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://qbank:qbank@db:5432/qbank}
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production-32chars}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-30}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:5173","http://localhost:3000","https://edumate.com.vn"]}
+      DEBUG: ${DEBUG:-true}
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ../backend:/app
     depends_on:
@@ -60,9 +60,13 @@ services:
     build:
       context: ../frontend
       dockerfile: ../docker/Dockerfile.frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
     container_name: qbank_frontend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/v1}
     ports:
-      - "5173:5173"
+      - "${FRONTEND_PORT:-5173}:5173"
     volumes:
       - ../frontend:/app
       - /app/node_modules
