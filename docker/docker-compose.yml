@@ -22,7 +22,7 @@ services:
     image: redis:7-alpine
     container_name: qbank_redis
     ports:
-      - "${REDIS_PORT:-6380}:6379"
+      - "${REDIS_PORT:-6380}:6380"
     volumes:
       - redis_data:/data
     healthcheck:
