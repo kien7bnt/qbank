@@ -61,6 +61,10 @@ services:
       context: ../frontend
       dockerfile: ../docker/Dockerfile.frontend
     container_name: qbank_frontend
+    env_file:
+      - ../frontend/.env
+    environment:
+      - BACKEND_PROXY_URL=http://backend:8000
     ports:
       - "5173:5173"
     volumes:

@@ -213,6 +213,7 @@ async def init_db() -> None:
                     status="active",
                 )
                 session.add(admin_user)
+                await session.flush()
                 for r_name in ["admin", "teacher", "student"]:
                     if r_name in roles_map:
                         session.add(UserRole(user_id=admin_user.id, role_id=roles_map[r_name].id))

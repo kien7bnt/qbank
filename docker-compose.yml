@@ -34,7 +34,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: ./docker/Dockerfile.backend
+      dockerfile: ../docker/Dockerfile.backend
     container_name: qbank_backend
     environment:
       DATABASE_URL: postgresql+asyncpg://qbank:qbank@db:5432/qbank
@@ -59,8 +59,10 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: ./docker/Dockerfile.frontend
+      dockerfile: ../docker/Dockerfile.frontend
     container_name: qbank_frontend
+    environment:
+      - BACKEND_PROXY_URL=http://backend:8000
     ports:
       - "5173:5173"
     volumes:

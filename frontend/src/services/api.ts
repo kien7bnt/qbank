@@ -39,14 +39,18 @@ import { useAuthStore } from '@/stores/auth.store';
 const isBrowser = typeof window !== 'undefined';
 const protocol = isBrowser && window.location.protocol === 'https:' ? 'https:' : 'http:';
 const API_HOST = isBrowser ? window.location.hostname : 'localhost';
-const defaultBaseUrl = `${protocol}//${API_HOST}:8000/api/v1`;
+const isLocalhost = API_HOST === 'localhost' || API_HOST === '127.0.0.1';
+const defaultBaseUrl = isLocalhost ? `${protocol}//${API_HOST}:8000/api/v1` : '/api/v1';
 export const BASE_URL = import.meta.env.VITE_API_URL || defaultBaseUrl;
 
 export function getBackendOrigin(): string {
   try {
+    if (isBrowser && (BASE_URL.startsWith('/') || !BASE_URL.startsWith('http'))) {
+      return window.location.origin;
+    }
     return new URL(BASE_URL).origin;
   } catch {
-    return `${protocol}//${API_HOST}:8000`;
+    return isBrowser ? window.location.origin : `${protocol}//${API_HOST}:8000`;
   }
 }
 
