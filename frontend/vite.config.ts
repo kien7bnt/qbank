@@ -18,6 +18,8 @@ const blockDotFilesPlugin = (): Plugin => ({
   },
 });
 
+const backendTarget = process.env.BACKEND_PROXY_URL || process.env.VITE_BACKEND_PROXY_URL || 'http://127.0.0.1:8000';
+
 export default defineConfig({
   plugins: [react(), blockDotFilesPlugin()],
   resolve: {
@@ -34,11 +36,11 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'http://127.0.0.1:8000',
+        target: backendTarget,
         changeOrigin: true,
       },
     },
@@ -49,11 +51,11 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: backendTarget,
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'http://127.0.0.1:8000',
+        target: backendTarget,
         changeOrigin: true,
       },
     },
