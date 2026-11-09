@@ -151,6 +151,10 @@ async def create_questions_batch(
 
     next_num = max(max_num, len(all_item_ids))
 
+    from app.services.curriculum_service import get_default_subject
+    from app.services.analytics_service import compute_irt_params
+    def_sub = await get_default_subject(db)
+
     for q_data in data.questions:
         next_num += 1
         while f"Q{next_num:04d}" in all_item_ids:
@@ -161,6 +165,12 @@ async def create_questions_batch(
         chapter_id = q_data.chapter_id or data.chapter_id
         topic_id = q_data.topic_id or data.topic_id
         subject_id = q_data.subject_id or data.subject_id
+        if not subject_id and chapter_id:
+            chap = await db.get(Chapter, chapter_id)
+            if chap and chap.subject_id:
+                subject_id = chap.subject_id
+        if not subject_id:
+            subject_id = def_sub.id
 
         question = Question(
             item_id=item_id,
@@ -175,9 +185,17 @@ async def create_questions_batch(
             learning_objective_id=q_data.learning_objective_id,
             bloom_level=q_data.bloom_level or "understand",
             expected_difficulty=q_data.expected_difficulty or "medium",
+            in_exercise_bank=bool(getattr(q_data, "in_exercise_bank", False)),
+            is_calibrated=False,
+            response_count=0,
             created_by=user_id,
             version=1,
         )
+        irt_a, irt_b, irt_c = compute_irt_params(question)
+        question.irt_a = irt_a
+        question.irt_b = irt_b
+        question.irt_c = irt_c
+
         db.add(question)
         await db.flush()
         created_ids.append(question.id)

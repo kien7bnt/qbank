@@ -242,6 +242,10 @@ async def init_db() -> None:
                 # Strictly calibrated ONLY if answered at least 10 times!
                 q.is_calibrated = (count >= 10)
 
+            # 4. Seed 30 Mobile Programming questions for teacher Nguyen Minh Huy
+            from app.db.seed_didong_questions import seed_didong_questions_for_nguyen_minh_huy
+            await seed_didong_questions_for_nguyen_minh_huy(session)
+
             await session.commit()
         except Exception as e:
             import logging

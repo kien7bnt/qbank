@@ -100,6 +100,41 @@ export function ImportQuestionsModal({
 
   // Client-side text parser fallback & live parser
   const parseRawText = (text: string) => {
+    // Support Question, <stem> / 1, <correct> / 0, <incorrect> CSV format
+    if (/(?:^|\n)\s*Question\s*[,\t]/i.test(text)) {
+      const csvQuestions: ParsedQuestion[] = [];
+      const rawLines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      for (const line of rawLines) {
+        const match = line.match(/^(Question|Câu hỏi|0|1)\s*[,\t]\s*(.*)$/i);
+        if (!match) continue;
+        const marker = match[1].trim().toLowerCase();
+        let val = match[2].trim();
+        if (val.startsWith('"') && val.endsWith('"')) {
+          val = val.slice(1, -1).replace(/""/g, '"');
+        }
+        val = val.replace(/&nbsp;/gi, ' ').trim();
+        if (marker === 'question' || marker === 'câu hỏi') {
+          csvQuestions.push({
+            type: 'mcq',
+            stem: val,
+            options: [],
+            bloom_level: 'understand',
+            expected_difficulty: 'medium',
+          });
+        } else if ((marker === '0' || marker === '1') && csvQuestions.length > 0) {
+          const curOpts = csvQuestions[csvQuestions.length - 1].options;
+          curOpts.push({
+            label: String.fromCharCode(65 + curOpts.length),
+            text: val,
+            is_correct: marker === '1',
+          });
+        }
+      }
+      if (csvQuestions.length > 0) {
+        return csvQuestions;
+      }
+    }
+
     const chunks = text.split(/(?=(?:^|\n)\s*(?:Câu\s*\d+|Question\s*\d+|\d+\.)[:\.\s])/i).filter((c) => c.trim().length > 0);
     const questions: ParsedQuestion[] = [];
 
@@ -116,10 +151,10 @@ export function ImportQuestionsModal({
       let inOptions = false;
 
       for (const line of lines.slice(1)) {
-        const ansMatch = line.match(/(?:Đáp\s*án|Answer|Đ\/A)[:\s]*([A-D,\s]+)/i);
+        const ansMatch = line.match(/(?:Đáp\s*án|Answer|Đ\/A)[:\s]*([A-H,\s]+)/i);
         if (ansMatch) {
           const rawAns = ansMatch[1].toUpperCase();
-          ['A', 'B', 'C', 'D'].forEach((char) => {
+          ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach((char) => {
             if (rawAns.includes(char)) correctLabels.push(char);
           });
           continue;
@@ -131,7 +166,7 @@ export function ImportQuestionsModal({
           continue;
         }
 
-        const optMatch = line.match(/^([A-D])[\.\)\:\-]\s*(.*)/i);
+        const optMatch = line.match(/^([A-H])[\.\)\:\-]\s*(.*)/i);
         if (optMatch) {
           inOptions = true;
           options.push({
@@ -186,6 +221,46 @@ export function ImportQuestionsModal({
     }
   }, [open]);
 
+  // Parse Excel / CSV rows client-side
+  const parseSpreadsheetRows = (rows: any[][]): ParsedQuestion[] => {
+    const cleaned = rows
+      .map((r) => (Array.isArray(r) ? r.map((c) => String(c ?? '').replace(/&nbsp;/gi, ' ').replace(/\u00a0/g, ' ').trim()) : []))
+      .filter((r) => r.some(Boolean));
+
+    const hasQuestionMarker = cleaned.some(
+      (r) => r.length >= 2 && ['question', 'câu hỏi', 'cau hoi'].includes(r[0].toLowerCase())
+    );
+
+    if (hasQuestionMarker) {
+      const qs: ParsedQuestion[] = [];
+      for (const r of cleaned) {
+        if (r.length < 2) continue;
+        const marker = r[0].toLowerCase();
+        const val = r[1];
+        if (!val) continue;
+        if (['question', 'câu hỏi', 'cau hoi'].includes(marker)) {
+          qs.push({
+            type: 'mcq',
+            stem: val,
+            options: [],
+            rationale: r[2] || undefined,
+            bloom_level: 'understand',
+            expected_difficulty: 'medium',
+          });
+        } else if (['0', '1', '0.0', '1.0', 'true', 'false', 'đúng', 'sai'].includes(marker) && qs.length > 0) {
+          const curOpts = qs[qs.length - 1].options;
+          curOpts.push({
+            label: String.fromCharCode(65 + curOpts.length),
+            text: val,
+            is_correct: ['1', '1.0', 'true', 'đúng'].includes(marker),
+          });
+        }
+      }
+      return qs.filter((q) => q.stem);
+    }
+    return [];
+  };
+
   // Handle File Upload & Server-side parsing
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -196,6 +271,29 @@ export function ImportQuestionsModal({
     toast.loading('Đang xử lý và bóc tách file...', { id: 'parse-file' });
 
     try {
+      const lowerName = file.name.toLowerCase();
+      if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
+        try {
+          const XLSX = await import('xlsx');
+          const buf = await file.arrayBuffer();
+          const wb = XLSX.read(buf, { type: 'array' });
+          const allRows: any[][] = [];
+          wb.SheetNames.forEach((sName) => {
+            const sheet = wb.Sheets[sName];
+            const sheetRows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: '' });
+            allRows.push(...sheetRows);
+          });
+          const excelParsed = parseSpreadsheetRows(allRows);
+          if (excelParsed.length > 0) {
+            setParsedQuestions(excelParsed);
+            toast.success(`✨ Đã nhận diện thành công ${excelParsed.length} câu hỏi từ file Excel!`, { id: 'parse-file' });
+            return;
+          }
+        } catch {
+          // Fallback to server parser
+        }
+      }
+
       const res = await questionApi.parseFile(file);
       const parsed = res.data.questions || [];
       if (parsed.length > 0) {
@@ -385,7 +483,7 @@ export function ImportQuestionsModal({
             }`}
           >
             <FileUp className="h-4 w-4" />
-            Tải lên File (.docx, .txt, .pdf, .json)
+            Tải lên File (.xlsx, .csv, .docx, .txt, .pdf, .json)
           </button>
           <button
             type="button"
@@ -411,7 +509,7 @@ export function ImportQuestionsModal({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".docx,.txt,.pdf,.json,.csv"
+                accept=".xlsx,.xls,.csv,.docx,.txt,.pdf,.json"
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -422,7 +520,7 @@ export function ImportQuestionsModal({
                 {selectedFile ? selectedFile.name : 'Bấm vào đây hoặc kéo thả file đề thi vào'}
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Hỗ trợ định dạng: Word (.docx), Văn bản (.txt), PDF (.pdf), hoặc JSON
+                Hỗ trợ định dạng: Excel (.xlsx), CSV (.csv), Word (.docx), Văn bản (.txt), PDF (.pdf), hoặc JSON
               </p>
             </div>
           </div>

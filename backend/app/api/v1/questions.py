@@ -216,7 +216,141 @@ async def list_questions(
     )
 
 
+def _clean_cell_text(val: object) -> str:
+    import html
+    if val is None:
+        return ""
+    s = html.unescape(str(val)).replace("\xa0", " ").strip()
+    return s
+
+
+def extract_rows_from_xlsx(content: bytes) -> list[list[str]]:
+    """Đọc dữ liệu các dòng từ file .xlsx bằng thư viện chuẩn (zipfile + ElementTree) hoặc openpyxl"""
+    import zipfile
+    import xml.etree.ElementTree as ET
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as z:
+            ns = {"main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+            ss: list[str] = []
+            if "xl/sharedStrings.xml" in z.namelist():
+                ss_root = ET.fromstring(z.read("xl/sharedStrings.xml"))
+                ss = ["".join(si.itertext()) for si in ss_root.findall("main:si", ns)]
+
+            sheet_names = [
+                n for n in z.namelist()
+                if n.startswith("xl/worksheets/sheet") and n.endswith(".xml")
+            ]
+            sheet_names.sort()
+            rows: list[list[str]] = []
+            for sname in sheet_names:
+                sheet_root = ET.fromstring(z.read(sname))
+                for r in sheet_root.findall(".//main:row", ns):
+                    row_vals: list[str] = []
+                    for c in r.findall("main:c", ns):
+                        cell_type = c.attrib.get("t")
+                        if cell_type == "inlineStr":
+                            is_elem = c.find("main:is", ns)
+                            row_vals.append("".join(is_elem.itertext()) if is_elem is not None else "")
+                            continue
+                        v = c.find("main:v", ns)
+                        if v is None or v.text is None:
+                            row_vals.append("")
+                        elif cell_type == "s":
+                            idx = int(v.text)
+                            row_vals.append(ss[idx] if 0 <= idx < len(ss) else "")
+                        else:
+                            row_vals.append(v.text)
+                    if any(_clean_cell_text(x) for x in row_vals):
+                        rows.append(row_vals)
+            return rows
+    except Exception as e:
+        raise ValueError(f"Không thể đọc file Excel (.xlsx): {e}")
+
+
+def parse_questions_from_rows(rows: list[list[str]]) -> list[dict]:
+    """
+    Hỗ trợ bóc tách danh sách câu hỏi từ bảng Excel / CSV:
+    1) Định dạng dòng nối tiếp:
+       Question, <Nội dung câu hỏi>
+       1, <Đáp án đúng>
+       0, <Đáp án sai>
+    2) Định dạng bảng ngang (Header: Câu hỏi | A | B | C | D | Đáp án | Giải thích)
+    """
+    cleaned_rows = [
+        [_clean_cell_text(c) for c in r]
+        for r in rows
+        if any(_clean_cell_text(c) for c in r)
+    ]
+    if not cleaned_rows:
+        return []
+
+    # Kiểu 1: Định dạng Question / 1 / 0 (như file didong.xlsx)
+    has_question_marker = any(
+        len(r) >= 2 and r[0].lower() in ("question", "câu hỏi", "cau hoi")
+        for r in cleaned_rows
+    )
+    if has_question_marker:
+        parsed_q: list[dict] = []
+        for r in cleaned_rows:
+            if len(r) < 2:
+                continue
+            marker = r[0].strip()
+            text_val = r[1].strip()
+            if not text_val:
+                continue
+            if marker.lower() in ("question", "câu hỏi", "cau hoi"):
+                parsed_q.append({
+                    "type": "mcq",
+                    "stem": text_val,
+                    "rationale": r[2].strip() if len(r) > 2 and r[2].strip() else None,
+                    "bloom_level": "understand",
+                    "expected_difficulty": "medium",
+                    "options": [],
+                })
+            elif marker in ("0", "1", "0.0", "1.0", "true", "false", "đúng", "sai") and parsed_q:
+                opts = parsed_q[-1]["options"]
+                label = chr(65 + len(opts))
+                is_corr = marker.lower() in ("1", "1.0", "true", "đúng")
+                opts.append({
+                    "label": label,
+                    "text": text_val,
+                    "is_correct": is_corr,
+                    "order_index": len(opts),
+                })
+
+        # Đảm bảo câu hỏi hợp lệ
+        valid_q = []
+        for q in parsed_q:
+            opts = q.get("options", [])
+            if opts:
+                if not any(o["is_correct"] for o in opts):
+                    opts[0]["is_correct"] = True
+                valid_q.append(q)
+            else:
+                q["type"] = "essay"
+                q["essay_data"] = {"sample_answer": q.get("rationale") or "", "max_points": 10.0}
+                valid_q.append(q)
+        if valid_q:
+            return valid_q
+
+    return []
+
+
 def parse_questions_from_text(text: str) -> list[dict]:
+    import csv
+
+    # Kiểm tra nếu văn bản dạng CSV Question, ... / 1, ... / 0, ...
+    if re.search(r"(?:^|\n)\s*Question\s*[,\t]", text, flags=re.IGNORECASE):
+        try:
+            reader = csv.reader(io.StringIO(text))
+            rows = list(reader)
+            row_parsed = parse_questions_from_rows(rows)
+            if row_parsed:
+                return row_parsed
+        except Exception:
+            pass
+
     # Split text into question chunks by Câu 1 / Question 1 / 1.
     pattern = r"(?=(?:^|\n)\s*(?:Câu\s*\d+|Question\s*\d+|\d+\.)[:\.\s])"
     raw_chunks = re.split(pattern, text, flags=re.IGNORECASE)
@@ -237,10 +371,10 @@ def parse_questions_from_text(text: str) -> list[dict]:
         in_options = False
         
         for line in lines[1:]:
-            ans_match = re.search(r"(?:Đáp\s*án|Answer|Đ/A)[:\s]*([A-D,\s]+)", line, re.IGNORECASE)
+            ans_match = re.search(r"(?:Đáp\s*án|Answer|Đ/A)[:\s]*([A-H,\s]+)", line, re.IGNORECASE)
             if ans_match:
                 raw_ans = ans_match.group(1).upper()
-                for char in ["A", "B", "C", "D"]:
+                for char in ["A", "B", "C", "D", "E", "F", "G", "H"]:
                     if char in raw_ans:
                         correct_labels.append(char)
                 continue
@@ -250,7 +384,7 @@ def parse_questions_from_text(text: str) -> list[dict]:
                 rationale = exp_match.group(1).strip()
                 continue
                 
-            opt_match = re.match(r"^([A-D])[\.\)\:\-]\s*(.*)", line, re.IGNORECASE)
+            opt_match = re.match(r"^([A-H])[\.\)\:\-]\s*(.*)", line, re.IGNORECASE)
             if opt_match:
                 in_options = True
                 label = opt_match.group(1).upper()
@@ -354,7 +488,7 @@ async def parse_questions_file(
     file: UploadFile = File(...),
     current_user=Depends(get_current_user),
 ):
-    """Upload và trích xuất danh sách câu hỏi tự động từ file Word, Text, PDF, JSON"""
+    """Upload và trích xuất danh sách câu hỏi tự động từ file Excel, CSV, Word, Text, PDF, JSON"""
     if not current_user.has_role("teacher", "admin"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền thực hiện")
     
@@ -362,7 +496,30 @@ async def parse_questions_file(
     content = await file.read()
     text = ""
     
-    if filename.endswith(".docx"):
+    if filename.endswith((".xlsx", ".xls")):
+        try:
+            rows = extract_rows_from_xlsx(content)
+            questions = parse_questions_from_rows(rows)
+            if questions:
+                return {"questions": questions, "total": len(questions), "raw_text": ""}
+            text = "\n".join(" ".join(_clean_cell_text(c) for c in r if _clean_cell_text(c)) for r in rows)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Lỗi khi đọc file Excel: {e}")
+    elif filename.endswith(".csv"):
+        try:
+            import csv
+            try:
+                csv_text = content.decode("utf-8-sig")
+            except UnicodeDecodeError:
+                csv_text = content.decode("latin-1", errors="ignore")
+            rows = list(csv.reader(io.StringIO(csv_text)))
+            questions = parse_questions_from_rows(rows)
+            if questions:
+                return {"questions": questions, "total": len(questions), "raw_text": csv_text[:5000]}
+            text = csv_text
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Lỗi khi đọc file CSV: {e}")
+    elif filename.endswith(".docx"):
         try:
             import docx
             doc = docx.Document(io.BytesIO(content))
